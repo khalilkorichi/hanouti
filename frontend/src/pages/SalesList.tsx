@@ -15,7 +15,6 @@ import {
     useTheme,
     Fade,
     Slide,
-    Divider,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -590,12 +589,6 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
         justifyContent: align === 'center' ? 'center' : align === 'end' ? 'flex-end' : 'flex-start',
     });
 
-    const summaryRows = [
-        { label: 'المجموع الفرعي', value: sale.subtotal?.toFixed(2), color: '' },
-        ...(sale.discount_value > 0 ? [{ label: 'الخصم', value: `-${sale.discount_value?.toFixed(2)}`, color: '#10B981' }] : []),
-        ...(sale.tax_value > 0 ? [{ label: 'الضريبة', value: `+${sale.tax_value?.toFixed(2)}`, color: '' }] : []),
-    ];
-
     return (
         <Box dir="rtl">
 
@@ -705,53 +698,19 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
                 )}
             </Box>
 
-            {/* ── Summary box ── */}
+            {/* ── Grand total ── */}
             <Box sx={{
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 2, overflow: 'hidden',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                px: 2.5, py: 1.75, borderRadius: 2,
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
+                border: `2px solid ${alpha(theme.palette.primary.main, 0.25)}`,
                 width: { xs: '100%', sm: 340 },
-                marginInlineStart: 'auto',   /* logical = end-aligned in RTL */
+                marginInlineStart: 'auto',
             }}>
-                {/* Summary title */}
-                <Box sx={{
-                    px: 2.5, py: 1.25,
-                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-                    bgcolor: alpha(theme.palette.action.hover, 0.4),
-                }}>
-                    <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        ملخص الفاتورة
-                    </Typography>
-                </Box>
-
-                {/* Summary rows */}
-                {summaryRows.map((row, i) => (
-                    <Box
-                        key={i}
-                        sx={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            px: 2.5, py: 1.1,
-                            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
-                        }}
-                    >
-                        <Typography variant="body2" color="text.secondary">{row.label}</Typography>
-                        <Typography variant="body2" fontWeight={600} color={row.color || 'text.primary'}>
-                            {row.value} دج
-                        </Typography>
-                    </Box>
-                ))}
-
-                {/* Grand total */}
-                <Box sx={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    px: 2.5, py: 1.75,
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
-                    borderTop: `2px solid ${alpha(theme.palette.primary.main, 0.25)}`,
-                }}>
-                    <Typography variant="subtitle2" fontWeight={800}>الإجمالي النهائي</Typography>
-                    <Typography variant="subtitle1" fontWeight={900} color="primary.main">
-                        {sale.total?.toFixed(2)} دج
-                    </Typography>
-                </Box>
+                <Typography variant="subtitle2" fontWeight={800}>الإجمالي النهائي</Typography>
+                <Typography variant="subtitle1" fontWeight={900} color="primary.main">
+                    {sale.total?.toFixed(2)} دج
+                </Typography>
             </Box>
 
         </Box>
