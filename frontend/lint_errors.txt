@@ -1,0 +1,148 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\components\Products\ImportProductsModal.tsx
+  19:87  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\contexts\NotificationContext.tsx
+  10:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\contexts\ThemeContext.tsx
+  20:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  29:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Inventory.tsx
+  114:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx
+   80:63  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-explicit-any
+  198:22  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:198:22
+  196 |             <Grid container spacing={3} mb={4}>
+  197 |                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+> 198 |                     <KPICard
+      |                      ^^^^^^^ This component is created during render
+  199 |                         title="إجمالي المبيعات"
+  200 |                         value={formatCurrency(kpis?.total_sales || 0)}
+  201 |                         icon={<AttachMoney />}
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:80:21
+   78 |     const formatCurrency = (value: number) => `${value?.toLocaleString()} دج`;
+   79 |
+>  80 |     const KPICard = ({ title, value, icon, color, subtitle }: any) => (
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |         <Paper
+      | ^^^^^^^^^^^^^^
+>  82 |             sx={{
+      …
+      | ^^^^^^^^^^^^^^
+> 131 |         </Paper>
+      | ^^^^^^^^^^^^^^
+> 132 |     );
+      | ^^^^^^ The component is created during render here
+  133 |
+  134 |     if (isLoading) {
+  135 |         return (  react-hooks/static-components
+  206:22  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:206:22
+  204 |                 </Grid>
+  205 |                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+> 206 |                     <KPICard
+      |                      ^^^^^^^ This component is created during render
+  207 |                         title="صافي الربح"
+  208 |                         value={formatCurrency(kpis?.net_profit || 0)}
+  209 |                         icon={<TrendingUp />}
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:80:21
+   78 |     const formatCurrency = (value: number) => `${value?.toLocaleString()} دج`;
+   79 |
+>  80 |     const KPICard = ({ title, value, icon, color, subtitle }: any) => (
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |         <Paper
+      | ^^^^^^^^^^^^^^
+>  82 |             sx={{
+      …
+      | ^^^^^^^^^^^^^^
+> 131 |         </Paper>
+      | ^^^^^^^^^^^^^^
+> 132 |     );
+      | ^^^^^^ The component is created during render here
+  133 |
+  134 |     if (isLoading) {
+  135 |         return (                                 react-hooks/static-components
+  214:22  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:214:22
+  212 |                 </Grid>
+  213 |                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+> 214 |                     <KPICard
+      |                      ^^^^^^^ This component is created during render
+  215 |                         title="عدد الطلبات"
+  216 |                         value={kpis?.total_orders || 0}
+  217 |                         icon={<ShoppingCart />}
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:80:21
+   78 |     const formatCurrency = (value: number) => `${value?.toLocaleString()} دج`;
+   79 |
+>  80 |     const KPICard = ({ title, value, icon, color, subtitle }: any) => (
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |         <Paper
+      | ^^^^^^^^^^^^^^
+>  82 |             sx={{
+      …
+      | ^^^^^^^^^^^^^^
+> 131 |         </Paper>
+      | ^^^^^^^^^^^^^^
+> 132 |     );
+      | ^^^^^^ The component is created during render here
+  133 |
+  134 |     if (isLoading) {
+  135 |         return (                                            react-hooks/static-components
+  222:22  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:222:22
+  220 |                 </Grid>
+  221 |                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+> 222 |                     <KPICard
+      |                      ^^^^^^^ This component is created during render
+  223 |                         title="متوسط قيمة الطلب"
+  224 |                         value={formatCurrency(kpis?.avg_order_value || 0)}
+  225 |                         icon={<Inventory />}
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\pages\Reports.tsx:80:21
+   78 |     const formatCurrency = (value: number) => `${value?.toLocaleString()} دج`;
+   79 |
+>  80 |     const KPICard = ({ title, value, icon, color, subtitle }: any) => (
+      |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |         <Paper
+      | ^^^^^^^^^^^^^^
+>  82 |             sx={{
+      …
+      | ^^^^^^^^^^^^^^
+> 131 |         </Paper>
+      | ^^^^^^^^^^^^^^
+> 132 |     );
+      | ^^^^^^ The component is created during render here
+  133 |
+  134 |     if (isLoading) {
+  135 |         return (                       react-hooks/static-components
+
+C:\Users\khali\Desktop\New folder (3)\برنامج حانوتي\frontend\src\services\productService.ts
+  75:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 12 problems (12 errors, 0 warnings)
+

@@ -1,0 +1,10 @@
+.env
+.idea/
+.vscode/
+*.log
+hanouti.db
+__pycache__/
+*.pyc
+node_modules/
+dist/
+.env.*
