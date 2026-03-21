@@ -25,11 +25,13 @@ import {
 import * as XLSX from 'xlsx';
 import { productService, type Product } from '../services/productService';
 import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar } from '../components/Common';
+import { useNotification } from '../contexts/NotificationContext';
 import ProductForm from '../components/Products/ProductForm';
 import ImportProductsModal from '../components/Products/ImportProductsModal';
 
 export default function Products() {
     const queryClient = useQueryClient();
+    const { showNotification } = useNotification();
     const [searchQuery, setSearchQuery] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -59,6 +61,12 @@ export default function Products() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
             queryClient.invalidateQueries({ queryKey: ['products-count'] });
+            showNotification('تم حذف المنتج بنجاح', 'success');
+        },
+        onError: (err: unknown) => {
+            const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+                || 'فشل حذف المنتج';
+            showNotification(msg, 'error');
         }
     });
 
@@ -309,7 +317,7 @@ export default function Products() {
                 onSelectAll={handleSelectAll}
                 isAllSelected={isAllSelected}
                 totalAvailable={allAvailableIds.length}
-                minCount={2}
+                minCount={1}
             >
                 <Button size="small" startIcon={<BulkDeleteIcon />} color="error" variant="outlined"
                     disabled={bulkLoading} onClick={handleBulkDelete}

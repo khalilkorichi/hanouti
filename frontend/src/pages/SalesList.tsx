@@ -643,7 +643,7 @@ export default function SalesList() {
                 onSelectAll={handleSelectAll}
                 isAllSelected={isAllSelected}
                 totalAvailable={allAvailableIds.length}
-                minCount={2}
+                minCount={1}
             >
                 <Button size="small" startIcon={<BulkCancelIcon />} color="warning" variant="outlined"
                     disabled={bulkLoading} onClick={handleBulkCancelSales}

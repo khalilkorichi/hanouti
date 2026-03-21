@@ -5,6 +5,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 import crud, schemas, database
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -74,9 +75,16 @@ def update_product(
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(product_id: int, db: Session = Depends(database.get_db)):
     """Delete a product"""
-    success = crud.delete_product(db, product_id=product_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Product not found")
+    try:
+        success = crud.delete_product(db, product_id=product_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="المنتج غير موجود")
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="لا يمكن حذف هذا المنتج لأنه مرتبط بفواتير مبيعات موجودة"
+        )
     return None
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)

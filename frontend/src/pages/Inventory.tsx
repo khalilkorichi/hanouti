@@ -674,7 +674,7 @@ export default function Inventory() {
                 onSelectAll={handleSelectAll}
                 isAllSelected={isAllSelected}
                 totalAvailable={allAvailableIds.length}
-                minCount={2}
+                minCount={1}
             >
                 <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined"
                     disabled={bulkLoading} onClick={() => setShowBulkDeleteConfirm(true)}

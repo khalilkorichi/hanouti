@@ -35,7 +35,7 @@ export default function BulkActionsBar({
     isAllSelected = false,
     totalAvailable = 0,
     children,
-    minCount = 2,
+    minCount = 1,
     label,
 }: BulkActionsBarProps) {
     const theme = useTheme();
@@ -98,7 +98,7 @@ export default function BulkActionsBar({
             {/* Hint when not enough selected */}
             {!active && (
                 <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-                    {label || `حدد ${minCount} عناصر أو أكثر لتفعيل الإجراءات`}
+                    {label || (minCount === 1 ? 'حدد عنصراً واحداً على الأقل لتفعيل الإجراءات' : `حدد ${minCount} عناصر أو أكثر لتفعيل الإجراءات`)}
                 </Typography>
             )}
 
