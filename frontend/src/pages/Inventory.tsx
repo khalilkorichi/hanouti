@@ -17,7 +17,6 @@ import {
     Divider,
     LinearProgress,
     Button,
-    Collapse,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -36,10 +35,9 @@ import {
     FileDownloadOutlined as ExportCsvIcon,
     PlaylistRemoveOutlined as ZeroStockIcon,
     TuneOutlined as SetMinQtyIcon,
-    CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
 import { DataGrid, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal } from '../components/Common';
+import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -659,76 +657,32 @@ export default function Inventory() {
             </Paper>
 
             {/* ── Bulk Actions Bar ── */}
-            <Collapse in={rowSelectionModel.length > 0}>
-                <Paper elevation={0} sx={{
-                    mb: 2, p: 1.5, borderRadius: 2.5,
-                    border: `1.5px solid ${alpha(theme.palette.primary.main, 0.35)}`,
-                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.secondary.main, 0.03)})`,
-                    display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-                }}>
-                    {/* Count badge */}
-                    <Chip
-                        label={`${rowSelectionModel.length} محدد`}
-                        size="small"
-                        color="primary"
-                        sx={{ fontWeight: 800, fontSize: '0.8rem' }}
-                    />
-                    <Divider orientation="vertical" flexItem />
-
-                    {/* Delete */}
-                    <Button
-                        size="small" startIcon={<DeleteIcon />}
-                        color="error" variant="outlined"
-                        disabled={bulkLoading}
-                        onClick={() => setShowBulkDeleteConfirm(true)}
-                        sx={{ borderRadius: 2, fontWeight: 700 }}
-                    >
-                        حذف المحددة
-                    </Button>
-
-                    {/* Zero stock */}
-                    <Button
-                        size="small" startIcon={<ZeroStockIcon />}
-                        color="warning" variant="outlined"
-                        disabled={bulkLoading}
-                        onClick={handleBulkZeroStock}
-                        sx={{ borderRadius: 2, fontWeight: 700 }}
-                    >
-                        تصفير الكمية
-                    </Button>
-
-                    {/* Set min qty */}
-                    <Button
-                        size="small" startIcon={<SetMinQtyIcon />}
-                        color="info" variant="outlined"
-                        disabled={bulkLoading}
-                        onClick={() => setShowBulkMinQty(true)}
-                        sx={{ borderRadius: 2, fontWeight: 700 }}
-                    >
-                        تعيين الحد الأدنى
-                    </Button>
-
-                    {/* Export CSV */}
-                    <Button
-                        size="small" startIcon={<ExportCsvIcon />}
-                        color="success" variant="outlined"
-                        disabled={bulkLoading}
-                        onClick={handleExportCsv}
-                        sx={{ borderRadius: 2, fontWeight: 700 }}
-                    >
-                        تصدير CSV
-                    </Button>
-
-                    {/* Clear selection */}
-                    <Box sx={{ marginInlineStart: 'auto' }}>
-                        <Tooltip title="إلغاء التحديد">
-                            <IconButton size="small" onClick={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}>
-                                <CloseIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-                    </Box>
-                </Paper>
-            </Collapse>
+            <BulkActionsBar
+                count={selectedIds.length}
+                onClear={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}
+                minCount={2}
+            >
+                <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined"
+                    disabled={bulkLoading} onClick={() => setShowBulkDeleteConfirm(true)}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    حذف المحددة
+                </Button>
+                <Button size="small" startIcon={<ZeroStockIcon />} color="warning" variant="outlined"
+                    disabled={bulkLoading} onClick={handleBulkZeroStock}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    تصفير الكمية
+                </Button>
+                <Button size="small" startIcon={<SetMinQtyIcon />} color="info" variant="outlined"
+                    disabled={bulkLoading} onClick={() => setShowBulkMinQty(true)}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    تعيين الحد الأدنى
+                </Button>
+                <Button size="small" startIcon={<ExportCsvIcon />} color="success" variant="outlined"
+                    disabled={bulkLoading} onClick={handleExportCsv}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    تصدير CSV
+                </Button>
+            </BulkActionsBar>
 
             {/* Data Grid */}
             <Paper elevation={0} sx={{ height: 560, borderRadius: 3, overflow: 'hidden', border: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>

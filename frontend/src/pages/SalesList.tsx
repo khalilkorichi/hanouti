@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -15,6 +15,7 @@ import {
     useTheme,
     Fade,
     Slide,
+    Button,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -24,10 +25,12 @@ import {
     TrendingUp as TrendingUpIcon,
     Receipt as ReceiptIcon,
     AttachMoney as MoneyIcon,
-    CheckCircle as CheckCircleIcon
+    CheckCircle as CheckCircleIcon,
+    FileDownloadOutlined as ExportCsvIcon,
+    CancelOutlined as BulkCancelIcon,
 } from '@mui/icons-material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal } from '../components/Common';
+import { DataGrid, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
+import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
@@ -44,6 +47,9 @@ export default function SalesList() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+    const [gridKey, setGridKey] = useState(0);
+    const [bulkLoading, setBulkLoading] = useState(false);
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
     const theme = useTheme();
@@ -205,6 +211,51 @@ export default function SalesList() {
             return;
         }
         cancelSaleMutation.mutate({ id: selectedSale.id, reason: cancelReason });
+    };
+
+    /* ── Bulk selection helpers ── */
+    const selectedIds = useMemo(() => Array.from(rowSelectionModel as Iterable<number>), [rowSelectionModel]);
+    const selectedSales = useMemo(
+        () => (sales || []).filter(s => selectedIds.includes(s.id)),
+        [sales, selectedIds]
+    );
+
+    const handleBulkExportCsv = () => {
+        const rows = selectedSales.length > 0 ? selectedSales : (sales || []);
+        const headers = ['رقم الفاتورة', 'التاريخ', 'الحالة', 'طريقة الدفع', 'الإجمالي'];
+        const lines = rows.map(s => [
+            s.invoice_no,
+            s.created_at ? new Date(s.created_at).toLocaleDateString('ar-DZ') : '',
+            s.status === 'completed' ? 'مكتملة' : s.status === 'draft' ? 'مسودة' : 'ملغية',
+            s.payment_method === 'cash' ? 'نقداً' : 'بطاقة',
+            (s.total ?? 0).toFixed(2),
+        ].join(','));
+        const csv = '\uFEFF' + headers.join(',') + '\n' + lines.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `مبيعات_${new Date().toLocaleDateString('ar-DZ').replace(/\//g, '-')}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+        showNotification(`تم تصدير ${rows.length} فاتورة`, 'success');
+    };
+
+    const handleBulkCancelSales = async () => {
+        setBulkLoading(true);
+        let success = 0;
+        for (const sale of selectedSales) {
+            if (sale.status !== 'cancelled') {
+                try {
+                    await salesService.cancel(sale.id, 'إلغاء جماعي');
+                    success++;
+                } catch { /* ignore */ }
+            }
+        }
+        setBulkLoading(false);
+        setRowSelectionModel([]);
+        setGridKey(k => k + 1);
+        queryClient.invalidateQueries({ queryKey: ['sales-list'] });
+        queryClient.invalidateQueries({ queryKey: ['sales-kpis'] });
+        showNotification(`تم إلغاء ${success} فاتورة`, 'info');
     };
 
     const columns: GridColDef[] = [
@@ -574,9 +625,28 @@ export default function SalesList() {
                 </Stack>
             </Paper>
 
+            {/* ── Bulk Actions Bar ── */}
+            <BulkActionsBar
+                count={selectedIds.length}
+                onClear={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}
+                minCount={2}
+            >
+                <Button size="small" startIcon={<BulkCancelIcon />} color="warning" variant="outlined"
+                    disabled={bulkLoading} onClick={handleBulkCancelSales}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    إلغاء المحددة
+                </Button>
+                <Button size="small" startIcon={<ExportCsvIcon />} color="success" variant="outlined"
+                    disabled={bulkLoading} onClick={handleBulkExportCsv}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    تصدير CSV
+                </Button>
+            </BulkActionsBar>
+
             {/* Data Grid */}
             <Paper sx={{ height: 600, borderRadius: 3, overflow: 'hidden', boxShadow: 'none', border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                 <DataGrid
+                    key={gridKey}
                     rows={sales || []}
                     columns={columns}
                     loading={isLoading}
@@ -586,6 +656,7 @@ export default function SalesList() {
                         setPage(model.page);
                         setPageSize(model.pageSize);
                     }}
+                    onRowSelectionModelChange={(ids) => setRowSelectionModel(ids)}
                     checkboxSelection
                     disableRowSelectionOnClick
                     sx={{
@@ -596,7 +667,10 @@ export default function SalesList() {
                         '& .MuiDataGrid-columnHeaders': {
                             backgroundColor: alpha(theme.palette.primary.main, 0.05),
                             borderRadius: 0
-                        }
+                        },
+                        '& .MuiDataGrid-row.Mui-selected': {
+                            backgroundColor: `${alpha(theme.palette.primary.main, 0.07)} !important`,
+                        },
                     }}
                 />
             </Paper>
