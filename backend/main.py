@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from . import models, database, crud, schemas
-from .routers import auth, products, categories, sales, inventory, reports, backup
+import models, database, crud, schemas
+from routers import auth, products, categories, sales, inventory, reports, backup
 
 # Create tables (simple way for now, Alembic later)
 models.Base.metadata.create_all(bind=database.engine)

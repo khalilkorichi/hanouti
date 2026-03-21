@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from ..db.session import get_db
-from .. import models
 import json
+from database import get_db
+import models
 from datetime import datetime
+from typing import Any, Dict
 
 router = APIRouter(prefix="/backup", tags=["backup"])
 
-def serialize_model(instance):
+def serialize_model(instance: Any) -> Dict[str, Any]:
     """Helper to serialize SQLAlchemy model instance to dict"""
-    data = {}
+    data: Dict[str, Any] = {}
     for key, value in instance.__dict__.items():
         if key.startswith('_sa_'):
             continue
