@@ -444,7 +444,7 @@ export default function Inventory() {
     };
 
     /* ── Bulk actions ── */
-    const selectedIds = useMemo(() => rowSelectionModel as number[], [rowSelectionModel]);
+    const selectedIds = useMemo(() => Array.from(rowSelectionModel as Iterable<number>), [rowSelectionModel]);
 
     const selectedRows = useMemo(
         () => (filteredRows || []).filter(p => selectedIds.includes(p.id)),
