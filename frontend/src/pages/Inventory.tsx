@@ -16,6 +16,8 @@ import {
     Fade,
     Divider,
     LinearProgress,
+    Button,
+    Collapse,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -30,9 +32,13 @@ import {
     CheckCircleOutline as PassedIcon,
     RadioButtonUnchecked as PendingIcon,
     InfoOutlined as InfoIcon,
-    Settings as SettingsIcon,
+    DeleteOutline as DeleteIcon,
+    FileDownloadOutlined as ExportCsvIcon,
+    PlaylistRemoveOutlined as ZeroStockIcon,
+    TuneOutlined as SetMinQtyIcon,
+    CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import { DataGrid, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
 import { CustomButton, UnifiedModal } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
@@ -353,6 +359,14 @@ export default function Inventory() {
     const [showZakat, setShowZakat] = useState(false);
     const [editForm, setEditForm] = useState({ stock_qty: 0, purchase_price: 0, sale_price: 0, min_qty: 0 });
 
+    /* ── Bulk selection ── */
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+    const [gridKey, setGridKey] = useState(0);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const [showBulkMinQty, setShowBulkMinQty] = useState(false);
+    const [bulkMinQtyValue, setBulkMinQtyValue] = useState(5);
+    const [bulkLoading, setBulkLoading] = useState(false);
+
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
     const theme = useTheme();
@@ -427,6 +441,86 @@ export default function Inventory() {
     const handleSaveEdit = () => {
         if (!selectedProduct) return;
         updateProductMutation.mutate({ id: selectedProduct.id, data: editForm as Partial<Product> });
+    };
+
+    /* ── Bulk actions ── */
+    const selectedIds = useMemo(() => rowSelectionModel as number[], [rowSelectionModel]);
+
+    const selectedRows = useMemo(
+        () => (filteredRows || []).filter(p => selectedIds.includes(p.id)),
+        [filteredRows, selectedIds]
+    );
+
+    const handleBulkDelete = async () => {
+        setBulkLoading(true);
+        let success = 0; let fail = 0;
+        for (const id of selectedIds) {
+            try { await productService.delete(id); success++; }
+            catch { fail++; }
+        }
+        setBulkLoading(false);
+        setShowBulkDeleteConfirm(false);
+        setRowSelectionModel([]);
+        setGridKey(k => k + 1);
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory-all-stats'] });
+        showNotification(
+            fail > 0
+                ? `تم حذف ${success} منتج، فشل ${fail}`
+                : `تم حذف ${success} منتج بنجاح`,
+            fail > 0 ? 'warning' : 'success'
+        );
+    };
+
+    const handleBulkZeroStock = async () => {
+        setBulkLoading(true);
+        let success = 0;
+        for (const product of selectedRows) {
+            try {
+                await productService.update(product.id, { ...product, stock_qty: 0 });
+                success++;
+            } catch { /* ignore */ }
+        }
+        setBulkLoading(false);
+        setRowSelectionModel([]);
+        setGridKey(k => k + 1);
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory-all-stats'] });
+        showNotification(`تم تصفير كمية ${success} منتج`, 'info');
+    };
+
+    const handleBulkSetMinQty = async () => {
+        setBulkLoading(true);
+        let success = 0;
+        for (const product of selectedRows) {
+            try {
+                await productService.update(product.id, { ...product, min_qty: bulkMinQtyValue });
+                success++;
+            } catch { /* ignore */ }
+        }
+        setBulkLoading(false);
+        setShowBulkMinQty(false);
+        setRowSelectionModel([]);
+        setGridKey(k => k + 1);
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        showNotification(`تم تحديث الحد الأدنى لـ ${success} منتج`, 'success');
+    };
+
+    const handleExportCsv = () => {
+        const rows = selectedRows.length > 0 ? selectedRows : (filteredRows || []);
+        const headers = ['الاسم', 'SKU', 'الكمية', 'الحد الأدنى', 'سعر الشراء', 'سعر البيع', 'قيمة المخزون'];
+        const lines = rows.map(p => [
+            p.name, p.sku || '', p.stock_qty, p.min_qty,
+            p.purchase_price?.toFixed(2), p.sale_price?.toFixed(2),
+            ((p.stock_qty ?? 0) * (p.purchase_price ?? 0)).toFixed(2),
+        ].join(','));
+        const csv = '\uFEFF' + headers.join(',') + '\n' + lines.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `مخزون_${new Date().toLocaleDateString('ar-DZ').replace(/\//g, '-')}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+        showNotification(`تم تصدير ${rows.length} منتج كملف CSV`, 'success');
     };
 
     const fmt = (n: number) => n.toLocaleString('ar-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' دج';
@@ -564,9 +658,82 @@ export default function Inventory() {
                 </Stack>
             </Paper>
 
+            {/* ── Bulk Actions Bar ── */}
+            <Collapse in={rowSelectionModel.length > 0}>
+                <Paper elevation={0} sx={{
+                    mb: 2, p: 1.5, borderRadius: 2.5,
+                    border: `1.5px solid ${alpha(theme.palette.primary.main, 0.35)}`,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.secondary.main, 0.03)})`,
+                    display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
+                }}>
+                    {/* Count badge */}
+                    <Chip
+                        label={`${rowSelectionModel.length} محدد`}
+                        size="small"
+                        color="primary"
+                        sx={{ fontWeight: 800, fontSize: '0.8rem' }}
+                    />
+                    <Divider orientation="vertical" flexItem />
+
+                    {/* Delete */}
+                    <Button
+                        size="small" startIcon={<DeleteIcon />}
+                        color="error" variant="outlined"
+                        disabled={bulkLoading}
+                        onClick={() => setShowBulkDeleteConfirm(true)}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                        حذف المحددة
+                    </Button>
+
+                    {/* Zero stock */}
+                    <Button
+                        size="small" startIcon={<ZeroStockIcon />}
+                        color="warning" variant="outlined"
+                        disabled={bulkLoading}
+                        onClick={handleBulkZeroStock}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                        تصفير الكمية
+                    </Button>
+
+                    {/* Set min qty */}
+                    <Button
+                        size="small" startIcon={<SetMinQtyIcon />}
+                        color="info" variant="outlined"
+                        disabled={bulkLoading}
+                        onClick={() => setShowBulkMinQty(true)}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                        تعيين الحد الأدنى
+                    </Button>
+
+                    {/* Export CSV */}
+                    <Button
+                        size="small" startIcon={<ExportCsvIcon />}
+                        color="success" variant="outlined"
+                        disabled={bulkLoading}
+                        onClick={handleExportCsv}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                        تصدير CSV
+                    </Button>
+
+                    {/* Clear selection */}
+                    <Box sx={{ marginInlineStart: 'auto' }}>
+                        <Tooltip title="إلغاء التحديد">
+                            <IconButton size="small" onClick={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}>
+                                <CloseIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                </Paper>
+            </Collapse>
+
             {/* Data Grid */}
             <Paper elevation={0} sx={{ height: 560, borderRadius: 3, overflow: 'hidden', border: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>
                 <DataGrid
+                    key={gridKey}
                     rows={filteredRows}
                     columns={columns}
                     loading={isLoading}
@@ -576,6 +743,7 @@ export default function Inventory() {
                         setPage(model.page);
                         setPageSize(model.pageSize);
                     }}
+                    onRowSelectionModelChange={(ids) => setRowSelectionModel(ids)}
                     checkboxSelection
                     disableRowSelectionOnClick
                     sx={{
@@ -585,6 +753,9 @@ export default function Inventory() {
                             backgroundColor: alpha(theme.palette.primary.main, 0.05), borderRadius: 0,
                         },
                         '& .MuiDataGrid-row:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.03) },
+                        '& .MuiDataGrid-row.Mui-selected': {
+                            backgroundColor: `${alpha(theme.palette.primary.main, 0.08)} !important`,
+                        },
                     }}
                 />
             </Paper>
@@ -632,6 +803,84 @@ export default function Inventory() {
                 onClose={() => setShowZakat(false)}
                 inventoryValue={stats.totalValue}
             />
+
+            {/* Bulk Delete Confirmation */}
+            <UnifiedModal
+                open={showBulkDeleteConfirm}
+                onClose={() => setShowBulkDeleteConfirm(false)}
+                title="تأكيد الحذف الجماعي"
+                maxWidth="xs"
+                actions={
+                    <>
+                        <CustomButton onClick={() => setShowBulkDeleteConfirm(false)} color="inherit">إلغاء</CustomButton>
+                        <CustomButton
+                            variant="contained"
+                            color="error"
+                            loading={bulkLoading}
+                            onClick={handleBulkDelete}
+                        >
+                            حذف {rowSelectionModel.length} منتج
+                        </CustomButton>
+                    </>
+                }
+            >
+                <Box dir="rtl" sx={{ pt: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha('#EF4444', 0.1), color: '#EF4444', display: 'flex' }}>
+                            <DeleteIcon />
+                        </Box>
+                        <Box>
+                            <Typography fontWeight={700}>هل أنت متأكد؟</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                سيتم حذف <strong>{rowSelectionModel.length}</strong> منتج نهائياً ولا يمكن التراجع عن هذا الإجراء.
+                            </Typography>
+                        </Box>
+                    </Box>
+                    <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: alpha('#EF4444', 0.05), border: `1px solid ${alpha('#EF4444', 0.2)}` }}>
+                        <Typography variant="caption" color="error.main" fontWeight={600}>
+                            المنتجات المحددة:
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                            {selectedRows.slice(0, 5).map(p => p.name).join('، ')}
+                            {selectedRows.length > 5 ? ` ... و${selectedRows.length - 5} آخرين` : ''}
+                        </Typography>
+                    </Box>
+                </Box>
+            </UnifiedModal>
+
+            {/* Bulk Set Min Qty */}
+            <UnifiedModal
+                open={showBulkMinQty}
+                onClose={() => setShowBulkMinQty(false)}
+                title="تعيين الحد الأدنى للكمية"
+                maxWidth="xs"
+                actions={
+                    <>
+                        <CustomButton onClick={() => setShowBulkMinQty(false)} color="inherit">إلغاء</CustomButton>
+                        <CustomButton
+                            variant="contained"
+                            loading={bulkLoading}
+                            onClick={handleBulkSetMinQty}
+                        >
+                            تطبيق على {rowSelectionModel.length} منتج
+                        </CustomButton>
+                    </>
+                }
+            >
+                <Box dir="rtl" sx={{ pt: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        سيتم تطبيق الحد الأدنى الجديد على جميع المنتجات المحددة ({rowSelectionModel.length} منتج).
+                    </Typography>
+                    <TextField
+                        label="الحد الأدنى للكمية"
+                        type="number"
+                        value={bulkMinQtyValue}
+                        onChange={(e) => setBulkMinQtyValue(Math.max(0, parseInt(e.target.value) || 0))}
+                        fullWidth size="small"
+                        inputProps={{ min: 0 }}
+                    />
+                </Box>
+            </UnifiedModal>
         </Box>
     );
 }
