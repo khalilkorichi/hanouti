@@ -297,7 +297,7 @@ export default function Dashboard() {
     const maxRevenue = topProducts.length > 0 ? Math.max(...topProducts.map((p) => p.total_revenue)) : 1;
 
     return (
-        <Box sx={{ direction: 'rtl' }}>
+        <Box>
             {/* Welcome Banner */}
             <Box
                 sx={{

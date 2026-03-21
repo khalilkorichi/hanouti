@@ -264,7 +264,6 @@ export default function Products() {
                     sx={{
                         borderRadius: 3,
                         boxShadow: 2,
-                        direction: 'rtl', // Force RTL in DataGrid
                         '& .MuiDataGrid-cell:focus': {
                             outline: 'none'
                         }

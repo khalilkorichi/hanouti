@@ -62,7 +62,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
     };
 
     return (
-        <Box dir="rtl" sx={{ display: 'flex', direction: 'rtl', minHeight: '100vh' }}>
+        <Box dir="rtl" sx={{ display: 'flex', minHeight: '100vh' }}>
             <Header
                 onMenuClick={() => setMobileSidebarOpen(true)}
                 isDarkMode={isDarkMode}
