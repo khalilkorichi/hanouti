@@ -10,7 +10,7 @@ import {
     Alert,
     Button,
 } from '@mui/material';
-import { DataGrid, type GridRowSelectionModel } from '@mui/x-data-grid';
+import { DataGrid, useGridApiRef, type GridRowSelectionModel } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
     Add as AddIcon,
@@ -35,6 +35,7 @@ export default function Products() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+    const apiRef = useGridApiRef();
     const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
     const [bulkLoading, setBulkLoading] = useState(false);
@@ -85,6 +86,17 @@ export default function Products() {
 
     /* ── Bulk actions ── */
     const selectedIds = useMemo(() => Array.from(rowSelectionModel.ids) as number[], [rowSelectionModel]);
+    const allAvailableIds = useMemo(() => (products || []).map(p => p.id), [products]);
+    const isAllSelected = allAvailableIds.length > 0 && selectedIds.length === allAvailableIds.length;
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set() });
+        } else {
+            apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set(allAvailableIds) });
+        }
+    };
+
     const selectedProducts = useMemo(
         () => (products || []).filter(p => selectedIds.includes(p.id)),
         [products, selectedIds]
@@ -294,6 +306,9 @@ export default function Products() {
             <BulkActionsBar
                 count={selectedIds.length}
                 onClear={() => { setRowSelectionModel({ type: 'include', ids: new Set() }); setGridKey(k => k + 1); }}
+                onSelectAll={handleSelectAll}
+                isAllSelected={isAllSelected}
+                totalAvailable={allAvailableIds.length}
                 minCount={2}
             >
                 <Button size="small" startIcon={<BulkDeleteIcon />} color="error" variant="outlined"
@@ -311,6 +326,7 @@ export default function Products() {
             <Box sx={{ height: 600, width: '100%' }}>
                 <DataGrid
                     key={gridKey}
+                    apiRef={apiRef}
                     rows={products || []}
                     columns={columns}
                     loading={isLoading}

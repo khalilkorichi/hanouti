@@ -36,7 +36,7 @@ import {
     PlaylistRemoveOutlined as ZeroStockIcon,
     TuneOutlined as SetMinQtyIcon,
 } from '@mui/icons-material';
-import { DataGrid, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
+import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
 import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
@@ -358,6 +358,7 @@ export default function Inventory() {
     const [editForm, setEditForm] = useState({ stock_qty: 0, purchase_price: 0, sale_price: 0, min_qty: 0 });
 
     /* ── Bulk selection ── */
+    const apiRef = useGridApiRef();
     const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
@@ -443,6 +444,16 @@ export default function Inventory() {
 
     /* ── Bulk actions ── */
     const selectedIds = useMemo(() => Array.from(rowSelectionModel.ids) as number[], [rowSelectionModel]);
+    const allAvailableIds = useMemo(() => (filteredRows || []).map(r => r.id), [filteredRows]);
+    const isAllSelected = allAvailableIds.length > 0 && selectedIds.length === allAvailableIds.length;
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set() });
+        } else {
+            apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set(allAvailableIds) });
+        }
+    };
 
     const selectedRows = useMemo(
         () => (filteredRows || []).filter(p => selectedIds.includes(p.id)),
@@ -660,6 +671,9 @@ export default function Inventory() {
             <BulkActionsBar
                 count={selectedIds.length}
                 onClear={() => { setRowSelectionModel({ type: 'include', ids: new Set() }); setGridKey(k => k + 1); }}
+                onSelectAll={handleSelectAll}
+                isAllSelected={isAllSelected}
+                totalAvailable={allAvailableIds.length}
                 minCount={2}
             >
                 <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined"
@@ -688,6 +702,7 @@ export default function Inventory() {
             <Paper elevation={0} sx={{ height: 560, borderRadius: 3, overflow: 'hidden', border: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>
                 <DataGrid
                     key={gridKey}
+                    apiRef={apiRef}
                     rows={filteredRows}
                     columns={columns}
                     loading={isLoading}

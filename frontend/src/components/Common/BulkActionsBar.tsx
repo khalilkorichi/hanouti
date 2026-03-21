@@ -6,15 +6,23 @@ import {
     IconButton,
     Tooltip,
     Typography,
+    Button,
     alpha,
     useTheme,
 } from '@mui/material';
-import { CloseOutlined as CloseIcon } from '@mui/icons-material';
+import {
+    CloseOutlined as CloseIcon,
+    DoneAllOutlined as SelectAllIcon,
+    RemoveDoneOutlined as DeselectAllIcon,
+} from '@mui/icons-material';
 import React from 'react';
 
 interface BulkActionsBarProps {
     count: number;
     onClear: () => void;
+    onSelectAll?: () => void;
+    isAllSelected?: boolean;
+    totalAvailable?: number;
     children: React.ReactNode;
     minCount?: number;
     label?: string;
@@ -23,6 +31,9 @@ interface BulkActionsBarProps {
 export default function BulkActionsBar({
     count,
     onClear,
+    onSelectAll,
+    isAllSelected = false,
+    totalAvailable = 0,
     children,
     minCount = 2,
     label,
@@ -58,6 +69,29 @@ export default function BulkActionsBar({
                 color={active ? 'primary' : 'default'}
                 sx={{ fontWeight: 800, fontSize: '0.78rem', minWidth: 76 }}
             />
+
+            {/* Select All toggle button */}
+            {onSelectAll && totalAvailable > 0 && (
+                <Tooltip title={isAllSelected ? 'إلغاء تحديد الكل' : `تحديد الكل (${totalAvailable})`}>
+                    <Button
+                        size="small"
+                        variant={isAllSelected ? 'contained' : 'outlined'}
+                        color="primary"
+                        startIcon={isAllSelected ? <DeselectAllIcon /> : <SelectAllIcon />}
+                        onClick={onSelectAll}
+                        sx={{
+                            borderRadius: 2,
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            minWidth: 0,
+                            px: 1.2,
+                            py: 0.4,
+                        }}
+                    >
+                        {isAllSelected ? 'إلغاء الكل' : 'تحديد الكل'}
+                    </Button>
+                </Tooltip>
+            )}
 
             <Divider orientation="vertical" flexItem />
 
