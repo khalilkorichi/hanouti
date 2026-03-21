@@ -570,9 +570,9 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
     const isLight = theme.palette.mode === 'light';
 
     const statusConfig = {
-        completed: { label: 'مكتملة', color: '#10B981', bg: '#F0FDF4' },
-        draft: { label: 'مسودة', color: '#F59E0B', bg: '#FFFBEB' },
-        cancelled: { label: 'ملغية', color: '#EF4444', bg: '#FEF2F2' },
+        completed: { label: 'مكتملة', color: '#10B981', bg: alpha('#10B981', 0.12) },
+        draft:     { label: 'مسودة',   color: '#F59E0B', bg: alpha('#F59E0B', 0.12) },
+        cancelled: { label: 'ملغية',   color: '#EF4444', bg: alpha('#EF4444', 0.12) },
     };
     const st = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.draft;
 
@@ -581,130 +581,179 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
         catch { return sale.created_at; }
     })();
 
-    const paymentLabel = sale.payment_method === 'cash' ? '💵 نقداً' : '💳 بطاقة';
+    const paymentLabel = sale.payment_method === 'cash' ? 'نقداً' : 'بطاقة';
+
+    /* shared cell style helpers */
+    const cellSx = (align?: string) => ({
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: align === 'center' ? 'center' : align === 'end' ? 'flex-end' : 'flex-start',
+    });
+
+    const summaryRows = [
+        { label: 'المجموع الفرعي', value: sale.subtotal?.toFixed(2), color: '' },
+        ...(sale.discount_value > 0 ? [{ label: 'الخصم', value: `-${sale.discount_value?.toFixed(2)}`, color: '#10B981' }] : []),
+        ...(sale.tax_value > 0 ? [{ label: 'الضريبة', value: `+${sale.tax_value?.toFixed(2)}`, color: '' }] : []),
+    ];
 
     return (
-        <Box>
-            {/* Invoice header */}
+        <Box dir="rtl">
+
+            {/* ── Invoice header ── */}
             <Box sx={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                mb: 3, pb: 2.5, borderBottom: `2px dashed ${alpha(theme.palette.divider, 0.6)}`,
+                mb: 3, pb: 2.5,
+                borderBottom: `2px dashed ${alpha(theme.palette.divider, 0.6)}`,
                 flexWrap: 'wrap', gap: 2,
             }}>
-                {/* Logo / company */}
+                {/* Logo / company — right side in RTL */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{
-                        width: 48, height: 48, borderRadius: 2,
+                        width: 48, height: 48, borderRadius: 2, flexShrink: 0,
                         background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 900, fontSize: '1.3rem',
+                        color: '#fff', fontWeight: 900, fontSize: '1.4rem',
                     }}>ح</Box>
                     <Box>
-                        <Typography variant="h6" fontWeight={800} color="primary.main">حانوتي</Typography>
+                        <Typography variant="subtitle1" fontWeight={800} color="primary.main" sx={{ lineHeight: 1.2 }}>
+                            حانوتي
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">نظام إدارة المبيعات</Typography>
                     </Box>
                 </Box>
 
-                {/* Invoice meta */}
-                <Box sx={{ textAlign: 'start' }}>
-                    <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
+                {/* Invoice meta — left side in RTL */}
+                <Box>
+                    <Typography variant="h6" fontWeight={800} color="text.primary" sx={{ mb: 0.4 }}>
                         {sale.invoice_no}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block">{dateFormatted}</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                        {dateFormatted}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
                             label={st.label} size="small"
-                            sx={{ bgcolor: isLight ? st.bg : alpha(st.color, 0.15), color: st.color, fontWeight: 700, border: `1px solid ${alpha(st.color, 0.3)}` }}
+                            sx={{ bgcolor: st.bg, color: st.color, fontWeight: 700, border: `1px solid ${alpha(st.color, 0.3)}` }}
                         />
                         <Chip
                             label={paymentLabel} size="small" variant="outlined"
-                            sx={{ fontWeight: 600 }}
+                            sx={{ fontWeight: 600, borderRadius: 1 }}
                         />
                     </Box>
                 </Box>
             </Box>
 
-            {/* Items table */}
-            <Box sx={{ mb: 3 }}>
+            {/* ── Items table ── */}
+            <Box sx={{ mb: 3, border: `1px solid ${alpha(theme.palette.divider, 0.6)}`, borderRadius: 2, overflow: 'hidden' }}>
                 {/* Table header */}
                 <Box sx={{
-                    display: 'grid', gridTemplateColumns: '1fr 80px 100px 110px',
-                    px: 2, py: 1, borderRadius: 2,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 72px 120px 120px',
+                    px: 2, py: 1.2,
                     bgcolor: alpha(theme.palette.primary.main, isLight ? 0.06 : 0.12),
-                    mb: 0.5,
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
                 }}>
-                    {['المنتج', 'الكمية', 'السعر', 'المجموع'].map(h => (
-                        <Typography key={h} variant="caption" fontWeight={700} color="primary.main" sx={{ textAlign: 'start' }}>
-                            {h}
-                        </Typography>
-                    ))}
+                    <Typography variant="caption" fontWeight={700} color="primary.main">المنتج</Typography>
+                    <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ textAlign: 'center' }}>الكمية</Typography>
+                    <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ textAlign: 'end' }}>سعر الوحدة</Typography>
+                    <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ textAlign: 'end' }}>المجموع</Typography>
                 </Box>
 
-                {/* Rows */}
-                {sale.items.map((item, idx) => (
+                {/* Item rows */}
+                {sale.items.length === 0 ? (
+                    <Box sx={{ py: 3, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.disabled">لا توجد منتجات</Typography>
+                    </Box>
+                ) : (
+                    sale.items.map((item, idx) => (
+                        <Box
+                            key={idx}
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 72px 120px 120px',
+                                px: 2, py: 1.25,
+                                borderBottom: idx < sale.items.length - 1
+                                    ? `1px solid ${alpha(theme.palette.divider, 0.4)}`
+                                    : 'none',
+                                bgcolor: idx % 2 === 1 ? alpha(theme.palette.action.hover, 0.3) : 'transparent',
+                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.03) },
+                            }}
+                        >
+                            <Box sx={cellSx()}>
+                                <Typography variant="body2" fontWeight={600}>
+                                    {item.product?.name || `منتج #${item.product_id}`}
+                                </Typography>
+                            </Box>
+                            <Box sx={cellSx('center')}>
+                                <Typography variant="body2" color="text.secondary"
+                                    sx={{ bgcolor: alpha(theme.palette.primary.main, 0.07), px: 1, borderRadius: 1, fontWeight: 600 }}>
+                                    {item.qty}
+                                </Typography>
+                            </Box>
+                            <Box sx={cellSx('end')}>
+                                <Typography variant="body2" color="text.secondary">
+                                    {item.unit_price?.toFixed(2)} دج
+                                </Typography>
+                            </Box>
+                            <Box sx={cellSx('end')}>
+                                <Typography variant="body2" fontWeight={700} color="primary.main">
+                                    {(item.line_total ?? item.unit_price * item.qty)?.toFixed(2)} دج
+                                </Typography>
+                            </Box>
+                        </Box>
+                    ))
+                )}
+            </Box>
+
+            {/* ── Summary box ── */}
+            <Box sx={{
+                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                borderRadius: 2, overflow: 'hidden',
+                width: { xs: '100%', sm: 340 },
+                marginInlineStart: 'auto',   /* logical = end-aligned in RTL */
+            }}>
+                {/* Summary title */}
+                <Box sx={{
+                    px: 2.5, py: 1.25,
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                    bgcolor: alpha(theme.palette.action.hover, 0.4),
+                }}>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        ملخص الفاتورة
+                    </Typography>
+                </Box>
+
+                {/* Summary rows */}
+                {summaryRows.map((row, i) => (
                     <Box
-                        key={idx}
+                        key={i}
                         sx={{
-                            display: 'grid', gridTemplateColumns: '1fr 80px 100px 110px',
-                            px: 2, py: 1.2,
-                            borderBottom: idx < sale.items.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.5)}` : 'none',
-                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
-                            borderRadius: 1,
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            px: 2.5, py: 1.1,
+                            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
                         }}
                     >
-                        <Typography variant="body2" fontWeight={600}>
-                            {item.product?.name || `منتج #${item.product_id}`}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'start' }}>
-                            {item.qty}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'start' }}>
-                            {item.unit_price?.toFixed(2)} دج
-                        </Typography>
-                        <Typography variant="body2" fontWeight={700} color="primary.main" sx={{ textAlign: 'start' }}>
-                            {(item.line_total ?? item.unit_price * item.qty)?.toFixed(2)} دج
+                        <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+                        <Typography variant="body2" fontWeight={600} color={row.color || 'text.primary'}>
+                            {row.value} دج
                         </Typography>
                     </Box>
                 ))}
-            </Box>
-
-            {/* Totals */}
-            <Box sx={{
-                ml: 'auto', width: { xs: '100%', sm: 320 },
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 2.5, overflow: 'hidden',
-            }}>
-                <Box sx={{ px: 2.5, py: 1.5, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
-                    <Typography variant="caption" fontWeight={700} color="text.secondary">ملخص الفاتورة</Typography>
-                </Box>
-                <Stack spacing={0} divider={<Divider sx={{ opacity: 0.4 }} />}>
-                    {[
-                        { label: 'المجموع الفرعي', value: sale.subtotal?.toFixed(2), suffix: 'دج' },
-                        ...(sale.discount_value > 0 ? [{ label: 'الخصم', value: `-${sale.discount_value?.toFixed(2)}`, suffix: 'دج', color: '#10B981' }] : []),
-                        ...(sale.tax_value > 0 ? [{ label: 'الضريبة', value: sale.tax_value?.toFixed(2), suffix: 'دج' }] : []),
-                    ].map(row => (
-                        <Box key={row.label} sx={{ display: 'flex', justifyContent: 'space-between', px: 2.5, py: 1 }}>
-                            <Typography variant="body2" color="text.secondary">{row.label}</Typography>
-                            <Typography variant="body2" fontWeight={600} color={row.color || 'text.primary'}>
-                                {row.value} {row.suffix}
-                            </Typography>
-                        </Box>
-                    ))}
-                </Stack>
 
                 {/* Grand total */}
                 <Box sx={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     px: 2.5, py: 1.75,
                     background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
-                    borderTop: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                    borderTop: `2px solid ${alpha(theme.palette.primary.main, 0.25)}`,
                 }}>
-                    <Typography variant="subtitle1" fontWeight={800}>الإجمالي النهائي</Typography>
-                    <Typography variant="subtitle1" fontWeight={900} color="primary.main" sx={{ fontSize: '1.1rem' }}>
+                    <Typography variant="subtitle2" fontWeight={800}>الإجمالي النهائي</Typography>
+                    <Typography variant="subtitle1" fontWeight={900} color="primary.main">
                         {sale.total?.toFixed(2)} دج
                     </Typography>
                 </Box>
             </Box>
+
         </Box>
     );
 }
