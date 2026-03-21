@@ -23,7 +23,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await fetch('http://localhost:8000/users/me', {
+                const response = await fetch('/api/users/me', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

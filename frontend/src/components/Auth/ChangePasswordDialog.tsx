@@ -32,7 +32,7 @@ export default function ChangePasswordDialog({ open, onClose, forceChange = fals
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8000/change-password', {
+            const response = await fetch('/api/change-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

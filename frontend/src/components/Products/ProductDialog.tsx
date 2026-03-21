@@ -44,7 +44,7 @@ export default function ProductDialog({ open, onClose, onSave, product }: Produc
         const fetchCategories = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:8000/categories/', {
+                const response = await fetch('/api/categories/', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (response.ok) {

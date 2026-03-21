@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/reports';
+const API_URL = '/api/reports';
 
 export interface KPIResponse {
     total_sales: number;
