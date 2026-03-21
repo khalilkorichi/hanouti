@@ -48,6 +48,108 @@ export default function SalesList() {
     const queryClient = useQueryClient();
     const theme = useTheme();
 
+    const handlePrintInvoice = (sale: Sale) => {
+        const statusLabel = sale.status === 'completed' ? 'مكتملة' : sale.status === 'draft' ? 'مسودة' : 'ملغية';
+        const payLabel = sale.payment_method === 'cash' ? 'نقداً' : 'بطاقة';
+        const dateStr = (() => {
+            try { return new Date(sale.created_at).toLocaleString('ar-DZ'); } catch { return sale.created_at; }
+        })();
+
+        const itemsHtml = sale.items.map(item => `
+            <tr>
+                <td>${item.product?.name || 'منتج #' + item.product_id}</td>
+                <td class="center">${item.qty}</td>
+                <td class="num">${(item.unit_price ?? 0).toFixed(2)} دج</td>
+                <td class="num">${(item.line_total ?? item.unit_price * item.qty ?? 0).toFixed(2)} دج</td>
+            </tr>`).join('');
+
+        const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>فاتورة ${sale.invoice_no}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; direction: rtl; }
+  .page { max-width: 680px; margin: 0 auto; padding: 32px 28px; }
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px dashed #c8c8d8; padding-bottom: 20px; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-icon { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, #4F46E5, #8B5CF6); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 900; }
+  .brand-name { font-size: 18px; font-weight: 800; color: #4F46E5; }
+  .brand-sub { font-size: 11px; color: #888; }
+  .meta { text-align: right; }
+  .meta .inv-no { font-size: 16px; font-weight: 800; color: #1a1a2e; }
+  .meta .inv-date { font-size: 11px; color: #888; margin-top: 3px; }
+  .badges { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+  .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid; }
+  .badge-status { background: #F0FDF4; color: #10B981; border-color: #10B981; }
+  .badge-pay { background: #EFF6FF; color: #3B82F6; border-color: #3B82F6; }
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  thead tr { background: #F3F4F6; }
+  th { padding: 9px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #4F46E5; border-bottom: 1px solid #e0e0e8; }
+  th.center, td.center { text-align: center; }
+  th.num, td.num { text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f0f0f5; }
+  tr:nth-child(even) td { background: #FAFAFA; }
+  /* Total */
+  .total-box { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(79,70,229,0.08), rgba(139,92,246,0.04)); border: 2px solid rgba(79,70,229,0.2); border-radius: 10px; padding: 14px 20px; }
+  .total-label { font-size: 15px; font-weight: 800; }
+  .total-val { font-size: 18px; font-weight: 900; color: #4F46E5; }
+  /* Footer */
+  .footer { text-align: center; margin-top: 28px; padding-top: 14px; border-top: 1px dashed #c8c8d8; font-size: 11px; color: #aaa; }
+  @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">ح</div>
+      <div>
+        <div class="brand-name">حانوتي</div>
+        <div class="brand-sub">نظام إدارة المبيعات</div>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="inv-no">${sale.invoice_no}</div>
+      <div class="inv-date">${dateStr}</div>
+      <div class="badges">
+        <span class="badge badge-status">${statusLabel}</span>
+        <span class="badge badge-pay">${payLabel}</span>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>المنتج</th>
+        <th class="center">الكمية</th>
+        <th class="num">سعر الوحدة</th>
+        <th class="num">المجموع</th>
+      </tr>
+    </thead>
+    <tbody>${itemsHtml}</tbody>
+  </table>
+
+  <div class="total-box">
+    <span class="total-label">الإجمالي النهائي</span>
+    <span class="total-val">${(sale.total ?? 0).toFixed(2)} دج</span>
+  </div>
+
+  <div class="footer">شكراً لتعاملكم معنا — برنامج حانوتي</div>
+</div>
+<script>window.onload = () => { window.print(); setTimeout(() => window.close(), 500); }</script>
+</body>
+</html>`;
+
+        const w = window.open('', '_blank', 'width=720,height=900');
+        if (w) { w.document.write(html); w.document.close(); }
+        else showNotification('يرجى السماح بالنوافذ المنبثقة للطباعة', 'warning');
+    };
+
     // Fetch sales
     const { data: sales, isLoading } = useQuery({
         queryKey: ['sales-list', searchQuery, statusFilter, paymentFilter, dateRange, page, pageSize],
@@ -507,7 +609,11 @@ export default function SalesList() {
                 maxWidth="md"
                 actions={
                     <>
-                        <CustomButton variant="contained" startIcon={<PrintIcon />}>
+                        <CustomButton
+                            variant="contained"
+                            startIcon={<PrintIcon />}
+                            onClick={() => selectedSale && handlePrintInvoice(selectedSale)}
+                        >
                             طباعة الفاتورة
                         </CustomButton>
                         <CustomButton onClick={() => setShowDetailsModal(false)} color="inherit">

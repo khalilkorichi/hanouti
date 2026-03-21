@@ -113,6 +113,131 @@ const KPICard = ({ title, value, icon, color, subtitle }: KPICardProps) => {
     );
 };
 
+function handleExportReports(
+    period: string,
+    kpis: { total_sales?: number; net_profit?: number; total_orders?: number; avg_order_value?: number } | undefined,
+    topProducts: { name: string; total_revenue: number; qty_sold: number }[] | undefined,
+) {
+    const periodLabels: Record<string, string> = {
+        today: 'اليوم', last_7: 'آخر 7 أيام', last_30: 'آخر 30 يوم', last_90: 'آخر 3 أشهر', year: 'هذه السنة'
+    };
+    const periodLabel = periodLabels[period] || period;
+    const dateStr = new Date().toLocaleString('ar-DZ');
+    const fmt = (n?: number) => `${(n ?? 0).toLocaleString()} دج`;
+
+    const topRows = (topProducts || []).slice(0, 10).map((p, i) => `
+        <tr>
+            <td class="center">${i + 1}</td>
+            <td>${p.name}</td>
+            <td class="num">${p.qty_sold ?? '-'}</td>
+            <td class="num">${fmt(p.total_revenue)}</td>
+        </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>تقرير حانوتي — ${periodLabel}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Cairo','Segoe UI',Tahoma,Arial,sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; direction: rtl; }
+  .page { max-width: 800px; margin: 0 auto; padding: 36px 32px; }
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 3px solid #4F46E5; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-icon { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg,#4F46E5,#8B5CF6); display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:900; }
+  .brand-name { font-size: 20px; font-weight: 900; color: #4F46E5; }
+  .brand-sub { font-size: 11px; color: #888; }
+  .report-meta { text-align: left; }
+  .report-title { font-size: 15px; font-weight: 800; color: #1a1a2e; }
+  .report-date { font-size: 11px; color: #aaa; margin-top: 4px; }
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 28px; }
+  .kpi { border-radius: 12px; padding: 16px; text-align: center; border: 1px solid; }
+  .kpi-1 { background:#EFF6FF; border-color:#BFDBFE; }
+  .kpi-2 { background:#F0FDF4; border-color:#BBF7D0; }
+  .kpi-3 { background:#FFFBEB; border-color:#FDE68A; }
+  .kpi-4 { background:#F5F3FF; border-color:#DDD6FE; }
+  .kpi-val { font-size: 18px; font-weight: 900; color: #1a1a2e; }
+  .kpi-1 .kpi-val { color: #3B82F6; }
+  .kpi-2 .kpi-val { color: #10B981; }
+  .kpi-3 .kpi-val { color: #F59E0B; }
+  .kpi-4 .kpi-val { color: #8B5CF6; }
+  .kpi-label { font-size: 11px; color: #777; margin-top: 5px; font-weight: 600; }
+  /* Section */
+  .section-title { font-size: 14px; font-weight: 800; color: #4F46E5; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e0e0f0; }
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead tr { background: #F3F4F6; }
+  th { padding: 9px 12px; text-align: right; font-size: 12px; font-weight: 700; color: #4F46E5; }
+  th.center, td.center { text-align: center; }
+  th.num, td.num { text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f0f0f5; }
+  tr:nth-child(even) td { background: #FAFAFA; }
+  /* Footer */
+  .footer { text-align: center; margin-top: 32px; padding-top: 14px; border-top: 1px dashed #c8c8d8; font-size: 11px; color: #bbb; }
+  @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">ح</div>
+      <div>
+        <div class="brand-name">حانوتي</div>
+        <div class="brand-sub">نظام إدارة المبيعات</div>
+      </div>
+    </div>
+    <div class="report-meta">
+      <div class="report-title">تقرير الأداء — ${periodLabel}</div>
+      <div class="report-date">تاريخ الإصدار: ${dateStr}</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi kpi-1">
+      <div class="kpi-val">${fmt(kpis?.total_sales)}</div>
+      <div class="kpi-label">إجمالي المبيعات</div>
+    </div>
+    <div class="kpi kpi-2">
+      <div class="kpi-val">${fmt(kpis?.net_profit)}</div>
+      <div class="kpi-label">صافي الربح</div>
+    </div>
+    <div class="kpi kpi-3">
+      <div class="kpi-val">${kpis?.total_orders ?? 0}</div>
+      <div class="kpi-label">عدد الطلبات</div>
+    </div>
+    <div class="kpi kpi-4">
+      <div class="kpi-val">${fmt(kpis?.avg_order_value)}</div>
+      <div class="kpi-label">متوسط الطلب</div>
+    </div>
+  </div>
+
+  <div class="section-title">أفضل المنتجات مبيعاً</div>
+  <table>
+    <thead>
+      <tr>
+        <th class="center">#</th>
+        <th>المنتج</th>
+        <th class="num">الكمية المباعة</th>
+        <th class="num">الإيرادات</th>
+      </tr>
+    </thead>
+    <tbody>${topRows || '<tr><td colspan="4" style="text-align:center;color:#aaa">لا توجد بيانات</td></tr>'}</tbody>
+  </table>
+
+  <div class="footer">تقرير مُولَّد بواسطة برنامج حانوتي — ${dateStr}</div>
+</div>
+<script>window.onload = () => { window.print(); setTimeout(() => window.close(), 500); }</script>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=1000');
+    if (w) { w.document.write(html); w.document.close(); }
+}
+
 export default function Reports() {
     const [period, setPeriod] = useState('last_30');
     const theme = useTheme();
@@ -197,8 +322,9 @@ export default function Reports() {
                         variant="outlined"
                         startIcon={<DownloadIcon />}
                         sx={{ borderRadius: 2 }}
+                        onClick={() => handleExportReports(period, kpis, topProducts)}
                     >
-                        تصدير
+                        تصدير PDF
                     </Button>
                 </Stack>
             </Stack>
