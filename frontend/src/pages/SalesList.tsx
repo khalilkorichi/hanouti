@@ -14,7 +14,8 @@ import {
     alpha,
     useTheme,
     Fade,
-    Slide
+    Slide,
+    Divider,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -503,66 +504,20 @@ export default function SalesList() {
             <UnifiedModal
                 open={showDetailsModal}
                 onClose={() => setShowDetailsModal(false)}
-                title={`تفاصيل الفاتورة: ${selectedSale?.invoice_no}`}
+                title={`فاتورة: ${selectedSale?.invoice_no}`}
                 maxWidth="md"
                 actions={
                     <>
+                        <CustomButton variant="contained" startIcon={<PrintIcon />}>
+                            طباعة الفاتورة
+                        </CustomButton>
                         <CustomButton onClick={() => setShowDetailsModal(false)} color="inherit">
                             إغلاق
-                        </CustomButton>
-                        <CustomButton variant="contained" startIcon={<PrintIcon />}>
-                            طباعة
                         </CustomButton>
                     </>
                 }
             >
-                {selectedSale && (
-                    <Box>
-                        <Stack spacing={2}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography><strong>الحالة:</strong></Typography>
-                                <Chip
-                                    label={
-                                        selectedSale.status === 'completed' ? 'مكتملة' :
-                                            selectedSale.status === 'draft' ? 'مسودة' : 'ملغية'
-                                    }
-                                    color={
-                                        selectedSale.status === 'completed' ? 'success' :
-                                            selectedSale.status === 'draft' ? 'warning' : 'error'
-                                    }
-                                    size="small"
-                                />
-                            </Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography><strong>طريقة الدفع:</strong></Typography>
-                                <Typography>{selectedSale.payment_method === 'cash' ? 'نقدًا' : 'بطاقة'}</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography><strong>المجموع الفرعي:</strong></Typography>
-                                <Typography>{selectedSale.subtotal.toFixed(2)} دج</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography><strong>الخصم:</strong></Typography>
-                                <Typography>{selectedSale.discount_value.toFixed(2)} دج</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="h6"><strong>الإجمالي:</strong></Typography>
-                                <Typography variant="h6" color="primary">{selectedSale.total.toFixed(2)} دج</Typography>
-                            </Box>
-
-                            {/* Items */}
-                            <Typography variant="h6" sx={{ mt: 2 }}>العناصر:</Typography>
-                            <Box>
-                                {selectedSale.items.map((item, idx) => (
-                                    <Box key={idx} sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between' }}>
-                                        <Typography>{item.product?.name || 'منتج'} (x{item.qty})</Typography>
-                                        <Typography>{item.line_total?.toFixed(2)} دج</Typography>
-                                    </Box>
-                                ))}
-                            </Box>
-                        </Stack>
-                    </Box>
-                )}
+                {selectedSale && <InvoiceDetails sale={selectedSale} />}
             </UnifiedModal>
 
             {/* Cancel Modal */}
@@ -603,6 +558,153 @@ export default function SalesList() {
                     />
                 </Box>
             </UnifiedModal>
+        </Box>
+    );
+}
+
+/* ════════════════════════════════════════
+   Invoice Details Component
+════════════════════════════════════════ */
+function InvoiceDetails({ sale }: { sale: Sale }) {
+    const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
+
+    const statusConfig = {
+        completed: { label: 'مكتملة', color: '#10B981', bg: '#F0FDF4' },
+        draft: { label: 'مسودة', color: '#F59E0B', bg: '#FFFBEB' },
+        cancelled: { label: 'ملغية', color: '#EF4444', bg: '#FEF2F2' },
+    };
+    const st = statusConfig[sale.status as keyof typeof statusConfig] || statusConfig.draft;
+
+    const dateFormatted = (() => {
+        try { return format(new Date(sale.created_at), 'dd MMMM yyyy — HH:mm', { locale: ar }); }
+        catch { return sale.created_at; }
+    })();
+
+    const paymentLabel = sale.payment_method === 'cash' ? '💵 نقداً' : '💳 بطاقة';
+
+    return (
+        <Box>
+            {/* Invoice header */}
+            <Box sx={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                mb: 3, pb: 2.5, borderBottom: `2px dashed ${alpha(theme.palette.divider, 0.6)}`,
+                flexWrap: 'wrap', gap: 2,
+            }}>
+                {/* Logo / company */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                        width: 48, height: 48, borderRadius: 2,
+                        background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 900, fontSize: '1.3rem',
+                    }}>ح</Box>
+                    <Box>
+                        <Typography variant="h6" fontWeight={800} color="primary.main">حانوتي</Typography>
+                        <Typography variant="caption" color="text.secondary">نظام إدارة المبيعات</Typography>
+                    </Box>
+                </Box>
+
+                {/* Invoice meta */}
+                <Box sx={{ textAlign: 'start' }}>
+                    <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
+                        {sale.invoice_no}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">{dateFormatted}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                            label={st.label} size="small"
+                            sx={{ bgcolor: isLight ? st.bg : alpha(st.color, 0.15), color: st.color, fontWeight: 700, border: `1px solid ${alpha(st.color, 0.3)}` }}
+                        />
+                        <Chip
+                            label={paymentLabel} size="small" variant="outlined"
+                            sx={{ fontWeight: 600 }}
+                        />
+                    </Box>
+                </Box>
+            </Box>
+
+            {/* Items table */}
+            <Box sx={{ mb: 3 }}>
+                {/* Table header */}
+                <Box sx={{
+                    display: 'grid', gridTemplateColumns: '1fr 80px 100px 110px',
+                    px: 2, py: 1, borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, isLight ? 0.06 : 0.12),
+                    mb: 0.5,
+                }}>
+                    {['المنتج', 'الكمية', 'السعر', 'المجموع'].map(h => (
+                        <Typography key={h} variant="caption" fontWeight={700} color="primary.main" sx={{ textAlign: 'start' }}>
+                            {h}
+                        </Typography>
+                    ))}
+                </Box>
+
+                {/* Rows */}
+                {sale.items.map((item, idx) => (
+                    <Box
+                        key={idx}
+                        sx={{
+                            display: 'grid', gridTemplateColumns: '1fr 80px 100px 110px',
+                            px: 2, py: 1.2,
+                            borderBottom: idx < sale.items.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.5)}` : 'none',
+                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                            borderRadius: 1,
+                        }}
+                    >
+                        <Typography variant="body2" fontWeight={600}>
+                            {item.product?.name || `منتج #${item.product_id}`}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'start' }}>
+                            {item.qty}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'start' }}>
+                            {item.unit_price?.toFixed(2)} دج
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700} color="primary.main" sx={{ textAlign: 'start' }}>
+                            {(item.line_total ?? item.unit_price * item.qty)?.toFixed(2)} دج
+                        </Typography>
+                    </Box>
+                ))}
+            </Box>
+
+            {/* Totals */}
+            <Box sx={{
+                ml: 'auto', width: { xs: '100%', sm: 320 },
+                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                borderRadius: 2.5, overflow: 'hidden',
+            }}>
+                <Box sx={{ px: 2.5, py: 1.5, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary">ملخص الفاتورة</Typography>
+                </Box>
+                <Stack spacing={0} divider={<Divider sx={{ opacity: 0.4 }} />}>
+                    {[
+                        { label: 'المجموع الفرعي', value: sale.subtotal?.toFixed(2), suffix: 'دج' },
+                        ...(sale.discount_value > 0 ? [{ label: 'الخصم', value: `-${sale.discount_value?.toFixed(2)}`, suffix: 'دج', color: '#10B981' }] : []),
+                        ...(sale.tax_value > 0 ? [{ label: 'الضريبة', value: sale.tax_value?.toFixed(2), suffix: 'دج' }] : []),
+                    ].map(row => (
+                        <Box key={row.label} sx={{ display: 'flex', justifyContent: 'space-between', px: 2.5, py: 1 }}>
+                            <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+                            <Typography variant="body2" fontWeight={600} color={row.color || 'text.primary'}>
+                                {row.value} {row.suffix}
+                            </Typography>
+                        </Box>
+                    ))}
+                </Stack>
+
+                {/* Grand total */}
+                <Box sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    px: 2.5, py: 1.75,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
+                    borderTop: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                }}>
+                    <Typography variant="subtitle1" fontWeight={800}>الإجمالي النهائي</Typography>
+                    <Typography variant="subtitle1" fontWeight={900} color="primary.main" sx={{ fontSize: '1.1rem' }}>
+                        {sale.total?.toFixed(2)} دج
+                    </Typography>
+                </Box>
+            </Box>
         </Box>
     );
 }

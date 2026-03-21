@@ -30,6 +30,15 @@ export interface Notification {
     action?: NotifAction;
 }
 
+export interface NotifHistoryItem {
+    id: string;
+    message: string;
+    title?: string;
+    severity: NotifSeverity;
+    read: boolean;
+    receivedAt: number;
+}
+
 interface ShowOptions {
     title?: string;
     duration?: number;
@@ -40,6 +49,11 @@ interface NotificationContextType {
     showNotification: (message: string, severity?: NotifSeverity, opts?: ShowOptions) => string;
     dismissNotification: (id: string) => void;
     dismissAll: () => void;
+    history: NotifHistoryItem[];
+    unreadCount: number;
+    markAllAsRead: () => void;
+    markAsRead: (id: string) => void;
+    clearHistory: () => void;
 }
 
 /* ════════════════════════════════════════
@@ -51,27 +65,42 @@ const DEFAULT_DURATIONS: Record<NotifSeverity, number> = {
     warning: 6000,
     error: 8000,
 };
-
 const MAX_VISIBLE = 5;
+const MAX_HISTORY = 100;
 
 /* ════════════════════════════════════════
-   Reducer
+   Toast reducer
 ════════════════════════════════════════ */
-type ReducerAction =
+type ToastAction =
     | { type: 'ADD'; payload: Notification }
     | { type: 'REMOVE'; id: string }
     | { type: 'CLEAR' };
 
-function reducer(state: Notification[], action: ReducerAction): Notification[] {
+function toastReducer(state: Notification[], action: ToastAction): Notification[] {
     switch (action.type) {
-        case 'ADD':
-            return [action.payload, ...state].slice(0, MAX_VISIBLE);
-        case 'REMOVE':
-            return state.filter(n => n.id !== action.id);
-        case 'CLEAR':
-            return [];
-        default:
-            return state;
+        case 'ADD': return [action.payload, ...state].slice(0, MAX_VISIBLE);
+        case 'REMOVE': return state.filter(n => n.id !== action.id);
+        case 'CLEAR': return [];
+        default: return state;
+    }
+}
+
+/* ════════════════════════════════════════
+   History reducer
+════════════════════════════════════════ */
+type HistoryAction =
+    | { type: 'ADD'; payload: NotifHistoryItem }
+    | { type: 'MARK_READ'; id: string }
+    | { type: 'MARK_ALL_READ' }
+    | { type: 'CLEAR' };
+
+function historyReducer(state: NotifHistoryItem[], action: HistoryAction): NotifHistoryItem[] {
+    switch (action.type) {
+        case 'ADD': return [action.payload, ...state].slice(0, MAX_HISTORY);
+        case 'MARK_READ': return state.map(h => h.id === action.id ? { ...h, read: true } : h);
+        case 'MARK_ALL_READ': return state.map(h => ({ ...h, read: true }));
+        case 'CLEAR': return [];
+        default: return state;
     }
 }
 
@@ -91,22 +120,23 @@ export const useNotification = (): NotificationContextType => {
    Provider
 ════════════════════════════════════════ */
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [notifications, dispatch] = useReducer(reducer, []);
+    const [toasts, dispatchToast] = useReducer(toastReducer, []);
+    const [history, dispatchHistory] = useReducer(historyReducer, []);
+
+    const unreadCount = history.filter(h => !h.read).length;
 
     const showNotification = useCallback(
         (message: string, severity: NotifSeverity = 'info', opts?: ShowOptions): string => {
             const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             const duration = opts?.duration ?? DEFAULT_DURATIONS[severity];
-            dispatch({
+
+            dispatchToast({
                 type: 'ADD',
-                payload: {
-                    id,
-                    message,
-                    severity,
-                    duration,
-                    title: opts?.title,
-                    action: opts?.action,
-                }
+                payload: { id, message, severity, duration, title: opts?.title, action: opts?.action }
+            });
+            dispatchHistory({
+                type: 'ADD',
+                payload: { id, message, severity, title: opts?.title, read: false, receivedAt: Date.now() }
             });
             return id;
         },
@@ -114,54 +144,41 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
 
     const dismissNotification = useCallback((id: string) => {
-        dispatch({ type: 'REMOVE', id });
+        dispatchToast({ type: 'REMOVE', id });
     }, []);
 
-    const dismissAll = useCallback(() => {
-        dispatch({ type: 'CLEAR' });
-    }, []);
+    const dismissAll = useCallback(() => dispatchToast({ type: 'CLEAR' }), []);
+    const markAllAsRead = useCallback(() => dispatchHistory({ type: 'MARK_ALL_READ' }), []);
+    const markAsRead = useCallback((id: string) => dispatchHistory({ type: 'MARK_READ', id }), []);
+    const clearHistory = useCallback(() => dispatchHistory({ type: 'CLEAR' }), []);
 
     return (
-        <NotificationContext.Provider value={{ showNotification, dismissNotification, dismissAll }}>
+        <NotificationContext.Provider value={{
+            showNotification, dismissNotification, dismissAll,
+            history, unreadCount, markAllAsRead, markAsRead, clearHistory
+        }}>
             {children}
-            <NotificationStack notifications={notifications} onDismiss={dismissNotification} />
+            <NotificationStack toasts={toasts} onDismiss={dismissNotification} />
         </NotificationContext.Provider>
     );
 };
 
 /* ════════════════════════════════════════
-   Stack container
+   Toast stack
 ════════════════════════════════════════ */
-function NotificationStack({
-    notifications,
-    onDismiss,
-}: {
-    notifications: Notification[];
-    onDismiss: (id: string) => void;
-}) {
-    if (notifications.length === 0) return null;
-
+function NotificationStack({ toasts, onDismiss }: { toasts: Notification[]; onDismiss: (id: string) => void }) {
+    if (toasts.length === 0) return null;
     return (
         <Box
             dir="ltr"
             aria-live="polite"
-            aria-label="الإشعارات"
             sx={{
-                position: 'fixed',
-                top: 16,
-                right: 16,
-                zIndex: 9999,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.25,
-                width: 360,
-                maxWidth: 'calc(100vw - 32px)',
-                pointerEvents: 'none',
+                position: 'fixed', top: 16, right: 16, zIndex: 9999,
+                display: 'flex', flexDirection: 'column', gap: 1.25,
+                width: 360, maxWidth: 'calc(100vw - 32px)', pointerEvents: 'none',
             }}
         >
-            {notifications.map((notif) => (
-                <NotifCard key={notif.id} notif={notif} onDismiss={onDismiss} />
-            ))}
+            {toasts.map(t => <NotifCard key={t.id} notif={t} onDismiss={onDismiss} />)}
         </Box>
     );
 }
@@ -169,45 +186,43 @@ function NotificationStack({
 /* ════════════════════════════════════════
    Severity config
 ════════════════════════════════════════ */
-const SEVERITY_CONFIG: Record<NotifSeverity, {
+export const SEVERITY_CONFIG: Record<NotifSeverity, {
     icon: React.ReactNode;
     bg: string;
     border: string;
     progressColor: string;
     titleColor: string;
+    lightBg: string;
+    lightColor: string;
 }> = {
     success: {
         icon: <SuccessIcon sx={{ fontSize: 18 }} />,
         bg: 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
-        border: '#10B981',
-        progressColor: '#6EE7B7',
-        titleColor: '#D1FAE5',
+        border: '#10B981', progressColor: '#6EE7B7', titleColor: '#D1FAE5',
+        lightBg: '#F0FDF4', lightColor: '#16A34A',
     },
     error: {
         icon: <ErrorIcon sx={{ fontSize: 18 }} />,
         bg: 'linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%)',
-        border: '#EF4444',
-        progressColor: '#FCA5A5',
-        titleColor: '#FEE2E2',
+        border: '#EF4444', progressColor: '#FCA5A5', titleColor: '#FEE2E2',
+        lightBg: '#FEF2F2', lightColor: '#DC2626',
     },
     warning: {
         icon: <WarningIcon sx={{ fontSize: 18 }} />,
         bg: 'linear-gradient(135deg, #78350F 0%, #92400E 100%)',
-        border: '#F59E0B',
-        progressColor: '#FCD34D',
-        titleColor: '#FEF3C7',
+        border: '#F59E0B', progressColor: '#FCD34D', titleColor: '#FEF3C7',
+        lightBg: '#FFFBEB', lightColor: '#D97706',
     },
     info: {
         icon: <InfoIcon sx={{ fontSize: 18 }} />,
         bg: 'linear-gradient(135deg, #1E3A5F 0%, #1E40AF 100%)',
-        border: '#3B82F6',
-        progressColor: '#93C5FD',
-        titleColor: '#DBEAFE',
+        border: '#3B82F6', progressColor: '#93C5FD', titleColor: '#DBEAFE',
+        lightBg: '#EFF6FF', lightColor: '#2563EB',
     },
 };
 
 /* ════════════════════════════════════════
-   Single notification card
+   Single toast card
 ════════════════════════════════════════ */
 function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: string) => void }) {
     const [progress, setProgress] = useState(100);
@@ -228,52 +243,38 @@ function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: 
 
     useEffect(() => {
         if (!hasDuration) return;
-
         const tick = () => {
-            if (isPaused) {
-                rafRef.current = requestAnimationFrame(tick);
-                return;
-            }
+            if (isPaused) { rafRef.current = requestAnimationFrame(tick); return; }
             const elapsed = Date.now() - startRef.current;
             const pct = Math.max(0, 100 - (elapsed / notif.duration) * 100);
             setProgress(pct);
-            if (pct <= 0) {
-                dismiss();
-            } else {
-                rafRef.current = requestAnimationFrame(tick);
-            }
+            if (pct <= 0) dismiss();
+            else rafRef.current = requestAnimationFrame(tick);
         };
-
         rafRef.current = requestAnimationFrame(tick);
-        return () => {
-            if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-        };
+        return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
     }, [hasDuration, notif.duration, isPaused, dismiss]);
-
-    const handleMouseEnter = () => {
-        if (!hasDuration) return;
-        setIsPaused(true);
-        remainingRef.current = notif.duration * (progress / 100);
-    };
-
-    const handleMouseLeave = () => {
-        if (!hasDuration) return;
-        startRef.current = Date.now() - (notif.duration - remainingRef.current);
-        setIsPaused(false);
-    };
 
     return (
         <Box
             role="alert"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={() => {
+                if (!hasDuration) return;
+                setIsPaused(true);
+                remainingRef.current = notif.duration * (progress / 100);
+            }}
+            onMouseLeave={() => {
+                if (!hasDuration) return;
+                startRef.current = Date.now() - (notif.duration - remainingRef.current);
+                setIsPaused(false);
+            }}
             sx={{
                 pointerEvents: 'auto',
                 borderRadius: 2.5,
                 overflow: 'hidden',
                 background: cfg.bg,
                 border: `1px solid ${alpha(cfg.border, 0.45)}`,
-                boxShadow: `0 12px 40px ${alpha('#000', 0.4)}, 0 0 0 1px ${alpha(cfg.border, 0.12)}, inset 0 1px 0 ${alpha('#fff', 0.08)}`,
+                boxShadow: `0 12px 40px ${alpha('#000', 0.4)}, inset 0 1px 0 ${alpha('#fff', 0.08)}`,
                 animation: isExiting
                     ? 'slideOut 0.33s cubic-bezier(0.4, 0, 1, 1) forwards'
                     : 'slideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards',
@@ -282,135 +283,59 @@ function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: 
                     '100%': { opacity: 1, transform: 'translateX(0) scale(1)' },
                 },
                 '@keyframes slideOut': {
-                    '0%': { opacity: 1, transform: 'translateX(0) scale(1)', maxHeight: '200px', marginBottom: 0 },
+                    '0%': { opacity: 1, transform: 'translateX(0)', maxHeight: '200px' },
                     '60%': { opacity: 0 },
-                    '100%': { opacity: 0, transform: 'translateX(110%) scale(0.9)', maxHeight: '0px', marginBottom: '-10px' },
+                    '100%': { opacity: 0, transform: 'translateX(110%)', maxHeight: '0px' },
                 },
                 willChange: 'transform, opacity',
             }}
         >
-            {/* Body */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: '14px 14px 10px 14px' }}>
-                {/* Icon */}
-                <Box
-                    sx={{
-                        color: cfg.border,
-                        flexShrink: 0,
-                        mt: '1px',
-                        filter: `drop-shadow(0 0 5px ${alpha(cfg.border, 0.7)})`,
-                        display: 'flex',
-                        alignItems: 'center',
-                    }}
-                >
+                <Box sx={{ color: cfg.border, flexShrink: 0, mt: '1px', filter: `drop-shadow(0 0 5px ${alpha(cfg.border, 0.7)})`, display: 'flex' }}>
                     {cfg.icon}
                 </Box>
-
-                {/* Text area */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     {notif.title && (
-                        <Typography
-                            sx={{
-                                display: 'block',
-                                color: cfg.titleColor,
-                                fontWeight: 700,
-                                fontSize: '0.8rem',
-                                lineHeight: 1.3,
-                                mb: 0.3,
-                                letterSpacing: '0.01em',
-                            }}
-                        >
+                        <Typography sx={{ display: 'block', color: cfg.titleColor, fontWeight: 700, fontSize: '0.8rem', lineHeight: 1.3, mb: 0.3 }}>
                             {notif.title}
                         </Typography>
                     )}
-                    <Typography
-                        sx={{
-                            color: 'rgba(255,255,255,0.9)',
-                            fontWeight: 500,
-                            fontSize: '0.82rem',
-                            lineHeight: 1.5,
-                            wordBreak: 'break-word',
-                        }}
-                    >
+                    <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontSize: '0.82rem', lineHeight: 1.5, wordBreak: 'break-word' }}>
                         {notif.message}
                     </Typography>
-
-                    {/* Action */}
                     {notif.action && (
-                        <Box
-                            component="button"
-                            onClick={() => { notif.action!.onClick(); dismiss(); }}
+                        <Box component="button" onClick={() => { notif.action!.onClick(); dismiss(); }}
                             sx={{
-                                mt: 1,
-                                px: 1.5,
-                                py: 0.4,
-                                borderRadius: 1.5,
+                                mt: 1, px: 1.5, py: 0.4, borderRadius: 1.5,
                                 border: `1px solid ${alpha(cfg.border, 0.55)}`,
-                                bgcolor: alpha(cfg.border, 0.18),
-                                color: cfg.titleColor,
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                                transition: 'all 0.18s',
-                                display: 'inline-block',
-                                lineHeight: '1.4',
-                                '&:hover': {
-                                    bgcolor: alpha(cfg.border, 0.35),
-                                    borderColor: cfg.border,
-                                    transform: 'translateY(-1px)',
-                                },
-                                '&:active': { transform: 'translateY(0)' },
+                                bgcolor: alpha(cfg.border, 0.18), color: cfg.titleColor,
+                                fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                                fontFamily: 'inherit', display: 'inline-block',
+                                '&:hover': { bgcolor: alpha(cfg.border, 0.35) },
                             }}
                         >
                             {notif.action.label}
                         </Box>
                     )}
                 </Box>
-
-                {/* Close */}
-                <IconButton
-                    size="small"
-                    onClick={dismiss}
+                <IconButton size="small" onClick={dismiss}
                     sx={{
-                        color: 'rgba(255,255,255,0.45)',
-                        width: 22,
-                        height: 22,
-                        flexShrink: 0,
-                        mt: '-2px',
-                        mr: '-2px',
-                        transition: 'all 0.18s',
-                        '&:hover': {
-                            color: '#fff',
-                            bgcolor: 'rgba(255,255,255,0.12)',
-                            transform: 'scale(1.1)',
-                        },
+                        color: 'rgba(255,255,255,0.45)', width: 22, height: 22,
+                        flexShrink: 0, mt: '-2px', mr: '-2px',
+                        '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
                     }}
                 >
                     <CloseIcon sx={{ fontSize: 13 }} />
                 </IconButton>
             </Box>
-
-            {/* Progress bar */}
             {hasDuration && (
                 <Box sx={{ px: 1.75, pb: '10px' }}>
-                    <Box
-                        sx={{
-                            height: 2.5,
-                            borderRadius: 2,
-                            bgcolor: 'rgba(255,255,255,0.1)',
-                            overflow: 'hidden',
-                        }}
-                    >
-                        <Box
-                            sx={{
-                                height: '100%',
-                                width: `${progress}%`,
-                                bgcolor: cfg.progressColor,
-                                borderRadius: 2,
-                                boxShadow: `0 0 8px ${cfg.progressColor}`,
-                                transition: isPaused ? 'none' : 'width 0.08s linear',
-                            }}
-                        />
+                    <Box sx={{ height: 2.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                        <Box sx={{
+                            height: '100%', width: `${progress}%`, bgcolor: cfg.progressColor,
+                            borderRadius: 2, boxShadow: `0 0 8px ${cfg.progressColor}`,
+                            transition: isPaused ? 'none' : 'width 0.08s linear',
+                        }} />
                     </Box>
                 </Box>
             )}

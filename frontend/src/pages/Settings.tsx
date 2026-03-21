@@ -1,350 +1,496 @@
 import { useState } from 'react';
 import {
-    Typography,
-    Box,
-    Paper,
-    Tabs,
-    Tab,
-    TextField,
-    Button,
-    Divider,
-    Switch,
-    Grid,
-    Stack,
-    Avatar,
-    Alert,
-    Tooltip
+    Typography, Box, TextField, Switch, Stack, Avatar,
+    useTheme, alpha, Tooltip, Divider, Paper, IconButton,
 } from '@mui/material';
 import {
     Security as SecurityIcon,
     Palette as PaletteIcon,
     Storage as StorageIcon,
     Info as InfoIcon,
-    Save as SaveIcon,
-    WhatsApp as WhatsAppIcon,
     Person as PersonIcon,
     Download as DownloadIcon,
     Upload as UploadIcon,
-    CheckCircle as CheckCircleIcon
+    CheckCircle as CheckCircleIcon,
+    WhatsApp as WhatsAppIcon,
+    Save as SaveIcon,
+    Lock as LockIcon,
+    DeleteForever as DeleteIcon,
+    Brightness4 as DarkIcon,
+    Brightness7 as LightIcon,
+    TextFields as FontIcon,
+    Warning as WarningIcon,
+    GitHub as GitHubIcon,
 } from '@mui/icons-material';
+import { CustomButton } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
-import { CustomCard } from '../components/Common';
+import { useNotification } from '../contexts/NotificationContext';
 
-interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
+/* ── Section type ── */
+type SectionKey = 'profile' | 'appearance' | 'data' | 'security' | 'about';
+
+interface NavItem {
+    key: SectionKey;
+    label: string;
+    icon: React.ReactNode;
+    color: string;
 }
 
-function TabPanel(props: TabPanelProps) {
-    const { children, value, index, ...other } = props;
+const NAV_ITEMS: NavItem[] = [
+    { key: 'profile', label: 'الملف الشخصي', icon: <PersonIcon />, color: '#4F46E5' },
+    { key: 'appearance', label: 'المظهر', icon: <PaletteIcon />, color: '#8B5CF6' },
+    { key: 'data', label: 'البيانات', icon: <StorageIcon />, color: '#10B981' },
+    { key: 'security', label: 'الأمان', icon: <SecurityIcon />, color: '#EF4444' },
+    { key: 'about', label: 'حول البرنامج', icon: <InfoIcon />, color: '#F59E0B' },
+];
 
-    return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`settings-tabpanel-${index}`}
-            aria-labelledby={`settings-tab-${index}`}
-            {...other}
-        >
-            {value === index && (
-                <Box sx={{ p: 3 }}>
-                    {children}
-                </Box>
-            )}
-        </div>
-    );
-}
-
+/* ────────────────────────────────────────── */
 export default function Settings() {
-    const [value, setValue] = useState(0);
-    const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+    const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
     const { mode, toggleMode, primaryColor, setPrimaryColor, fontSize, setFontSize } = useAppTheme();
-    const [username, setUsername] = useState('المسؤول');
+    const { showNotification } = useNotification();
 
-    const handleChange = (_: React.SyntheticEvent, newValue: number) => {
-        setValue(newValue);
+    const [activeSection, setActiveSection] = useState<SectionKey>('profile');
+    const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+    const [username, setUsername] = useState('المسؤول');
+    const [email] = useState('admin@hanouti.com');
+    const [deleteConfirm, setDeleteConfirm] = useState('');
+
+    const handleSaveProfile = () => {
+        showNotification('تم حفظ بيانات الملف الشخصي', 'success', { title: 'تم الحفظ' });
     };
 
     const handleBackup = () => {
-        // Mock backup download
-        const data = JSON.stringify({ date: new Date(), app: 'Hanouti', version: '1.0' }, null, 2);
+        const data = JSON.stringify({ date: new Date(), app: 'Hanouti', version: '1.0.0' }, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `hanouti_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
+        showNotification('تم تصدير النسخة الاحتياطية', 'success');
     };
 
+    const activeNav = NAV_ITEMS.find(n => n.key === activeSection)!;
+
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
-            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" sx={{ mb: 4 }}>
-                الإعدادات
-            </Typography>
+        <Box sx={{ display: 'flex', gap: 3, minHeight: 'calc(100vh - 120px)', alignItems: 'flex-start' }}>
 
-            <Paper sx={{ width: '100%', borderRadius: 4, overflow: 'hidden', boxShadow: 3 }}>
-                <Tabs
-                    value={value}
-                    onChange={handleChange}
-                    indicatorColor="primary"
-                    textColor="primary"
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{
-                        bgcolor: 'background.default',
-                        '& .MuiTab-root': {
-                            minHeight: 64,
-                            fontSize: '1rem',
-                            fontWeight: 600
-                        }
-                    }}
-                >
-                    <Tab icon={<PersonIcon sx={{ mb: 0.5 }} />} label="عام" />
-                    <Tab icon={<PaletteIcon sx={{ mb: 0.5 }} />} label="المظهر" />
-                    <Tab icon={<StorageIcon sx={{ mb: 0.5 }} />} label="البيانات" />
-                    <Tab icon={<SecurityIcon sx={{ mb: 0.5 }} />} label="الأمان" />
-                    <Tab icon={<InfoIcon sx={{ mb: 0.5 }} />} label="حول" />
-                </Tabs>
+            {/* ── Sidebar Navigation ── */}
+            <Paper
+                elevation={0}
+                sx={{
+                    width: 240, flexShrink: 0, borderRadius: 3,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+                    overflow: 'hidden', position: 'sticky', top: 20,
+                }}
+            >
+                {/* Sidebar header */}
+                <Box sx={{
+                    p: 2.5,
+                    background: isLight
+                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.secondary.main, 0.04)})`
+                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.14)}, ${alpha(theme.palette.secondary.main, 0.08)})`,
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                }}>
+                    <Typography variant="subtitle1" fontWeight={800} color="primary.main">
+                        الإعدادات
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        تخصيص برنامج حانوتي
+                    </Typography>
+                </Box>
 
-                <Divider />
-
-                {/* General Settings (Profile) */}
-                <TabPanel value={value} index={0}>
-                    <Typography variant="h6" gutterBottom fontWeight="bold">الملف الشخصي</Typography>
-                    <Grid container spacing={4} alignItems="center">
-                        <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: 'center' }}>
-                            <Avatar
+                {/* Nav items */}
+                <Box sx={{ p: 1 }}>
+                    {NAV_ITEMS.map((item) => {
+                        const isActive = activeSection === item.key;
+                        return (
+                            <Box
+                                key={item.key}
+                                onClick={() => setActiveSection(item.key)}
                                 sx={{
-                                    width: 120,
-                                    height: 120,
-                                    margin: '0 auto',
-                                    bgcolor: 'primary.main',
-                                    fontSize: '3rem',
-                                    boxShadow: 4
+                                    display: 'flex', alignItems: 'center', gap: 1.5,
+                                    px: 2, py: 1.4, borderRadius: 2, mb: 0.5,
+                                    cursor: 'pointer', transition: 'all 0.2s',
+                                    bgcolor: isActive ? alpha(item.color, isLight ? 0.1 : 0.15) : 'transparent',
+                                    color: isActive ? item.color : 'text.secondary',
+                                    border: `1px solid ${isActive ? alpha(item.color, 0.25) : 'transparent'}`,
+                                    '&:hover': {
+                                        bgcolor: alpha(item.color, 0.07),
+                                        color: item.color,
+                                    },
                                 }}
                             >
-                                {username.charAt(0)}
-                            </Avatar>
-                            <Button variant="outlined" size="small" sx={{ mt: 2, borderRadius: 4 }}>
-                                تغيير الصورة
-                            </Button>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 8 }}>
-                            <Stack spacing={3}>
-                                <TextField
-                                    fullWidth
-                                    label="اسم المستخدم"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    variant="outlined"
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="البريد الإلكتروني"
-                                    defaultValue="admin@hanouti.com"
-                                    disabled
-                                    variant="outlined"
-                                />
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Button variant="contained" startIcon={<SaveIcon />} size="large" sx={{ borderRadius: 2 }}>
-                                        حفظ التغييرات
-                                    </Button>
+                                <Box sx={{ color: 'inherit', display: 'flex', fontSize: 20 }}>
+                                    {item.icon}
                                 </Box>
-                            </Stack>
-                        </Grid>
-                    </Grid>
-                </TabPanel>
-
-                {/* Appearance Settings */}
-                <TabPanel value={value} index={1}>
-                    <Typography variant="h6" gutterBottom fontWeight="bold">تخصيص المظهر</Typography>
-
-                    <Grid container spacing={4}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <CustomCard sx={{ height: '100%', p: 3 }}>
-                                <Typography variant="h6" gutterBottom fontWeight="bold">الوضع</Typography>
-                                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                    <Typography>الوضع الليلي</Typography>
-                                    <Switch checked={mode === 'dark'} onChange={toggleMode} />
-                                </Stack>
-                            </CustomCard>
-                        </Grid>
-
-                        <Grid size={{ xs: 12, md: 6 }}>
-                            <CustomCard sx={{ height: '100%', p: 3 }}>
-                                <Typography variant="h6" gutterBottom fontWeight="bold">حجم الخط</Typography>
-                                <Stack direction="row" spacing={2} justifyContent="center">
-                                    <Button
-                                        variant={fontSize === 'small' ? 'contained' : 'outlined'}
-                                        onClick={() => setFontSize('small')}
-                                    >
-                                        صغير
-                                    </Button>
-                                    <Button
-                                        variant={fontSize === 'medium' ? 'contained' : 'outlined'}
-                                        onClick={() => setFontSize('medium')}
-                                    >
-                                        متوسط
-                                    </Button>
-                                    <Button
-                                        variant={fontSize === 'large' ? 'contained' : 'outlined'}
-                                        onClick={() => setFontSize('large')}
-                                    >
-                                        كبير
-                                    </Button>
-                                </Stack>
-                            </CustomCard>
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                            <CustomCard sx={{ p: 3 }}>
-                                <Typography variant="h6" gutterBottom fontWeight="bold">لون السمة الرئيسي</Typography>
-                                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                                    {Object.entries(COLOR_PRESETS).map(([name, color]) => (
-                                        <Tooltip key={name} title={name}>
-                                            <Box
-                                                onClick={() => setPrimaryColor(color)}
-                                                sx={{
-                                                    width: 60,
-                                                    height: 60,
-                                                    borderRadius: '50%',
-                                                    bgcolor: color,
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    border: primaryColor === color ? '4px solid white' : 'none',
-                                                    boxShadow: primaryColor === color ? '0 0 0 2px #000' : 'none',
-                                                    transition: 'transform 0.2s',
-                                                    '&:hover': { transform: 'scale(1.1)' }
-                                                }}
-                                            >
-                                                {primaryColor === color && <CheckCircleIcon sx={{ color: 'white' }} />}
-                                            </Box>
-                                        </Tooltip>
-                                    ))}
-                                </Stack>
-                            </CustomCard>
-                        </Grid>
-                    </Grid>
-                </TabPanel>
-
-                {/* Data Settings */}
-                <TabPanel value={value} index={2}>
-                    <Typography variant="h6" gutterBottom fontWeight="bold">إدارة البيانات</Typography>
-                    <Alert severity="info" sx={{ mb: 3 }}>
-                        قم بتصدير نسخة احتياطية من بياناتك بانتظام للحفاظ عليها من الضياع.
-                    </Alert>
-
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-                        <CustomCard sx={{ flex: 1, textAlign: 'center', p: 3 }}>
-                            <Typography variant="h6" gutterBottom fontWeight="bold">تصدير البيانات</Typography>
-                            <StorageIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-                            <Typography color="text.secondary" paragraph>
-                                تحميل نسخة كاملة من قاعدة البيانات كملف JSON.
-                            </Typography>
-                            <Button
-                                variant="contained"
-                                startIcon={<DownloadIcon />}
-                                fullWidth
-                                onClick={handleBackup}
-                            >
-                                تصدير نسخة احتياطية
-                            </Button>
-                        </CustomCard>
-
-                        <CustomCard sx={{ flex: 1, textAlign: 'center', p: 3 }}>
-                            <Typography variant="h6" gutterBottom fontWeight="bold">استعادة البيانات</Typography>
-                            <UploadIcon sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />
-                            <Typography color="text.secondary" paragraph>
-                                استعادة البيانات من ملف نسخة احتياطية سابق.
-                            </Typography>
-                            <Button variant="outlined" component="label" fullWidth startIcon={<UploadIcon />}>
-                                رفع ملف النسخة الاحتياطية
-                                <input type="file" hidden accept=".json" />
-                            </Button>
-                        </CustomCard>
-                    </Stack>
-                </TabPanel>
-
-                {/* Security Settings */}
-                <TabPanel value={value} index={3}>
-                    <Typography variant="h6" gutterBottom fontWeight="bold">أمان الحساب</Typography>
-                    <Box sx={{ mt: 2 }}>
-                        <Button
-                            variant="outlined"
-                            color="primary"
-                            onClick={() => setOpenPasswordDialog(true)}
-                            size="large"
-                        >
-                            تغيير كلمة المرور
-                        </Button>
-                    </Box>
-
-                    <Divider sx={{ my: 4 }} />
-
-                    <Typography variant="h6" gutterBottom color="error" fontWeight="bold">منطقة الخطر</Typography>
-                    <Paper sx={{ p: 2, border: '1px solid red', bgcolor: 'error.lighter' }}>
-                        <Typography paragraph>
-                            حذف جميع البيانات وإعادة ضبط المصنع. هذا الإجراء لا يمكن التراجع عنه.
-                        </Typography>
-                        <Button variant="contained" color="error">
-                            حذف جميع البيانات
-                        </Button>
-                    </Paper>
-                </TabPanel>
-
-                {/* About */}
-                <TabPanel value={value} index={4}>
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <Avatar
-                            src="/logo.png"
-                            sx={{ width: 100, height: 100, margin: '0 auto 20px', bgcolor: 'primary.main' }}
-                        >
-                            H
-                        </Avatar>
-                        <Typography variant="h4" fontWeight="bold" gutterBottom>
-                            برنامج حانوتي
-                        </Typography>
-                        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                            نظام إدارة المبيعات والمخزون المتكامل
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                            الإصدار 1.0.0
-                        </Typography>
-
-                        <Divider sx={{ my: 4, maxWidth: 400, mx: 'auto' }} />
-
-                        <Typography variant="h6" gutterBottom>
-                            تم التطوير بواسطة
-                        </Typography>
-                        <Typography variant="h5" color="primary" fontWeight="bold" gutterBottom>
-                            خليل قريشي
-                        </Typography>
-
-                        <Box sx={{ mt: 3 }}>
-                            <Button
-                                variant="contained"
-                                color="success"
-                                startIcon={<WhatsAppIcon />}
-                                href="https://wa.me/213663730533"
-                                target="_blank"
-                                size="large"
-                                sx={{ borderRadius: 50, px: 4 }}
-                            >
-                                تواصل عبر واتساب
-                            </Button>
-                        </Box>
-                    </Box>
-                </TabPanel>
+                                <Typography variant="body2" fontWeight={isActive ? 700 : 500} color="inherit">
+                                    {item.label}
+                                </Typography>
+                                {isActive && (
+                                    <Box sx={{ mr: 'auto', width: 4, height: 4, borderRadius: '50%', bgcolor: item.color }} />
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Box>
             </Paper>
 
-            <ChangePasswordDialog
-                open={openPasswordDialog}
-                onClose={() => setOpenPasswordDialog(false)}
-            />
+            {/* ── Main content ── */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+                {/* Section header */}
+                <Box sx={{
+                    display: 'flex', alignItems: 'center', gap: 2, mb: 3,
+                    p: 2.5, borderRadius: 3,
+                    background: isLight
+                        ? `linear-gradient(135deg, ${alpha(activeNav.color, 0.07)}, ${alpha(activeNav.color, 0.03)})`
+                        : `linear-gradient(135deg, ${alpha(activeNav.color, 0.14)}, ${alpha(activeNav.color, 0.06)})`,
+                    border: `1px solid ${alpha(activeNav.color, 0.2)}`,
+                }}>
+                    <Box sx={{
+                        width: 44, height: 44, borderRadius: 2.5,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        bgcolor: alpha(activeNav.color, 0.15), color: activeNav.color,
+                    }}>
+                        {activeNav.icon}
+                    </Box>
+                    <Box>
+                        <Typography variant="h6" fontWeight={800}>{activeNav.label}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {activeSection === 'profile' && 'إدارة بياناتك الشخصية'}
+                            {activeSection === 'appearance' && 'تخصيص مظهر التطبيق'}
+                            {activeSection === 'data' && 'نسخ احتياطي واستعادة البيانات'}
+                            {activeSection === 'security' && 'حماية حسابك'}
+                            {activeSection === 'about' && 'معلومات عن حانوتي'}
+                        </Typography>
+                    </Box>
+                </Box>
+
+                {/* ── Profile ── */}
+                {activeSection === 'profile' && (
+                    <Stack spacing={2.5}>
+                        <SettingsCard title="الصورة الشخصية">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Avatar sx={{ width: 80, height: 80, bgcolor: theme.palette.primary.main, fontSize: '2rem', fontWeight: 700, boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.3)}` }}>
+                                    {username.charAt(0)}
+                                </Avatar>
+                                <Box>
+                                    <Typography variant="subtitle1" fontWeight={700}>{username}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{email}</Typography>
+                                    <Box sx={{ mt: 1 }}>
+                                        <CustomButton variant="outlined" size="small" sx={{ borderRadius: 2, fontSize: '0.78rem' }}>
+                                            تغيير الصورة
+                                        </CustomButton>
+                                    </Box>
+                                </Box>
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="بيانات الحساب">
+                            <Stack spacing={2}>
+                                <TextField fullWidth label="اسم المستخدم" value={username}
+                                    onChange={(e) => setUsername(e.target.value)} variant="outlined" size="small" />
+                                <TextField fullWidth label="البريد الإلكتروني" value={email}
+                                    disabled variant="outlined" size="small"
+                                    helperText="البريد الإلكتروني لا يمكن تغييره" />
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-start', pt: 1 }}>
+                                    <CustomButton variant="contained" startIcon={<SaveIcon />} onClick={handleSaveProfile}>
+                                        حفظ التغييرات
+                                    </CustomButton>
+                                </Box>
+                            </Stack>
+                        </SettingsCard>
+                    </Stack>
+                )}
+
+                {/* ── Appearance ── */}
+                {activeSection === 'appearance' && (
+                    <Stack spacing={2.5}>
+                        <SettingsCard title="وضع العرض" icon={<DarkIcon />}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.08) }}>
+                                        {mode === 'dark' ? <DarkIcon color="primary" /> : <LightIcon color="primary" />}
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" fontWeight={600}>
+                                            {mode === 'dark' ? 'الوضع الليلي' : 'الوضع النهاري'}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {mode === 'dark' ? 'خلفية داكنة مريحة للعين' : 'خلفية فاتحة وواضحة'}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <Switch checked={mode === 'dark'} onChange={toggleMode} color="primary" />
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="حجم الخط" icon={<FontIcon />}>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                {(['small', 'medium', 'large'] as const).map((size) => {
+                                    const labels = { small: 'صغير', medium: 'متوسط', large: 'كبير' };
+                                    const isSelected = fontSize === size;
+                                    return (
+                                        <Box
+                                            key={size}
+                                            onClick={() => setFontSize(size)}
+                                            sx={{
+                                                flex: 1, py: 2, borderRadius: 2.5, cursor: 'pointer',
+                                                border: `2px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.8)}`,
+                                                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.07) : 'transparent',
+                                                textAlign: 'center', transition: 'all 0.2s',
+                                                '&:hover': { borderColor: theme.palette.primary.main, bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                            }}
+                                        >
+                                            <Typography sx={{
+                                                fontSize: size === 'small' ? '0.8rem' : size === 'medium' ? '1rem' : '1.2rem',
+                                                fontWeight: isSelected ? 700 : 400,
+                                                color: isSelected ? 'primary.main' : 'text.secondary',
+                                            }}>
+                                                أ
+                                            </Typography>
+                                            <Typography variant="caption" color={isSelected ? 'primary.main' : 'text.secondary'} fontWeight={isSelected ? 700 : 400}>
+                                                {labels[size]}
+                                            </Typography>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="لون السمة الرئيسي">
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                                {Object.entries(COLOR_PRESETS).map(([name, color]) => (
+                                    <Tooltip key={name} title={name} arrow>
+                                        <Box
+                                            onClick={() => {
+                                                setPrimaryColor(color);
+                                                showNotification(`تم تغيير لون السمة إلى ${name}`, 'success');
+                                            }}
+                                            sx={{
+                                                width: 48, height: 48, borderRadius: '50%', bgcolor: color,
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                border: primaryColor === color ? `3px solid ${isLight ? '#fff' : '#1a1a2e'}` : '3px solid transparent',
+                                                boxShadow: primaryColor === color ? `0 0 0 2.5px ${color}, 0 4px 12px ${alpha(color, 0.45)}` : `0 2px 8px ${alpha(color, 0.3)}`,
+                                                transition: 'all 0.2s',
+                                                '&:hover': { transform: 'scale(1.12)', boxShadow: `0 0 0 2px ${color}, 0 6px 16px ${alpha(color, 0.4)}` },
+                                            }}
+                                        >
+                                            {primaryColor === color && <CheckCircleIcon sx={{ color: '#fff', fontSize: 20 }} />}
+                                        </Box>
+                                    </Tooltip>
+                                ))}
+                            </Box>
+                        </SettingsCard>
+                    </Stack>
+                )}
+
+                {/* ── Data ── */}
+                {activeSection === 'data' && (
+                    <Stack spacing={2.5}>
+                        <Box sx={{
+                            p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5,
+                            bgcolor: isLight ? '#EFF6FF' : alpha('#3B82F6', 0.08),
+                            border: `1px solid ${alpha('#3B82F6', 0.25)}`,
+                        }}>
+                            <InfoIcon sx={{ color: '#3B82F6', fontSize: 20 }} />
+                            <Typography variant="body2" color={isLight ? '#1D4ED8' : '#93C5FD'} fontWeight={500}>
+                                قم بتصدير نسخة احتياطية بانتظام لحماية بياناتك من الضياع
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                            <SettingsCard title="تصدير البيانات">
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
+                                    <Box sx={{ width: 56, height: 56, borderRadius: '50%', bgcolor: alpha('#10B981', 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <DownloadIcon sx={{ fontSize: 28, color: '#10B981' }} />
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary" textAlign="center">
+                                        تحميل نسخة كاملة من قاعدة البيانات كملف JSON
+                                    </Typography>
+                                    <CustomButton variant="contained" startIcon={<DownloadIcon />} fullWidth onClick={handleBackup}
+                                        sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}>
+                                        تصدير نسخة احتياطية
+                                    </CustomButton>
+                                </Box>
+                            </SettingsCard>
+
+                            <SettingsCard title="استعادة البيانات">
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
+                                    <Box sx={{ width: 56, height: 56, borderRadius: '50%', bgcolor: alpha('#8B5CF6', 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <UploadIcon sx={{ fontSize: 28, color: '#8B5CF6' }} />
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary" textAlign="center">
+                                        استعادة البيانات من ملف نسخة احتياطية سابق
+                                    </Typography>
+                                    <CustomButton variant="outlined" component="label" fullWidth startIcon={<UploadIcon />}
+                                        sx={{ borderColor: '#8B5CF6', color: '#8B5CF6', '&:hover': { borderColor: '#7C3AED', bgcolor: alpha('#8B5CF6', 0.05) } }}>
+                                        رفع ملف النسخة
+                                        <input type="file" hidden accept=".json" />
+                                    </CustomButton>
+                                </Box>
+                            </SettingsCard>
+                        </Box>
+                    </Stack>
+                )}
+
+                {/* ── Security ── */}
+                {activeSection === 'security' && (
+                    <Stack spacing={2.5}>
+                        <SettingsCard title="كلمة المرور" icon={<LockIcon />}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box>
+                                    <Typography variant="body2" fontWeight={600}>تغيير كلمة المرور</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        يُنصح بتغييرها بانتظام لحماية حسابك
+                                    </Typography>
+                                </Box>
+                                <CustomButton variant="outlined" startIcon={<LockIcon />}
+                                    onClick={() => setOpenPasswordDialog(true)}>
+                                    تغيير
+                                </CustomButton>
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="معلومات الجلسة" icon={<SecurityIcon />}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                {[
+                                    { label: 'آخر دخول', value: 'اليوم، 7:00 م' },
+                                    { label: 'الجهاز', value: 'متصفح الويب' },
+                                    { label: 'الحالة', value: 'نشط' },
+                                ].map(row => (
+                                    <Box key={row.label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
+                                        <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+                                        <Typography variant="body2" fontWeight={600}>{row.value}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </SettingsCard>
+
+                        {/* Danger Zone */}
+                        <Box sx={{
+                            borderRadius: 3, overflow: 'hidden',
+                            border: `1px solid ${alpha('#EF4444', 0.35)}`,
+                        }}>
+                            <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, bgcolor: alpha('#EF4444', 0.07), borderBottom: `1px solid ${alpha('#EF4444', 0.2)}` }}>
+                                <WarningIcon sx={{ color: '#EF4444', fontSize: 18 }} />
+                                <Typography variant="subtitle2" fontWeight={700} color="error">منطقة الخطر</Typography>
+                            </Box>
+                            <Box sx={{ p: 2.5 }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    حذف جميع البيانات وإعادة ضبط المصنع. هذا الإجراء لا يمكن التراجع عنه نهائياً.
+                                </Typography>
+                                <TextField
+                                    fullWidth size="small" placeholder='اكتب "حذف" للتأكيد'
+                                    value={deleteConfirm}
+                                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                                    sx={{ mb: 1.5 }}
+                                />
+                                <CustomButton
+                                    variant="contained" startIcon={<DeleteIcon />} color="error"
+                                    disabled={deleteConfirm !== 'حذف'}
+                                    onClick={() => showNotification('هذه الميزة غير مفعّلة في هذا الإصدار', 'warning')}
+                                >
+                                    حذف جميع البيانات
+                                </CustomButton>
+                            </Box>
+                        </Box>
+                    </Stack>
+                )}
+
+                {/* ── About ── */}
+                {activeSection === 'about' && (
+                    <Stack spacing={2.5}>
+                        <Box sx={{
+                            p: 4, borderRadius: 3, textAlign: 'center',
+                            background: isLight
+                                ? `linear-gradient(135deg, ${alpha('#4F46E5', 0.05)}, ${alpha('#8B5CF6', 0.03)})`
+                                : `linear-gradient(135deg, ${alpha('#4F46E5', 0.12)}, ${alpha('#8B5CF6', 0.08)})`,
+                            border: `1px solid ${alpha('#4F46E5', 0.15)}`,
+                        }}>
+                            <Avatar sx={{
+                                width: 80, height: 80, margin: '0 auto',
+                                bgcolor: theme.palette.primary.main, fontSize: '2rem', fontWeight: 800,
+                                boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.35)}`,
+                                mb: 2,
+                            }}>ح</Avatar>
+                            <Typography variant="h5" fontWeight={800} gutterBottom
+                                sx={{
+                                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                                }}>
+                                برنامج حانوتي
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                نظام إدارة المبيعات والمخزون المتكامل
+                            </Typography>
+                            <Box sx={{ mt: 1.5, display: 'inline-block', px: 2, py: 0.6, borderRadius: 10, bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                                <Typography variant="caption" fontWeight={700} color="primary.main">الإصدار 1.0.0</Typography>
+                            </Box>
+                        </Box>
+
+                        <SettingsCard title="المطوّر">
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: alpha('#10B981', 0.15), color: '#10B981', fontWeight: 700 }}>خ</Avatar>
+                                    <Box>
+                                        <Typography variant="subtitle2" fontWeight={700}>خليل قريشي</Typography>
+                                        <Typography variant="caption" color="text.secondary">مطوّر البرنامج</Typography>
+                                    </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <IconButton
+                                        component="a" href="https://wa.me/213663730533" target="_blank"
+                                        sx={{ bgcolor: alpha('#25D366', 0.1), color: '#25D366', '&:hover': { bgcolor: alpha('#25D366', 0.18) } }}
+                                    >
+                                        <WhatsAppIcon />
+                                    </IconButton>
+                                    <IconButton
+                                        sx={{ bgcolor: alpha(theme.palette.text.primary, 0.06), color: 'text.primary', '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.12) } }}
+                                    >
+                                        <GitHubIcon />
+                                    </IconButton>
+                                </Box>
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="التقنيات المستخدمة">
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {['React 19', 'TypeScript', 'FastAPI', 'SQLite', 'Material UI v7', 'Vite', 'TanStack Query', 'Zustand'].map(tech => (
+                                    <Box key={tech} sx={{
+                                        px: 1.5, py: 0.5, borderRadius: 2,
+                                        bgcolor: alpha(theme.palette.primary.main, 0.07),
+                                        border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+                                    }}>
+                                        <Typography variant="caption" fontWeight={600} color="primary.main">{tech}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </SettingsCard>
+                    </Stack>
+                )}
+            </Box>
+
+            <ChangePasswordDialog open={openPasswordDialog} onClose={() => setOpenPasswordDialog(false)} />
         </Box>
+    );
+}
+
+/* ── Reusable card wrapper ── */
+function SettingsCard({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+    const theme = useTheme();
+    return (
+        <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.7)}`, overflow: 'hidden' }}>
+            <Box sx={{ px: 2.5, py: 1.5, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`, display: 'flex', alignItems: 'center', gap: 1 }}>
+                {icon && <Box sx={{ color: 'text.secondary', display: 'flex', fontSize: 18 }}>{icon}</Box>}
+                <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
+            </Box>
+            <Box sx={{ p: 2.5 }}>
+                {children}
+            </Box>
+        </Paper>
     );
 }
