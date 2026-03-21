@@ -192,7 +192,7 @@ function QuickActionCard({
                     >
                         {icon}
                     </Box>
-                    <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                    <Box sx={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
                         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.3 }}>
                             {title}
                         </Typography>
@@ -487,7 +487,7 @@ export default function Dashboard() {
                                                 >
                                                     {index + 1}
                                                 </Avatar>
-                                                <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                                                <Box sx={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
                                                     <Typography
                                                         variant="body2"
                                                         fontWeight={600}

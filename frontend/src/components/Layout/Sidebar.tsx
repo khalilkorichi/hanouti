@@ -56,6 +56,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
 
     return (
         <Box
+            dir="rtl"
             sx={{
                 height: '100%',
                 display: 'flex',
@@ -63,7 +64,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                 overflow: 'hidden',
             }}
         >
-            {/* Logo */}
+            {/* الشعار — محاذاة لليمين في RTL */}
             <Box
                 sx={{
                     px: collapsed ? 1 : 3,
@@ -71,7 +72,8 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.5,
-                    justifyContent: collapsed ? 'center' : 'flex-end',
+                    /* flex-start في RTL = يمين الصفحة ✓ */
+                    justifyContent: collapsed ? 'center' : 'flex-start',
                     minHeight: 70,
                 }}
             >
@@ -91,7 +93,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                     <StoreIcon sx={{ color: 'white', fontSize: 22 }} />
                 </Box>
                 {!collapsed && (
-                    <Box sx={{ textAlign: 'right' }}>
+                    <Box sx={{ textAlign: 'start' }}>
                         <Typography
                             variant="h6"
                             fontWeight={800}
@@ -114,7 +116,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
 
             <Divider sx={{ borderColor: alpha(theme.palette.divider, 0.6) }} />
 
-            {/* Navigation */}
+            {/* التنقل */}
             <Box sx={{ flex: 1, overflow: 'auto', px: collapsed ? 1 : 2, py: 2 }}>
                 {!collapsed && (
                     <Typography
@@ -128,27 +130,34 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                             textTransform: 'uppercase',
                             letterSpacing: '0.06em',
                             fontSize: '0.65rem',
+                            textAlign: 'start',
                         }}
                     >
                         القائمة الرئيسية
                     </Typography>
                 )}
+
                 <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     {menuItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         return (
                             <ListItem key={item.text} disablePadding>
-                                <Tooltip title={collapsed ? item.text : ''} placement="left" arrow>
+                                <Tooltip
+                                    title={collapsed ? item.text : ''}
+                                    placement="left"
+                                    arrow
+                                >
                                     <ListItemButton
                                         onClick={() => navigate(item.path)}
                                         sx={{
                                             borderRadius: 2,
                                             py: 1.2,
-                                            px: collapsed ? 1.5 : 1.5,
-                                            justifyContent: collapsed ? 'center' : 'flex-end',
+                                            px: 1.5,
                                             minHeight: 46,
                                             transition: 'all 0.2s ease',
                                             position: 'relative',
+                                            /* flex-start في RTL = يمين ✓ (الأيقونة تظهر يميناً والنص يساراً) */
+                                            justifyContent: collapsed ? 'center' : 'flex-start',
                                             ...(isActive
                                                 ? {
                                                     backgroundColor: alpha(item.color, isLight ? 0.1 : 0.15),
@@ -157,6 +166,9 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                                         color: item.color,
                                                         fontWeight: 700,
                                                     },
+                                                    /* مؤشر الصفحة النشطة على الجانب الأيسر
+                                                       (الجهة المواجهة للمحتوى الرئيسي) —
+                                                       سيُعكس تلقائياً بإضافة RTL plugin  */
                                                     '&::before': {
                                                         content: '""',
                                                         position: 'absolute',
@@ -176,17 +188,20 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                                 }),
                                         }}
                                     >
+                                        {/* الأيقونة — تظهر أولاً وهو يمين في RTL flex-start */}
                                         <ListItemIcon
                                             sx={{
                                                 minWidth: collapsed ? 'auto' : 36,
                                                 color: isActive ? item.color : 'text.secondary',
                                                 transition: 'color 0.2s',
                                                 justifyContent: 'center',
-                                                ...(collapsed ? {} : { mr: 1.5 }),
+                                                flexShrink: 0,
                                             }}
                                         >
                                             {item.icon}
                                         </ListItemIcon>
+
+                                        {/* النص — يظهر بعد الأيقونة، أي يساراً في RTL */}
                                         {!collapsed && (
                                             <ListItemText
                                                 primary={item.text}
@@ -194,7 +209,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                                     fontSize: '0.9rem',
                                                     fontWeight: isActive ? 700 : 500,
                                                     fontFamily: '"Cairo", sans-serif',
-                                                    textAlign: 'right',
+                                                    textAlign: 'start',
                                                 }}
                                                 sx={{ m: 0 }}
                                             />
@@ -207,7 +222,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                 </List>
             </Box>
 
-            {/* Footer */}
+            {/* تسجيل الخروج */}
             <Box sx={{ px: collapsed ? 1 : 2, pb: 2 }}>
                 <Divider sx={{ borderColor: alpha(theme.palette.divider, 0.6), mb: 2 }} />
                 <Tooltip title={collapsed ? 'تسجيل الخروج' : ''} placement="left" arrow>
@@ -217,7 +232,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                             borderRadius: 2,
                             py: 1.2,
                             px: 1.5,
-                            justifyContent: collapsed ? 'center' : 'flex-end',
+                            justifyContent: collapsed ? 'center' : 'flex-start',
                             color: theme.palette.error.main,
                             transition: 'all 0.2s',
                             '&:hover': {
@@ -230,7 +245,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                 minWidth: collapsed ? 'auto' : 36,
                                 color: 'inherit',
                                 justifyContent: 'center',
-                                ...(collapsed ? {} : { mr: 1.5 }),
+                                flexShrink: 0,
                             }}
                         >
                             <LogoutIcon />
@@ -242,7 +257,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                     fontSize: '0.9rem',
                                     fontWeight: 600,
                                     fontFamily: '"Cairo", sans-serif',
-                                    textAlign: 'right',
+                                    textAlign: 'start',
                                 }}
                                 sx={{ m: 0 }}
                             />
@@ -261,12 +276,10 @@ export default function Sidebar({ open, onClose, onLogout, variant = 'temporary'
 
     const paperSx = {
         width,
-        boxSizing: 'border-box',
+        boxSizing: 'border-box' as const,
         borderLeft: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
         borderRight: 'none',
-        background: isLight
-            ? '#FFFFFF'
-            : '#151F32',
+        background: isLight ? '#FFFFFF' : '#151F32',
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'hidden',
     };

@@ -99,11 +99,9 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 component="main"
                 sx={{
                     flexGrow: 1,
+                    minWidth: 0,          /* يمنع flex item من تجاوز حده */
                     minHeight: '100vh',
                     backgroundColor: theme.palette.background.default,
-                    transition: 'margin 0.3s cubic-bezier(0.4,0,0.2,1)',
-                    mr: isMobile ? 0 : `${sidebarWidth}px`,
-                    width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
                     overflow: 'auto',
                 }}
             >
