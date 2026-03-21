@@ -47,7 +47,7 @@ export default function SalesList() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
-    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
     const [bulkLoading, setBulkLoading] = useState(false);
     const { showNotification } = useNotification();
@@ -214,7 +214,7 @@ export default function SalesList() {
     };
 
     /* ── Bulk selection helpers ── */
-    const selectedIds = useMemo(() => Array.from(rowSelectionModel as Iterable<number>), [rowSelectionModel]);
+    const selectedIds = useMemo(() => Array.from(rowSelectionModel.ids) as number[], [rowSelectionModel]);
     const selectedSales = useMemo(
         () => (sales || []).filter(s => selectedIds.includes(s.id)),
         [sales, selectedIds]
@@ -251,7 +251,7 @@ export default function SalesList() {
             }
         }
         setBulkLoading(false);
-        setRowSelectionModel([]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
         setGridKey(k => k + 1);
         queryClient.invalidateQueries({ queryKey: ['sales-list'] });
         queryClient.invalidateQueries({ queryKey: ['sales-kpis'] });
@@ -628,7 +628,7 @@ export default function SalesList() {
             {/* ── Bulk Actions Bar ── */}
             <BulkActionsBar
                 count={selectedIds.length}
-                onClear={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}
+                onClear={() => { setRowSelectionModel({ type: 'include', ids: new Set() }); setGridKey(k => k + 1); }}
                 minCount={2}
             >
                 <Button size="small" startIcon={<BulkCancelIcon />} color="warning" variant="outlined"

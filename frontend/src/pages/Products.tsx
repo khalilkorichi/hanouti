@@ -35,7 +35,7 @@ export default function Products() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
-    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
     const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -84,7 +84,7 @@ export default function Products() {
     };
 
     /* ── Bulk actions ── */
-    const selectedIds = useMemo(() => Array.from(rowSelectionModel as Iterable<number>), [rowSelectionModel]);
+    const selectedIds = useMemo(() => Array.from(rowSelectionModel.ids) as number[], [rowSelectionModel]);
     const selectedProducts = useMemo(
         () => (products || []).filter(p => selectedIds.includes(p.id)),
         [products, selectedIds]
@@ -98,7 +98,7 @@ export default function Products() {
             try { await productService.delete(id); success++; } catch { /* ignore */ }
         }
         setBulkLoading(false);
-        setRowSelectionModel([]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
         setGridKey(k => k + 1);
         queryClient.invalidateQueries({ queryKey: ['products'] });
         queryClient.invalidateQueries({ queryKey: ['products-count'] });
@@ -293,7 +293,7 @@ export default function Products() {
             {/* ── Bulk Actions Bar ── */}
             <BulkActionsBar
                 count={selectedIds.length}
-                onClear={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}
+                onClear={() => { setRowSelectionModel({ type: 'include', ids: new Set() }); setGridKey(k => k + 1); }}
                 minCount={2}
             >
                 <Button size="small" startIcon={<BulkDeleteIcon />} color="error" variant="outlined"

@@ -358,7 +358,7 @@ export default function Inventory() {
     const [editForm, setEditForm] = useState({ stock_qty: 0, purchase_price: 0, sale_price: 0, min_qty: 0 });
 
     /* ── Bulk selection ── */
-    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
     const [showBulkMinQty, setShowBulkMinQty] = useState(false);
@@ -442,7 +442,7 @@ export default function Inventory() {
     };
 
     /* ── Bulk actions ── */
-    const selectedIds = useMemo(() => Array.from(rowSelectionModel as Iterable<number>), [rowSelectionModel]);
+    const selectedIds = useMemo(() => Array.from(rowSelectionModel.ids) as number[], [rowSelectionModel]);
 
     const selectedRows = useMemo(
         () => (filteredRows || []).filter(p => selectedIds.includes(p.id)),
@@ -458,7 +458,7 @@ export default function Inventory() {
         }
         setBulkLoading(false);
         setShowBulkDeleteConfirm(false);
-        setRowSelectionModel([]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
         setGridKey(k => k + 1);
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
         queryClient.invalidateQueries({ queryKey: ['inventory-all-stats'] });
@@ -480,7 +480,7 @@ export default function Inventory() {
             } catch { /* ignore */ }
         }
         setBulkLoading(false);
-        setRowSelectionModel([]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
         setGridKey(k => k + 1);
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
         queryClient.invalidateQueries({ queryKey: ['inventory-all-stats'] });
@@ -498,7 +498,7 @@ export default function Inventory() {
         }
         setBulkLoading(false);
         setShowBulkMinQty(false);
-        setRowSelectionModel([]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
         setGridKey(k => k + 1);
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
         showNotification(`تم تحديث الحد الأدنى لـ ${success} منتج`, 'success');
@@ -659,7 +659,7 @@ export default function Inventory() {
             {/* ── Bulk Actions Bar ── */}
             <BulkActionsBar
                 count={selectedIds.length}
-                onClear={() => { setRowSelectionModel([]); setGridKey(k => k + 1); }}
+                onClear={() => { setRowSelectionModel({ type: 'include', ids: new Set() }); setGridKey(k => k + 1); }}
                 minCount={2}
             >
                 <Button size="small" startIcon={<DeleteIcon />} color="error" variant="outlined"
@@ -773,7 +773,7 @@ export default function Inventory() {
                             loading={bulkLoading}
                             onClick={handleBulkDelete}
                         >
-                            حذف {rowSelectionModel.length} منتج
+                            حذف {selectedIds.length} منتج
                         </CustomButton>
                     </>
                 }
@@ -786,7 +786,7 @@ export default function Inventory() {
                         <Box>
                             <Typography fontWeight={700}>هل أنت متأكد؟</Typography>
                             <Typography variant="body2" color="text.secondary">
-                                سيتم حذف <strong>{rowSelectionModel.length}</strong> منتج نهائياً ولا يمكن التراجع عن هذا الإجراء.
+                                سيتم حذف <strong>{selectedIds.length}</strong> منتج نهائياً ولا يمكن التراجع عن هذا الإجراء.
                             </Typography>
                         </Box>
                     </Box>
@@ -816,14 +816,14 @@ export default function Inventory() {
                             loading={bulkLoading}
                             onClick={handleBulkSetMinQty}
                         >
-                            تطبيق على {rowSelectionModel.length} منتج
+                            تطبيق على {selectedIds.length} منتج
                         </CustomButton>
                     </>
                 }
             >
                 <Box dir="rtl" sx={{ pt: 1 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        سيتم تطبيق الحد الأدنى الجديد على جميع المنتجات المحددة ({rowSelectionModel.length} منتج).
+                        سيتم تطبيق الحد الأدنى الجديد على جميع المنتجات المحددة ({selectedIds.length} منتج).
                     </Typography>
                     <TextField
                         label="الحد الأدنى للكمية"
