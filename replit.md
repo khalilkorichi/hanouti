@@ -23,7 +23,7 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
   src/
     contexts/
       ThemeContext.tsx  - MUI theme: modern color system, Cairo font, rich shadows
-      NotificationContext.tsx
+      NotificationContext.tsx  - Multi-notification queue system: up to 5 simultaneous toasts, progress bar, hover-to-pause, slide animation, action buttons
     components/Layout/
       MainLayout.tsx  - Persistent sidebar (desktop) + temporary drawer (mobile)
       Header.tsx      - Glassmorphism header with page title, theme toggle, user avatar
