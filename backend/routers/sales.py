@@ -70,6 +70,14 @@ def get_sales_kpis(
     """Get sales KPIs for a period"""
     return crud.get_sales_kpis(db, from_date=from_date, to_date=to_date)
 
+@router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_sale(sale_id: int, db: Session = Depends(database.get_db)):
+    """Permanently delete a sale and all its items"""
+    success = crud.delete_sale(db, sale_id=sale_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    return None
+
 @router.get("/{sale_id}", response_model=schemas.Sale)
 def get_sale(sale_id: int, db: Session = Depends(database.get_db)):
     """Get sale details"""

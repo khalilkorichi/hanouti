@@ -28,9 +28,11 @@ import {
     CheckCircle as CheckCircleIcon,
     FileDownloadOutlined as ExportCsvIcon,
     CancelOutlined as BulkCancelIcon,
+    DeleteOutlineOutlined as DeleteIcon,
+    DeleteForeverOutlined as HardDeleteIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
+import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
@@ -47,6 +49,8 @@ export default function SalesList() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
     const apiRef = useGridApiRef();
     const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
@@ -196,6 +200,21 @@ export default function SalesList() {
         }
     });
 
+    // Delete sale mutation
+    const deleteSaleMutation = useMutation({
+        mutationFn: (id: number) => salesService.delete(id),
+        onSuccess: () => {
+            showNotification('تم حذف الفاتورة نهائياً', 'success');
+            setShowDeleteModal(false);
+            setSaleToDelete(null);
+            queryClient.invalidateQueries({ queryKey: ['sales-list'] });
+            queryClient.invalidateQueries({ queryKey: ['sales-kpis'] });
+        },
+        onError: () => {
+            showNotification('فشل حذف الفاتورة', 'error');
+        }
+    });
+
     const handleViewDetails = (sale: Sale) => {
         setSelectedSale(sale);
         setShowDetailsModal(true);
@@ -204,6 +223,11 @@ export default function SalesList() {
     const handleCancelSale = (sale: Sale) => {
         setSelectedSale(sale);
         setShowCancelModal(true);
+    };
+
+    const handleDeleteSale = (sale: Sale) => {
+        setSaleToDelete(sale);
+        setShowDeleteModal(true);
     };
 
     const confirmCancel = () => {
@@ -329,27 +353,44 @@ export default function SalesList() {
         {
             field: 'actions',
             headerName: 'الإجراءات',
-            width: 150,
+            width: 170,
             sortable: false,
             renderCell: (params) => (
-                <Stack direction="row" spacing={1}>
-                    <Tooltip title="عرض التفاصيل">
-                        <IconButton size="small" onClick={() => handleViewDetails(params.row)}>
-                            <ViewIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="طباعة">
-                        <IconButton size="small" color="primary">
-                            <PrintIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+                <Stack direction="row" spacing={0.5} alignItems="center" height="100%">
+                    <CustomIconButton
+                        variant="primary"
+                        size="small"
+                        tooltip="عرض التفاصيل"
+                        onClick={() => handleViewDetails(params.row)}
+                    >
+                        <ViewIcon sx={{ fontSize: 17 }} />
+                    </CustomIconButton>
+                    <CustomIconButton
+                        variant="info"
+                        size="small"
+                        tooltip="طباعة الفاتورة"
+                        onClick={() => handlePrintInvoice(params.row)}
+                    >
+                        <PrintIcon sx={{ fontSize: 17 }} />
+                    </CustomIconButton>
                     {params.row.status !== 'cancelled' && (
-                        <Tooltip title="إلغاء">
-                            <IconButton size="small" color="error" onClick={() => handleCancelSale(params.row)}>
-                                <CancelIcon fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
+                        <CustomIconButton
+                            variant="warning"
+                            size="small"
+                            tooltip="إلغاء الفاتورة"
+                            onClick={() => handleCancelSale(params.row)}
+                        >
+                            <CancelIcon sx={{ fontSize: 17 }} />
+                        </CustomIconButton>
                     )}
+                    <CustomIconButton
+                        variant="error"
+                        size="small"
+                        tooltip="حذف الفاتورة نهائياً"
+                        onClick={() => handleDeleteSale(params.row)}
+                    >
+                        <DeleteIcon sx={{ fontSize: 17 }} />
+                    </CustomIconButton>
                 </Stack>
             )
         }
@@ -750,6 +791,44 @@ export default function SalesList() {
                         sx={{ mt: 2 }}
                         required
                     />
+                </Box>
+            </UnifiedModal>
+
+            {/* ── Delete Confirmation Modal ── */}
+            <UnifiedModal
+                open={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setSaleToDelete(null); }}
+                title="حذف الفاتورة نهائياً"
+                maxWidth="xs"
+                actions={
+                    <>
+                        <CustomButton variant="outlined" onClick={() => { setShowDeleteModal(false); setSaleToDelete(null); }}>
+                            إلغاء
+                        </CustomButton>
+                        <CustomButton
+                            color="error"
+                            loading={deleteSaleMutation.isPending}
+                            startIcon={<HardDeleteIcon />}
+                            onClick={() => saleToDelete && deleteSaleMutation.mutate(saleToDelete.id)}
+                        >
+                            حذف نهائياً
+                        </CustomButton>
+                    </>
+                }
+            >
+                <Box sx={{ textAlign: 'center', py: 1 }}>
+                    <HardDeleteIcon sx={{ fontSize: 52, color: 'error.main', mb: 1.5, opacity: 0.85 }} />
+                    <Typography variant="body1" fontWeight={700} gutterBottom>
+                        هل أنت متأكد من حذف الفاتورة؟
+                    </Typography>
+                    {saleToDelete && (
+                        <Typography variant="body2" color="text.secondary">
+                            الفاتورة رقم <strong>{saleToDelete.invoice_no}</strong> بقيمة <strong>{saleToDelete.total?.toFixed(2)} دج</strong>
+                        </Typography>
+                    )}
+                    <Typography variant="caption" color="error.main" display="block" sx={{ mt: 1.5, fontWeight: 600 }}>
+                        ⚠️ هذا الإجراء لا يمكن التراجع عنه
+                    </Typography>
                 </Box>
             </UnifiedModal>
         </Box>

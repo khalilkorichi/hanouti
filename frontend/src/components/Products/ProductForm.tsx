@@ -3,11 +3,18 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-    Box, Tabs, Tab, InputAdornment, Stack, FormControlLabel, Switch, Typography
+    Box, Tabs, Tab, InputAdornment, Stack, FormControlLabel, Switch, Typography,
+    Collapse, TextField, CircularProgress, Chip, alpha, useTheme,
 } from '@mui/material';
-import { CustomInput, CustomButton, CustomSelect } from '../Common';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { categoryService } from '../../services/categoryService';
+import {
+    AddCircleOutlineRounded as AddCatIcon,
+    CheckRounded as ConfirmIcon,
+    CloseRounded as CancelCatIcon,
+    LabelOutlined as CatIcon,
+} from '@mui/icons-material';
+import { CustomInput, CustomButton, CustomSelect, CustomIconButton } from '../Common';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { categoryService, type Category } from '../../services/categoryService';
 import { productService, type Product, type ProductUpdate } from '../../services/productService';
 
 const productSchema = z.object({
@@ -34,13 +41,27 @@ interface ProductFormProps {
 
 export default function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
     const [tabValue, setTabValue] = useState(0);
+    const [showNewCat, setShowNewCat] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const queryClient = useQueryClient();
+    const theme = useTheme();
 
     const { data: categories } = useQuery({
         queryKey: ['categories'],
         queryFn: categoryService.getAll
     });
 
-    const { control, handleSubmit, reset, formState: { errors } } = useForm<ProductFormData>({
+    const createCategoryMutation = useMutation({
+        mutationFn: (name: string) => categoryService.create({ name }),
+        onSuccess: (newCat: Category) => {
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+            setValue('category_id', newCat.id);
+            setShowNewCat(false);
+            setNewCatName('');
+        }
+    });
+
+    const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
         resolver: zodResolver(productSchema),
         defaultValues: {
             name: '',
@@ -166,26 +187,93 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                         />
                     </Box>
 
-                    <Controller
-                        name="category_id"
-                        control={control}
-                        render={({ field }) => (
-                            <CustomSelect
-                                {...field}
-                                value={field.value ?? ''}
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    field.onChange(v === '' ? undefined : Number(v));
-                                }}
-                                label="الفئة"
-                                fullWidth
-                                options={[
-                                    { value: '', label: '— بدون فئة —' },
-                                    ...(categories?.map(c => ({ value: c.id, label: c.name })) || [])
-                                ]}
+                    {/* ── Category selector + inline creator ── */}
+                    <Box>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <Controller
+                                name="category_id"
+                                control={control}
+                                render={({ field }) => (
+                                    <CustomSelect
+                                        {...field}
+                                        value={field.value ?? ''}
+                                        onChange={(e) => {
+                                            const v = e.target.value;
+                                            field.onChange(v === '' ? undefined : Number(v));
+                                        }}
+                                        label="الفئة"
+                                        fullWidth
+                                        options={[
+                                            { value: '', label: '— بدون فئة —' },
+                                            ...(categories?.map(c => ({ value: c.id, label: c.name })) || [])
+                                        ]}
+                                    />
+                                )}
                             />
-                        )}
-                    />
+                            <CustomIconButton
+                                tooltip={showNewCat ? 'إغلاق' : 'إنشاء فئة جديدة'}
+                                variant={showNewCat ? 'error' : 'primary'}
+                                onClick={() => { setShowNewCat(p => !p); setNewCatName(''); }}
+                                sx={{ mt: 1, flexShrink: 0, border: `1.5px solid`, borderColor: showNewCat ? 'error.main' : 'primary.main' }}
+                            >
+                                {showNewCat ? <CancelCatIcon fontSize="small" /> : <AddCatIcon fontSize="small" />}
+                            </CustomIconButton>
+                        </Box>
+
+                        {/* Inline new category form */}
+                        <Collapse in={showNewCat} timeout={200}>
+                            <Box
+                                sx={{
+                                    mt: 1.5,
+                                    p: 1.5,
+                                    borderRadius: 2.5,
+                                    border: `1.5px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                                    background: alpha(theme.palette.primary.main, 0.04),
+                                    display: 'flex',
+                                    gap: 1,
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <CatIcon sx={{ color: 'primary.main', flexShrink: 0 }} />
+                                <TextField
+                                    size="small"
+                                    label="اسم الفئة الجديدة"
+                                    value={newCatName}
+                                    onChange={(e) => setNewCatName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newCatName.trim()) {
+                                            e.preventDefault();
+                                            createCategoryMutation.mutate(newCatName.trim());
+                                        }
+                                    }}
+                                    fullWidth
+                                    autoFocus
+                                    placeholder="مثال: إلكترونيات"
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                />
+                                <CustomIconButton
+                                    tooltip="حفظ الفئة"
+                                    variant="success"
+                                    onClick={() => { if (newCatName.trim()) createCategoryMutation.mutate(newCatName.trim()); }}
+                                    disabled={!newCatName.trim() || createCategoryMutation.isPending}
+                                    sx={{ flexShrink: 0 }}
+                                >
+                                    {createCategoryMutation.isPending
+                                        ? <CircularProgress size={16} />
+                                        : <ConfirmIcon fontSize="small" />
+                                    }
+                                </CustomIconButton>
+                            </Box>
+                            {createCategoryMutation.isSuccess && (
+                                <Chip
+                                    label="✓ تم إنشاء الفئة وتحديدها"
+                                    color="success"
+                                    size="small"
+                                    sx={{ mt: 1, fontWeight: 700 }}
+                                />
+                            )}
+                        </Collapse>
+                    </Box>
 
                     <Controller
                         name="is_active"

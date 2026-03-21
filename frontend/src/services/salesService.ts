@@ -84,6 +84,9 @@ export const salesService = {
     getKPIs: async (filters: { from_date?: string; to_date?: string } = {}) => {
         const response = await api.get<SalesKPIs>('/sales/kpis/summary', { params: filters });
         return response.data;
+    },
+    delete: async (id: number) => {
+        await api.delete(`/sales/${id}`);
     }
 };
 

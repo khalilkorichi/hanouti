@@ -576,11 +576,29 @@ export default function Inventory() {
         {
             field: 'actions', headerName: 'تعديل', width: 80, sortable: false,
             renderCell: (params) => (
-                <Tooltip title="تعديل سريع">
-                    <IconButton size="small" onClick={() => handleEditClick(params.row)}>
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                </Tooltip>
+                <CustomButton
+                    onClick={() => handleEditClick(params.row)}
+                    size="small"
+                    sx={{
+                        minWidth: 0,
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 2,
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        background: theme => `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.info.main})`,
+                        color: '#fff',
+                        boxShadow: theme => `0 2px 8px ${alpha(theme.palette.primary.main, 0.3)}`,
+                        '&:hover': {
+                            transform: 'scale(1.05)',
+                            boxShadow: theme => `0 4px 14px ${alpha(theme.palette.primary.main, 0.45)}`
+                        },
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <EditIcon sx={{ fontSize: 15, mr: 0.5 }} />
+                    تعديل
+                </CustomButton>
             )
         }
     ];

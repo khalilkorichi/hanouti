@@ -99,18 +99,25 @@ def get_product_by_sku(db: Session, sku: str):
     return db.query(models.Product).filter(models.Product.sku == sku).first()
 
 def create_product(db: Session, product: schemas.ProductCreate):
+    # Normalise empty strings → None for unique-nullable fields
+    product_data = product.model_dump()
+    if not product_data.get("barcode"):
+        product_data["barcode"] = None
+    if not product_data.get("sku"):
+        product_data["sku"] = None
+
     # Check if barcode already exists
-    if product.barcode:
-        existing = get_product_by_barcode(db, product.barcode)
+    if product_data["barcode"]:
+        existing = get_product_by_barcode(db, product_data["barcode"])
         if existing:
             raise ValueError("Barcode already exists")
-    
-    if product.sku:
-        existing = get_product_by_sku(db, product.sku)
+
+    if product_data["sku"]:
+        existing = get_product_by_sku(db, product_data["sku"])
         if existing:
             raise ValueError("SKU already exists")
-    
-    db_product = models.Product(**product.model_dump())
+
+    db_product = models.Product(**product_data)
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
@@ -122,14 +129,20 @@ def update_product(db: Session, product_id: int, product: schemas.ProductUpdate)
         return None
     
     update_data = product.model_dump(exclude_unset=True)
-    
+
+    # Normalise empty strings → None for unique-nullable fields
+    if "barcode" in update_data and not update_data["barcode"]:
+        update_data["barcode"] = None
+    if "sku" in update_data and not update_data["sku"]:
+        update_data["sku"] = None
+
     # Check barcode uniqueness if being updated
     if "barcode" in update_data and update_data["barcode"] != db_product.barcode:
         if update_data["barcode"]:
             existing = get_product_by_barcode(db, update_data["barcode"])
             if existing:
                 raise ValueError("Barcode already exists")
-    
+
     # Check SKU uniqueness if being updated
     if "sku" in update_data and update_data["sku"] != db_product.sku:
         if update_data["sku"]:
@@ -342,6 +355,21 @@ def complete_sale(db: Session, sale_id: int):
     db.commit()
     db.refresh(sale)
     return sale
+
+def delete_sale(db: Session, sale_id: int) -> bool:
+    """Hard delete a sale and all its items (cascades automatically)"""
+    sale = get_sale(db, sale_id)
+    if not sale:
+        return False
+    # Reverse stock if the sale was completed before deleting
+    if sale.status == "completed":
+        for item in sale.items:
+            product = get_product(db, item.product_id)
+            if product:
+                product.stock_qty += item.qty
+    db.delete(sale)
+    db.commit()
+    return True
 
 def cancel_sale(db: Session, sale_id: int, reason: str):
     """Cancel a sale and reverse stock movements"""
