@@ -15,11 +15,9 @@ import {
     WhatsApp as WhatsAppIcon,
     Save as SaveIcon,
     Lock as LockIcon,
-    DeleteForever as DeleteIcon,
     Brightness4 as DarkIcon,
     Brightness7 as LightIcon,
     TextFields as FontIcon,
-    Warning as WarningIcon,
     GitHub as GitHubIcon,
 } from '@mui/icons-material';
 import { CustomButton } from '../components/Common';
@@ -56,8 +54,6 @@ export default function Settings() {
     const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
     const [username, setUsername] = useState('المسؤول');
     const [email] = useState('admin@hanouti.com');
-    const [deleteConfirm, setDeleteConfirm] = useState('');
-
     const handleSaveProfile = () => {
         showNotification('تم حفظ بيانات الملف الشخصي', 'success', { title: 'تم الحفظ' });
     };
@@ -370,34 +366,6 @@ export default function Settings() {
                             </Box>
                         </SettingsCard>
 
-                        {/* Danger Zone */}
-                        <Box sx={{
-                            borderRadius: 3, overflow: 'hidden',
-                            border: `1px solid ${alpha('#EF4444', 0.35)}`,
-                        }}>
-                            <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, bgcolor: alpha('#EF4444', 0.07), borderBottom: `1px solid ${alpha('#EF4444', 0.2)}` }}>
-                                <WarningIcon sx={{ color: '#EF4444', fontSize: 18 }} />
-                                <Typography variant="subtitle2" fontWeight={700} color="error">منطقة الخطر</Typography>
-                            </Box>
-                            <Box sx={{ p: 2.5 }}>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    حذف جميع البيانات وإعادة ضبط المصنع. هذا الإجراء لا يمكن التراجع عنه نهائياً.
-                                </Typography>
-                                <TextField
-                                    fullWidth size="small" placeholder='اكتب "حذف" للتأكيد'
-                                    value={deleteConfirm}
-                                    onChange={(e) => setDeleteConfirm(e.target.value)}
-                                    sx={{ mb: 1.5 }}
-                                />
-                                <CustomButton
-                                    variant="contained" startIcon={<DeleteIcon />} color="error"
-                                    disabled={deleteConfirm !== 'حذف'}
-                                    onClick={() => showNotification('هذه الميزة غير مفعّلة في هذا الإصدار', 'warning')}
-                                >
-                                    حذف جميع البيانات
-                                </CustomButton>
-                            </Box>
-                        </Box>
                     </Stack>
                 )}
 
