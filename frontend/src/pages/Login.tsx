@@ -11,33 +11,23 @@ import {
     CircularProgress,
     useTheme,
     alpha,
-    Stack,
-    Divider,
-    Chip,
-    keyframes
+    InputAdornment,
+    IconButton,
 } from '@mui/material';
-import { LoginOutlined, LockOutlined, StoreOutlined } from '@mui/icons-material';
-
-const float = keyframes`
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-`;
-
-const slideUp = keyframes`
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-`;
+import {
+    LockOutlined,
+    StorefrontRounded as StoreIcon,
+    LoginRounded as LoginIcon,
+    VisibilityOutlined,
+    VisibilityOffOutlined,
+} from '@mui/icons-material';
 
 export default function Login() {
     const navigate = useNavigate();
     const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -49,9 +39,7 @@ export default function Login() {
         try {
             const response = await fetch('/api/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password }),
             });
 
@@ -63,9 +51,8 @@ export default function Login() {
                 const errorData = await response.json();
                 setError(errorData.detail || 'خطأ في تسجيل الدخول');
             }
-        } catch (err) {
-            setError('فشل الاتصال بالخادم');
-            console.error('Login error:', err);
+        } catch {
+            setError('فشل الاتصال بالخادم، تأكد من تشغيل النظام');
         } finally {
             setLoading(false);
         }
@@ -79,171 +66,146 @@ export default function Login() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                overflow: 'auto',
-                padding: { xs: 2, sm: 3 },
-                background: `linear-gradient(135deg, 
-                    ${alpha(theme.palette.primary.main, 0.08)} 0%, 
-                    ${alpha(theme.palette.secondary.main, 0.05)} 50%,
-                    ${alpha(theme.palette.primary.main, 0.08)} 100%)`,
-                '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: '-50%',
-                    left: '-50%',
-                    width: '200%',
-                    height: '200%',
-                    background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.05)} 1px, transparent 1px)`,
-                    backgroundSize: '50px 50px',
-                    animation: `${float} 20s ease-in-out infinite`,
-                    zIndex: 0,
-                },
+                position: 'relative',
+                overflow: 'hidden',
+                background: isLight
+                    ? 'linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 50%, #F0F9FF 100%)'
+                    : 'linear-gradient(135deg, #0B1120 0%, #0F172A 50%, #0B1120 100%)',
             }}
         >
+            {/* Decorative blobs */}
+            <Box
+                sx={{
+                    position: 'absolute',
+                    top: '-20%',
+                    right: '-10%',
+                    width: 500,
+                    height: 500,
+                    borderRadius: '50%',
+                    background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.15)}, transparent 70%)`,
+                    pointerEvents: 'none',
+                }}
+            />
+            <Box
+                sx={{
+                    position: 'absolute',
+                    bottom: '-20%',
+                    left: '-10%',
+                    width: 500,
+                    height: 500,
+                    borderRadius: '50%',
+                    background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.12)}, transparent 70%)`,
+                    pointerEvents: 'none',
+                }}
+            />
+
             <Card
                 sx={{
-                    maxWidth: { xs: '100%', sm: 420, md: 480 },
+                    maxWidth: 420,
                     width: '100%',
+                    mx: 2,
+                    borderRadius: 4,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
+                    backdropFilter: 'blur(20px)',
+                    background: isLight
+                        ? alpha('#FFFFFF', 0.9)
+                        : alpha('#151F32', 0.9),
+                    boxShadow: `0 24px 64px ${alpha(theme.palette.primary.main, 0.15)}, 0 8px 24px ${alpha('#000', 0.08)}`,
                     position: 'relative',
                     zIndex: 1,
-                    borderRadius: { xs: 3, sm: 4 },
-                    boxShadow: `
-                        0 20px 60px ${alpha(theme.palette.primary.main, 0.2)},
-                        0 8px 16px ${alpha(theme.palette.common.black, 0.1)}
-                    `,
-                    animation: `${slideUp} 0.6s ease-out`,
-                    backdropFilter: 'blur(10px)',
-                    background: alpha(theme.palette.background.paper, 0.95),
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                    overflow: 'visible',
+                    overflow: 'hidden',
                 }}
             >
-                {/* Decorative Top Bar */}
+                {/* Top accent bar */}
                 <Box
                     sx={{
-                        height: 6,
-                        background: `linear-gradient(90deg, 
-                            ${theme.palette.primary.main} 0%, 
-                            ${theme.palette.secondary.main} 50%, 
-                            ${theme.palette.primary.main} 100%)`,
-                        borderRadius: '16px 16px 0 0',
+                        height: 4,
+                        background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                     }}
                 />
 
-                <CardContent sx={{ p: { xs: 3, sm: 4, md: 5 } }}>
-                    {/* Logo & Title Section */}
-                    <Stack spacing={{ xs: 2, sm: 3 }} alignItems="center" mb={{ xs: 3, sm: 4 }}>
+                <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+                    {/* Logo */}
+                    <Box sx={{ textAlign: 'center', mb: 4 }}>
                         <Box
                             sx={{
-                                width: { xs: 70, sm: 80, md: 90 },
-                                height: { xs: 70, sm: 80, md: 90 },
-                                borderRadius: '50%',
+                                width: 72,
+                                height: 72,
+                                borderRadius: 3,
+                                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.7)})`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                                mx: 'auto',
+                                mb: 2.5,
                                 boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
-                                animation: `${float} 3s ease-in-out infinite`,
                             }}
                         >
-                            <StoreOutlined sx={{ fontSize: { xs: 40, sm: 45, md: 50 }, color: 'white' }} />
+                            <StoreIcon sx={{ color: 'white', fontSize: 38 }} />
                         </Box>
-
-                        <Box sx={{ textAlign: 'center' }}>
-                            <Typography
-                                variant="h3"
-                                fontWeight="900"
-                                gutterBottom
-                                sx={{
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-                                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    backgroundClip: 'text',
-                                    letterSpacing: '-0.02em',
-                                }}
-                            >
-                                حانوتي
-                            </Typography>
-                            <Typography
-                                variant="body1"
-                                color="text.secondary"
-                                fontWeight="500"
-                                sx={{
-                                    fontSize: { xs: '0.9rem', sm: '1rem' },
-                                }}
-                            >
-                                نظام إدارة المخزون والمبيعات الذكي
-                            </Typography>
-                        </Box>
-
-                        <Chip
-                            icon={<LockOutlined sx={{ fontSize: 18 }} />}
-                            label="تسجيل دخول آمن"
-                            size="small"
+                        <Typography
+                            variant="h4"
+                            fontWeight={900}
                             sx={{
-                                background: alpha(theme.palette.primary.main, 0.1),
-                                color: theme.palette.primary.main,
-                                fontWeight: 600,
-                                borderRadius: 2,
-                                fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                mb: 0.5,
                             }}
-                        />
-                    </Stack>
+                        >
+                            حانوتي
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                            نظام إدارة المخزون والمبيعات الذكي
+                        </Typography>
+                    </Box>
 
-                    <Divider sx={{ mb: { xs: 3, sm: 4 }, opacity: 0.5 }} />
-
-                    {/* Error Alert */}
+                    {/* Error */}
                     {error && (
                         <Alert
                             severity="error"
-                            sx={{
-                                mb: 3,
-                                borderRadius: 2,
-                                animation: `${slideUp} 0.3s ease-out`,
-                            }}
+                            sx={{ mb: 3, borderRadius: 2, fontSize: '0.85rem' }}
+                            onClose={() => setError('')}
                         >
                             {error}
                         </Alert>
                     )}
 
-                    {/* Login Form */}
+                    {/* Form */}
                     <form onSubmit={handleLogin}>
-                        <Stack spacing={{ xs: 2.5, sm: 3 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                             <TextField
                                 fullWidth
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 label="كلمة المرور"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={loading}
                                 required
                                 autoFocus
-                                InputProps={{
-                                    startAdornment: (
-                                        <LockOutlined
-                                            sx={{
-                                                mr: 1,
-                                                color: 'text.secondary',
-                                                fontSize: 22,
-                                            }}
-                                        />
-                                    ),
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s',
-                                        '&:hover': {
-                                            boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                                        },
-                                        '&.Mui-focused': {
-                                            boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.15)}`,
-                                        },
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <LockOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => setShowPassword((prev) => !prev)}
+                                                    edge="end"
+                                                >
+                                                    {showPassword ? (
+                                                        <VisibilityOffOutlined sx={{ fontSize: 18 }} />
+                                                    ) : (
+                                                        <VisibilityOutlined sx={{ fontSize: 18 }} />
+                                                    )}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
                                     },
                                 }}
                             />
@@ -254,81 +216,52 @@ export default function Login() {
                                 variant="contained"
                                 size="large"
                                 disabled={loading || !password}
-                                startIcon={loading ? <CircularProgress size={22} color="inherit" /> : <LoginOutlined />}
+                                startIcon={
+                                    loading ? (
+                                        <CircularProgress size={18} color="inherit" />
+                                    ) : (
+                                        <LoginIcon />
+                                    )
+                                }
                                 sx={{
-                                    borderRadius: 3,
-                                    py: { xs: 1.5, sm: 1.8 },
-                                    fontWeight: 'bold',
-                                    textTransform: 'none',
-                                    fontSize: { xs: '1rem', sm: '1.15rem' },
-                                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                                    boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`,
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    py: 1.5,
+                                    borderRadius: 2.5,
+                                    fontSize: '1rem',
+                                    fontWeight: 700,
+                                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.8)})`,
+                                    boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.4)}`,
+                                    transition: 'all 0.2s',
                                     '&:hover': {
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: `0 12px 28px ${alpha(theme.palette.primary.main, 0.45)}`,
+                                        boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.5)}`,
+                                        transform: 'translateY(-1px)',
                                     },
-                                    '&:active': {
-                                        transform: 'translateY(0)',
-                                    },
-                                    '&.Mui-disabled': {
-                                        background: alpha(theme.palette.action.disabledBackground, 0.5),
-                                    },
+                                    '&:active': { transform: 'translateY(0)' },
                                 }}
                             >
-                                {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+                                {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
                             </Button>
-                        </Stack>
+                        </Box>
                     </form>
 
-                    {/* Footer Info */}
-                    <Box sx={{ mt: { xs: 3, sm: 4 }, textAlign: 'center' }}>
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                display: 'inline-block',
-                                px: { xs: 2, sm: 3 },
-                                py: { xs: 1, sm: 1.5 },
-                                borderRadius: 2,
-                                background: alpha(theme.palette.info.main, 0.08),
-                                color: theme.palette.info.main,
-                                fontWeight: 600,
-                                border: `1px dashed ${alpha(theme.palette.info.main, 0.3)}`,
-                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            }}
-                        >
-                            💡 كلمة المرور الافتراضية: <strong>1234</strong>
+                    {/* Hint */}
+                    <Box
+                        sx={{
+                            mt: 3,
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: alpha(theme.palette.info.main, 0.06),
+                            border: `1px dashed ${alpha(theme.palette.info.main, 0.25)}`,
+                            textAlign: 'center',
+                        }}
+                    >
+                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                            💡 كلمة المرور الافتراضية:{' '}
+                            <Box component="span" fontWeight={800} color="primary.main">
+                                1234
+                            </Box>
                         </Typography>
                     </Box>
                 </CardContent>
-
-                {/* Decorative Bottom Elements */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        bottom: -3,
-                        right: -3,
-                        width: 100,
-                        height: 100,
-                        borderRadius: '50%',
-                        background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.15)}, transparent)`,
-                        filter: 'blur(20px)',
-                        pointerEvents: 'none',
-                    }}
-                />
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        top: -3,
-                        left: -3,
-                        width: 80,
-                        height: 80,
-                        borderRadius: '50%',
-                        background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.15)}, transparent)`,
-                        filter: 'blur(20px)',
-                        pointerEvents: 'none',
-                    }}
-                />
             </Card>
         </Box>
     );

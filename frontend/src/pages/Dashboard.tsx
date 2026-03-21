@@ -1,377 +1,530 @@
-import { useEffect } from 'react';
-import { Typography, Box, CardContent, useTheme, alpha, Chip } from '@mui/material';
+import { useEffect, useState } from 'react';
+import {
+    Typography,
+    Box,
+    useTheme,
+    alpha,
+    Card,
+    CardContent,
+    Skeleton,
+    Button,
+    Chip,
+    Avatar,
+    LinearProgress,
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { CustomCard } from '../components/Common';
 import {
     Inventory as InventoryIcon,
     TrendingUp as TrendingUpIcon,
     ShoppingCart as ShoppingCartIcon,
     Warning as WarningIcon,
     Add as AddIcon,
-    Receipt as ReceiptIcon,
-    Settings as SettingsIcon,
-    ArrowForward as ArrowIcon
+    ReceiptLong as ReceiptIcon,
+    ArrowBackIosNew as ArrowIcon,
+    AttachMoney as MoneyIcon,
+    Category as CategoryIcon,
 } from '@mui/icons-material';
+import api from '../services/api';
+
+interface KPIData {
+    total_products?: number;
+    total_sales_today?: number;
+    transactions_today?: number;
+    low_stock?: number;
+    total_sales?: number;
+    total_orders?: number;
+    avg_order_value?: number;
+    net_profit?: number;
+    low_stock_count?: number;
+    out_of_stock_count?: number;
+}
+
+interface TopProduct {
+    id: number;
+    name: string;
+    total_qty: number;
+    total_revenue: number;
+}
+
+function StatCard({
+    title,
+    value,
+    subtitle,
+    icon,
+    color,
+    loading = false,
+    badge,
+}: {
+    title: string;
+    value: string;
+    subtitle: string;
+    icon: React.ReactNode;
+    color: string;
+    loading?: boolean;
+    badge?: string;
+}) {
+    const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
+
+    return (
+        <Card
+            sx={{
+                border: `1px solid ${alpha(color, 0.15)}`,
+                borderRadius: 3,
+                transition: 'all 0.25s ease',
+                '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 12px 32px ${alpha(color, 0.18)}`,
+                    borderColor: alpha(color, 0.3),
+                },
+            }}
+        >
+            <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5 }}>
+                    <Box>
+                        {badge && (
+                            <Chip
+                                label={badge}
+                                size="small"
+                                sx={{
+                                    height: 22,
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700,
+                                    bgcolor: alpha(color, 0.1),
+                                    color,
+                                    border: `1px solid ${alpha(color, 0.2)}`,
+                                    mb: 1,
+                                }}
+                            />
+                        )}
+                    </Box>
+                    <Box
+                        sx={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 2.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: `linear-gradient(135deg, ${alpha(color, isLight ? 0.12 : 0.2)}, ${alpha(color, isLight ? 0.06 : 0.1)})`,
+                            color,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {icon}
+                    </Box>
+                </Box>
+
+                <Typography
+                    variant="caption"
+                    fontWeight={600}
+                    color="text.secondary"
+                    sx={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                >
+                    {title}
+                </Typography>
+
+                {loading ? (
+                    <Skeleton variant="text" width="60%" height={48} />
+                ) : (
+                    <Typography
+                        variant="h4"
+                        fontWeight={800}
+                        sx={{ color, lineHeight: 1.2, my: 0.5, fontSize: { xs: '1.6rem', sm: '2rem' } }}
+                    >
+                        {value}
+                    </Typography>
+                )}
+
+                <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                    {subtitle}
+                </Typography>
+            </CardContent>
+        </Card>
+    );
+}
+
+function QuickActionCard({
+    title,
+    description,
+    icon,
+    color,
+    onClick,
+}: {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    color: string;
+    onClick: () => void;
+}) {
+    const theme = useTheme();
+
+    return (
+        <Card
+            onClick={onClick}
+            sx={{
+                cursor: 'pointer',
+                border: `1px solid ${alpha(color, 0.15)}`,
+                borderRadius: 3,
+                transition: 'all 0.25s ease',
+                '&:hover': {
+                    transform: 'translateY(-3px)',
+                    boxShadow: `0 16px 36px ${alpha(color, 0.2)}`,
+                    borderColor: alpha(color, 0.4),
+                    bgcolor: alpha(color, 0.03),
+                },
+            }}
+        >
+            <CardContent sx={{ p: 2.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: 'row-reverse' }}>
+                    <Box
+                        sx={{
+                            width: 46,
+                            height: 46,
+                            borderRadius: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: `linear-gradient(135deg, ${alpha(color, 0.15)}, ${alpha(color, 0.07)})`,
+                            color,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {icon}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.3 }}>
+                            {title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {description}
+                        </Typography>
+                    </Box>
+                    <ArrowIcon
+                        sx={{
+                            fontSize: 14,
+                            color: alpha(color, 0.5),
+                            flexShrink: 0,
+                            transform: 'rotate(180deg)',
+                        }}
+                    />
+                </Box>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
+    const [kpi, setKpi] = useState<KPIData | null>(null);
+    const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/login');
-        }
+        if (!token) navigate('/login');
     }, [navigate]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { Authorization: `Bearer ${token}` };
+
+                const [kpiRes, topRes] = await Promise.allSettled([
+                    api.get('/reports/kpis', { headers }),
+                    api.get('/reports/top-products?limit=5', { headers }),
+                ]);
+
+                if (kpiRes.status === 'fulfilled') setKpi(kpiRes.value.data);
+                if (topRes.status === 'fulfilled') setTopProducts(topRes.value.data || []);
+            } catch (_) {
+                // silently fail — data stays null
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     const stats = [
         {
-            title: 'إجمالي المنتجات',
-            value: '0',
-            subtitle: 'منتج متاح',
-            icon: <InventoryIcon />,
-            color: '#0052CC',
-            trend: '+0%'
+            title: 'إجمالي المبيعات',
+            value: kpi?.total_sales != null ? `${kpi.total_sales.toLocaleString('ar-DZ')} دج` : '—',
+            subtitle: 'آخر 30 يوم',
+            icon: <MoneyIcon />,
+            color: '#4F46E5',
+            badge: 'الإيرادات',
         },
         {
-            title: 'المبيعات اليوم',
-            value: '0 دج',
-            subtitle: 'إجمالي المبيعات',
-            icon: <TrendingUpIcon />,
-            color: '#36B37E',
-            trend: '+0%'
-        },
-        {
-            title: 'المعاملات',
-            value: '0',
-            subtitle: 'معاملة اليوم',
+            title: 'عدد الطلبات',
+            value: kpi?.total_orders != null ? kpi.total_orders.toLocaleString('ar-DZ') : '—',
+            subtitle: 'طلب مكتمل',
             icon: <ShoppingCartIcon />,
-            color: '#FFAB00',
-            trend: '0'
+            color: '#10B981',
+            badge: 'المعاملات',
+        },
+        {
+            title: 'متوسط قيمة الطلب',
+            value: kpi?.avg_order_value != null ? `${kpi.avg_order_value.toFixed(0)} دج` : '—',
+            subtitle: 'لكل معاملة',
+            icon: <TrendingUpIcon />,
+            color: '#F59E0B',
+            badge: 'المتوسط',
         },
         {
             title: 'تنبيهات المخزون',
-            value: '0',
+            value: kpi?.low_stock_count != null ? String(kpi.low_stock_count) : '—',
             subtitle: 'منتج قارب النفاد',
             icon: <WarningIcon />,
-            color: '#FF5630',
-            trend: '!'
+            color: '#EF4444',
+            badge: 'تحذير',
         },
     ];
 
     const quickActions = [
-        {
-            title: 'إضافة منتج جديد',
-            description: 'أضف منتجات إلى المخزون',
-            icon: <AddIcon />,
-            path: '/products',
-            color: '#0052CC'
-        },
-        {
-            title: 'عملية بيع جديدة',
-            description: 'ابدأ عملية بيع جديدة',
-            icon: <ReceiptIcon />,
-            path: '/sales',
-            color: '#36B37E'
-        },
-        {
-            title: 'إعدادات النظام',
-            description: 'إدارة إعدادات المتجر',
-            icon: <SettingsIcon />,
-            path: '/settings',
-            color: '#00B8D9'
-        },
+        { title: 'إضافة منتج', description: 'أضف منتجاً جديداً للمخزون', icon: <AddIcon />, path: '/products', color: '#4F46E5' },
+        { title: 'عملية بيع', description: 'ابدأ معاملة بيع جديدة', icon: <ReceiptIcon />, path: '/sales', color: '#10B981' },
+        { title: 'إدارة الفئات', description: 'تنظيم فئات المنتجات', icon: <CategoryIcon />, path: '/categories', color: '#F59E0B' },
+        { title: 'عرض المخزون', description: 'تتبع كميات المنتجات', icon: <InventoryIcon />, path: '/inventory', color: '#06B6D4' },
     ];
+
+    const maxRevenue = topProducts.length > 0 ? Math.max(...topProducts.map((p) => p.total_revenue)) : 1;
 
     return (
         <Box sx={{ direction: 'rtl' }}>
-            {/* Welcome Section */}
-            <Box sx={{ mb: { xs: 3, sm: 4 } }}>
-                <Typography
-                    variant="h3"
-                    component="h1"
-                    fontWeight="800"
-                    gutterBottom
-                    sx={{
-                        fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' },
-                        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text'
-                    }}
-                >
-                    مرحباً بك في حانوتي
-                </Typography>
-                <Typography
-                    variant="h6"
-                    color="text.secondary"
-                    sx={{
-                        fontWeight: 400,
-                        fontSize: { xs: '1rem', sm: '1.15rem', md: '1.25rem' }
-                    }}
-                >
-                    نظام إدارة المخزون والمبيعات الذكي
-                </Typography>
-            </Box>
-
-            {/* Stats Cards */}
-            <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: 'repeat(2, 1fr)',
-                    lg: 'repeat(4, 1fr)'
-                },
-                gap: { xs: 2, sm: 2.5, md: 3 },
-                mb: { xs: 3, sm: 4 }
-            }}>
-                {stats.map((stat, index) => (
-                    <CustomCard
-                        key={stat.title}
-                        hoverEffect
-                        borderColor={stat.color}
-                        borderPosition="top"
+            {/* Welcome Banner */}
+            <Box
+                sx={{
+                    mb: 4,
+                    p: { xs: 3, md: 4 },
+                    borderRadius: 4,
+                    background: isLight
+                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`
+                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 2,
+                }}
+            >
+                <Box>
+                    <Typography
+                        variant="h4"
+                        fontWeight={800}
+                        gutterBottom
                         sx={{
-                            animation: `fadeInUp 0.${6 + index}s ease-out`,
-                            '@keyframes fadeInUp': {
-                                from: {
-                                    opacity: 0,
-                                    transform: 'translateY(20px)'
-                                },
-                                to: {
-                                    opacity: 1,
-                                    transform: 'translateY(0)'
-                                }
-                            }
+                            fontSize: { xs: '1.5rem', md: '2rem' },
+                            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
                         }}
                     >
-                        <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        sx={{
-                                            display: 'block',
-                                            mb: 0.5,
-                                            fontWeight: 600,
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
-                                            fontSize: { xs: '0.65rem', sm: '0.75rem' }
-                                        }}
-                                    >
-                                        {stat.title}
-                                    </Typography>
-                                    <Typography
-                                        variant="h3"
-                                        fontWeight="800"
-                                        sx={{
-                                            color: stat.color,
-                                            mb: 0.5,
-                                            lineHeight: 1,
-                                            fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' }
-                                        }}
-                                    >
-                                        {stat.value}
-                                    </Typography>
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        sx={{
-                                            display: 'block',
-                                            fontSize: { xs: '0.7rem', sm: '0.75rem' }
-                                        }}
-                                    >
-                                        {stat.subtitle}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: { xs: 48, sm: 56 },
-                                        height: { xs: 48, sm: 56 },
-                                        borderRadius: 2.5,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        background: `linear-gradient(135deg, ${alpha(stat.color, 0.1)} 0%, ${alpha(stat.color, 0.05)} 100%)`,
-                                        color: stat.color,
-                                        flexShrink: 0
-                                    }}
-                                >
-                                    {stat.icon}
-                                </Box>
-                            </Box>
-                            <Chip
-                                label={stat.trend}
-                                size="small"
-                                sx={{
-                                    height: 24,
-                                    fontSize: '0.75rem',
-                                    fontWeight: 700,
-                                    bgcolor: alpha(stat.color, 0.1),
-                                    color: stat.color,
-                                    border: `1px solid ${alpha(stat.color, 0.2)}`
-                                }}
-                            />
-                        </CardContent>
-                    </CustomCard>
+                        مرحباً بك في حانوتي 👋
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" fontWeight={500}>
+                        هذا ملخص أداء متجرك اليوم
+                    </Typography>
+                </Box>
+                <Button
+                    variant="contained"
+                    startIcon={<ReceiptIcon />}
+                    onClick={() => navigate('/sales')}
+                    sx={{
+                        borderRadius: 2.5,
+                        px: 3,
+                        py: 1.2,
+                        boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.35)}`,
+                        '&:hover': {
+                            boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
+                        },
+                    }}
+                >
+                    بيع جديد
+                </Button>
+            </Box>
+
+            {/* KPI Cards */}
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+                    gap: 2.5,
+                    mb: 4,
+                }}
+            >
+                {stats.map((stat) => (
+                    <StatCard key={stat.title} {...stat} loading={loading} />
                 ))}
             </Box>
 
-            {/* Quick Actions - أفقي مع تفاصيل */}
-            <CustomCard
-                gradient
-                sx={{ mb: { xs: 3, sm: 4 } }}
-            >
-                <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 4 } }}>
-                    <Box sx={{ mb: 3 }}>
-                        <Box>
-                            <Typography
-                                variant="h5"
-                                fontWeight="bold"
-                                gutterBottom
-                                sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
-                            >
+            {/* Quick Actions + Top Products */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3 }}>
+                {/* Quick Actions */}
+                <Card sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.8)}` }}>
+                    <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" fontWeight={700}>
                                 إجراءات سريعة
                             </Typography>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
-                            >
-                                الوصول السريع للمهام الشائعة
+                            <Typography variant="caption" color="text.secondary">
+                                الوصول السريع
                             </Typography>
                         </Box>
-                    </Box>
-                    <Box sx={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: { xs: 1.5, sm: 2 },
-                        justifyContent: 'flex-start',
-                        '& > *': {
-                            flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)', md: '1 1 calc(33.333% - 11px)' }
-                        }
-                    }}>
-                        {quickActions.map((action, index) => (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {quickActions.map((action) => (
+                                <QuickActionCard
+                                    key={action.title}
+                                    title={action.title}
+                                    description={action.description}
+                                    icon={action.icon}
+                                    color={action.color}
+                                    onClick={() => navigate(action.path)}
+                                />
+                            ))}
+                        </Box>
+                    </CardContent>
+                </Card>
+
+                {/* Top Products */}
+                <Card sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.8)}` }}>
+                    <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ mb: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" fontWeight={700}>
+                                أفضل المنتجات مبيعاً
+                            </Typography>
+                            <Button
+                                size="small"
+                                onClick={() => navigate('/reports')}
+                                sx={{ borderRadius: 1.5, fontSize: '0.78rem' }}
+                            >
+                                عرض الكل
+                            </Button>
+                        </Box>
+
+                        {loading ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <Skeleton key={i} variant="rounded" height={48} />
+                                ))}
+                            </Box>
+                        ) : topProducts.length === 0 ? (
                             <Box
-                                key={action.title}
-                                onClick={() => navigate(action.path)}
                                 sx={{
-                                    p: 3,
-                                    borderRadius: 2.5,
-                                    background: theme.palette.mode === 'light'
-                                        ? alpha(theme.palette.background.paper, 0.8)
-                                        : alpha(theme.palette.background.paper, 0.4),
-                                    border: `2px solid ${alpha(action.color, 0.2)}`,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    order: index, // ترتيب صريح: 0 (إضافة منتج يمين)، 1 (عملية بيع وسط)، 2 (إعدادات يسار)
-                                    '&:hover': {
-                                        transform: 'translateY(-4px)',
-                                        borderColor: action.color,
-                                        boxShadow: `0 8px 24px ${alpha(action.color, 0.2)}`,
-                                        background: alpha(action.color, 0.05)
-                                    }
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: 220,
+                                    gap: 2,
                                 }}
                             >
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexDirection: 'row-reverse' }}>
-                                    <Box
-                                        sx={{
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: 2,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            bgcolor: alpha(action.color, 0.1),
-                                            color: action.color,
-                                            flexShrink: 0
-                                        }}
-                                    >
-                                        {action.icon}
-                                    </Box>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography
-                                            variant="h6"
-                                            fontWeight="700"
-                                            sx={{ mb: 0.5, textAlign: 'right' }}
-                                        >
-                                            {action.title}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color="text.secondary"
-                                            sx={{ mb: 2, textAlign: 'right' }}
-                                        >
-                                            {action.description}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: action.color, flexDirection: 'row-reverse', justifyContent: 'flex-end' }}>
-                                            <Typography variant="caption" fontWeight="600">
-                                                انتقال
-                                            </Typography>
-                                            <ArrowIcon sx={{ fontSize: 16, transform: 'rotate(180deg)' }} />
-                                        </Box>
-                                    </Box>
+                                <Box
+                                    sx={{
+                                        width: 70,
+                                        height: 70,
+                                        borderRadius: '50%',
+                                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <InventoryIcon sx={{ fontSize: 32, color: alpha(theme.palette.primary.main, 0.5) }} />
                                 </Box>
+                                <Box sx={{ textAlign: 'center' }}>
+                                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                                        لا توجد بيانات بعد
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        ابدأ البيع لرؤية أفضل المنتجات
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() => navigate('/sales')}
+                                    sx={{ borderRadius: 2, mt: 1 }}
+                                >
+                                    ابدأ البيع الآن
+                                </Button>
                             </Box>
-                        ))}
-                    </Box>
-                </CardContent>
-            </CustomCard>
+                        ) : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {topProducts.map((product, index) => {
+                                    const pct = (product.total_revenue / maxRevenue) * 100;
+                                    const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                                    const color = colors[index % colors.length];
 
-            {/* Bottom Section - Placeholders */}
-            <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
-                gap: 3
-            }}>
-                <CustomCard gradient>
-                    <CardContent sx={{ minHeight: 300, display: 'flex', flexDirection: 'column' }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom>
-                            المنتجات الأكثر مبيعاً
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            أفضل 5 منتجات في المبيعات
-                        </Typography>
-                        <Box sx={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <InventoryIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                                <Typography color="text.secondary">
-                                    لا توجد بيانات متاحة بعد
-                                </Typography>
+                                    return (
+                                        <Box key={product.id}>
+                                            <Box
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1.5,
+                                                    mb: 0.75,
+                                                    flexDirection: 'row-reverse',
+                                                }}
+                                            >
+                                                <Avatar
+                                                    sx={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        bgcolor: alpha(color, 0.12),
+                                                        color,
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    {index + 1}
+                                                </Avatar>
+                                                <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                                                    <Typography
+                                                        variant="body2"
+                                                        fontWeight={600}
+                                                        noWrap
+                                                        sx={{ fontSize: '0.85rem' }}
+                                                    >
+                                                        {product.name}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography
+                                                    variant="caption"
+                                                    fontWeight={700}
+                                                    sx={{ color, flexShrink: 0, fontSize: '0.78rem' }}
+                                                >
+                                                    {product.total_revenue.toLocaleString('ar-DZ')} دج
+                                                </Typography>
+                                            </Box>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={pct}
+                                                sx={{
+                                                    height: 5,
+                                                    borderRadius: 3,
+                                                    bgcolor: alpha(color, 0.1),
+                                                    '& .MuiLinearProgress-bar': {
+                                                        borderRadius: 3,
+                                                        bgcolor: color,
+                                                    },
+                                                }}
+                                            />
+                                        </Box>
+                                    );
+                                })}
                             </Box>
-                        </Box>
+                        )}
                     </CardContent>
-                </CustomCard>
-
-                <CustomCard gradient>
-                    <CardContent sx={{ minHeight: 300, display: 'flex', flexDirection: 'column' }}>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom>
-                            النشاط الأخير
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            آخر العمليات والتحديثات
-                        </Typography>
-                        <Box sx={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <ShoppingCartIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                                <Typography color="text.secondary">
-                                    لا توجد بيانات متاحة بعد
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </CardContent>
-                </CustomCard>
+                </Card>
             </Box>
         </Box>
     );
