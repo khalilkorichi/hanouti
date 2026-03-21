@@ -277,8 +277,10 @@ export default function Sidebar({ open, onClose, onLogout, variant = 'temporary'
     const paperSx = {
         width,
         boxSizing: 'border-box' as const,
-        borderLeft: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-        borderRight: 'none',
+        /* borderRight هنا → emotion RTL plugin يحوّله إلى border-left
+           وهو الجانب الداخلي للشريط (المواجه للمحتوى) ✓ */
+        borderRight: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+        borderLeft: 'none',
         background: isLight ? '#FFFFFF' : '#151F32',
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'hidden',
@@ -288,7 +290,9 @@ export default function Sidebar({ open, onClose, onLogout, variant = 'temporary'
         return (
             <Drawer
                 variant="permanent"
-                anchor="right"
+                /* anchor="left" → emotion RTL plugin يحوّل left:0 إلى right:0
+                   فيظهر الشريط على الجانب الأيمن ✓ */
+                anchor="left"
                 open
                 sx={{
                     width,
@@ -307,7 +311,7 @@ export default function Sidebar({ open, onClose, onLogout, variant = 'temporary'
             variant="temporary"
             open={open}
             onClose={onClose}
-            anchor="right"
+            anchor="left"
             sx={{
                 '& .MuiDrawer-paper': { ...paperSx, width: DRAWER_WIDTH },
                 '& .MuiBackdrop-root': {

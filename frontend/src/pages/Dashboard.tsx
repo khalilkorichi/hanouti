@@ -80,7 +80,23 @@ function StatCard({
             }}
         >
             <CardContent sx={{ p: 3 }}>
+                {/* في RTL: الأول في DOM = يمين. الأيقونة يجب أن تكون يميناً */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5 }}>
+                    <Box
+                        sx={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 2.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: `linear-gradient(135deg, ${alpha(color, isLight ? 0.12 : 0.2)}, ${alpha(color, isLight ? 0.06 : 0.1)})`,
+                            color,
+                            flexShrink: 0,
+                        }}
+                    >
+                        {icon}
+                    </Box>
                     <Box>
                         {badge && (
                             <Chip
@@ -97,21 +113,6 @@ function StatCard({
                                 }}
                             />
                         )}
-                    </Box>
-                    <Box
-                        sx={{
-                            width: 50,
-                            height: 50,
-                            borderRadius: 2.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: `linear-gradient(135deg, ${alpha(color, isLight ? 0.12 : 0.2)}, ${alpha(color, isLight ? 0.06 : 0.1)})`,
-                            color,
-                            flexShrink: 0,
-                        }}
-                    >
-                        {icon}
                     </Box>
                 </Box>
 
