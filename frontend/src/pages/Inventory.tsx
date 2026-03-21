@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -14,6 +14,8 @@ import {
     alpha,
     useTheme,
     Fade,
+    Divider,
+    LinearProgress,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -22,9 +24,13 @@ import {
     CheckCircle as CheckCircleIcon,
     Cancel as CancelIcon,
     Inventory2Outlined as InventoryIcon,
-    TrendingUp as ProfitIcon,
     ErrorOutline as OutIcon,
     WarningAmber as LowIcon,
+    MosqueOutlined as ZakatIcon,
+    CheckCircleOutline as PassedIcon,
+    RadioButtonUnchecked as PendingIcon,
+    InfoOutlined as InfoIcon,
+    Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { CustomButton, UnifiedModal } from '../components/Common';
@@ -38,20 +44,35 @@ interface StatCardProps {
     icon: React.ReactNode;
     color: string;
     sub?: string;
+    onClick?: () => void;
+    clickable?: boolean;
 }
 
-function StatCard({ label, value, icon, color, sub }: StatCardProps) {
+function StatCard({ label, value, icon, color, sub, onClick, clickable }: StatCardProps) {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
     return (
-        <Paper elevation={0} sx={{
-            p: 2.5, borderRadius: 3, flex: 1, minWidth: 180,
-            border: `1px solid ${alpha(color, 0.25)}`,
-            background: isLight
-                ? `linear-gradient(135deg, ${alpha(color, 0.06)}, ${alpha(color, 0.02)})`
-                : `linear-gradient(135deg, ${alpha(color, 0.14)}, ${alpha(color, 0.05)})`,
-            position: 'relative', overflow: 'hidden',
-        }}>
+        <Paper
+            elevation={0}
+            onClick={onClick}
+            sx={{
+                p: 2.5, borderRadius: 3, flex: 1, minWidth: 180,
+                border: `1px solid ${alpha(color, 0.25)}`,
+                background: isLight
+                    ? `linear-gradient(135deg, ${alpha(color, 0.06)}, ${alpha(color, 0.02)})`
+                    : `linear-gradient(135deg, ${alpha(color, 0.14)}, ${alpha(color, 0.05)})`,
+                position: 'relative', overflow: 'hidden',
+                cursor: clickable ? 'pointer' : 'default',
+                transition: 'all 0.2s',
+                ...(clickable && {
+                    '&:hover': {
+                        boxShadow: `0 6px 20px ${alpha(color, 0.2)}`,
+                        transform: 'translateY(-2px)',
+                        borderColor: alpha(color, 0.5),
+                    }
+                }),
+            }}
+        >
             <Box sx={{
                 position: 'absolute', top: -16, left: -16,
                 width: 80, height: 80, borderRadius: '50%',
@@ -67,12 +88,257 @@ function StatCard({ label, value, icon, color, sub }: StatCardProps) {
                         {sub}
                     </Typography>
                 )}
+                {clickable && (
+                    <Typography variant="caption" sx={{ color: alpha(color, 0.7), fontSize: '0.68rem', fontWeight: 700, letterSpacing: 0.3 }}>
+                        انقر للحساب ←
+                    </Typography>
+                )}
             </Box>
             <Typography variant="h5" fontWeight={800} color={color} sx={{ lineHeight: 1.2, mb: 0.4 }}>
                 {value}
             </Typography>
             <Typography variant="caption" color="text.secondary" fontWeight={500}>{label}</Typography>
         </Paper>
+    );
+}
+
+/* ─────────────────────────────────────────
+   Zakat Calculator Dialog
+───────────────────────────────────────── */
+const HAWL_DAYS = 354; /* one lunar year */
+const ZAKAT_RATE = 0.025;
+const NISAB_KEY = 'hanouti_zakat_nisab';
+const HAWL_KEY  = 'hanouti_zakat_hawl_date';
+
+function ZakatDialog({ open, onClose, inventoryValue }: { open: boolean; onClose: () => void; inventoryValue: number }) {
+    const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
+
+    const [nisab, setNisab] = useState<number>(() => {
+        const saved = localStorage.getItem(NISAB_KEY);
+        return saved ? parseFloat(saved) : 476_000;
+    });
+    const [hawlDate, setHawlDate] = useState<string>(() => {
+        return localStorage.getItem(HAWL_KEY) || '';
+    });
+
+    useEffect(() => { localStorage.setItem(NISAB_KEY, String(nisab)); }, [nisab]);
+    useEffect(() => { if (hawlDate) localStorage.setItem(HAWL_KEY, hawlDate); }, [hawlDate]);
+
+    const calc = useMemo(() => {
+        const exceedsNisab = inventoryValue >= nisab;
+        const zakatAmount  = exceedsNisab ? inventoryValue * ZAKAT_RATE : 0;
+
+        let daysPassed = 0;
+        let daysLeft = HAWL_DAYS;
+        let hawlComplete = false;
+        let hawlProgress = 0;
+        let dueDate = '';
+
+        if (hawlDate) {
+            const start = new Date(hawlDate);
+            const now   = new Date();
+            daysPassed  = Math.floor((now.getTime() - start.getTime()) / 86_400_000);
+            daysLeft    = Math.max(0, HAWL_DAYS - daysPassed);
+            hawlComplete = daysPassed >= HAWL_DAYS;
+            hawlProgress = Math.min(100, (daysPassed / HAWL_DAYS) * 100);
+            const due   = new Date(start);
+            due.setDate(due.getDate() + HAWL_DAYS);
+            dueDate     = due.toLocaleDateString('ar-DZ');
+        }
+
+        const zakatDue = exceedsNisab && hawlComplete;
+        return { exceedsNisab, zakatAmount, daysPassed, daysLeft, hawlComplete, hawlProgress, dueDate, zakatDue };
+    }, [inventoryValue, nisab, hawlDate]);
+
+    const fmt = (n: number) => n.toLocaleString('ar-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' دج';
+
+    const statusColor = calc.zakatDue ? '#EF4444' : calc.exceedsNisab ? '#F59E0B' : '#10B981';
+    const statusLabel = calc.zakatDue
+        ? 'الزكاة واجبة الآن'
+        : calc.exceedsNisab
+            ? 'بلغ النصاب — الحول قيد التتبع'
+            : 'لم يبلغ النصاب بعد';
+
+    return (
+        <UnifiedModal
+            open={open}
+            onClose={onClose}
+            title="حاسبة زكاة عروض التجارة"
+            maxWidth="sm"
+            actions={
+                <CustomButton onClick={onClose} color="inherit">إغلاق</CustomButton>
+            }
+        >
+            <Box dir="rtl">
+
+                {/* Status banner */}
+                <Box sx={{
+                    p: 2, borderRadius: 2.5, mb: 3,
+                    display: 'flex', alignItems: 'center', gap: 1.5,
+                    bgcolor: alpha(statusColor, isLight ? 0.08 : 0.14),
+                    border: `1.5px solid ${alpha(statusColor, 0.3)}`,
+                }}>
+                    {calc.zakatDue
+                        ? <WarningIcon sx={{ color: statusColor, fontSize: 24 }} />
+                        : calc.exceedsNisab
+                            ? <PendingIcon sx={{ color: statusColor, fontSize: 24 }} />
+                            : <PassedIcon sx={{ color: statusColor, fontSize: 24 }} />}
+                    <Box>
+                        <Typography variant="subtitle2" fontWeight={800} color={statusColor}>{statusLabel}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            قيمة المخزون الحالية: {fmt(inventoryValue)}
+                        </Typography>
+                    </Box>
+                </Box>
+
+                {/* Config fields */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+                    <Box>
+                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                            قيمة النصاب (دج) <Tooltip title="يساوي 595 غرام فضة أو 85 غرام ذهب — يمكنك تعديله حسب أسعار اليوم" arrow><InfoIcon sx={{ fontSize: 14, cursor: 'help', verticalAlign: 'middle', color: 'text.disabled' }} /></Tooltip>
+                        </Typography>
+                        <TextField
+                            fullWidth size="small" type="number"
+                            value={nisab}
+                            onChange={(e) => setNisab(parseFloat(e.target.value) || 0)}
+                            InputProps={{ endAdornment: <InputAdornment position="end">دج</InputAdornment> }}
+                        />
+                    </Box>
+                    <Box>
+                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                            تاريخ بلوغ النصاب (بداية الحول) <Tooltip title="أدخل التاريخ الذي بلغ فيه مخزونك النصاب لأول مرة" arrow><InfoIcon sx={{ fontSize: 14, cursor: 'help', verticalAlign: 'middle', color: 'text.disabled' }} /></Tooltip>
+                        </Typography>
+                        <TextField
+                            fullWidth size="small" type="date"
+                            value={hawlDate}
+                            onChange={(e) => setHawlDate(e.target.value)}
+                            inputProps={{ max: new Date().toISOString().split('T')[0] }}
+                        />
+                    </Box>
+                </Box>
+
+                <Divider sx={{ mb: 2.5 }} />
+
+                {/* Results */}
+                <Stack spacing={2}>
+                    {/* Nisab comparison */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                        <InfoRow
+                            label="قيمة المخزون"
+                            value={fmt(inventoryValue)}
+                            color={theme.palette.primary.main}
+                        />
+                        <InfoRow
+                            label="النصاب المطلوب"
+                            value={fmt(nisab)}
+                            color="#8B5CF6"
+                        />
+                    </Box>
+
+                    {/* Hawl progress */}
+                    {hawlDate && (
+                        <Box sx={{
+                            p: 2, borderRadius: 2,
+                            bgcolor: alpha(theme.palette.primary.main, 0.04),
+                            border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                        }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                                    تقدم الحول القمري ({HAWL_DAYS} يوم)
+                                </Typography>
+                                <Typography variant="caption" fontWeight={700} color={calc.hawlComplete ? '#10B981' : 'primary.main'}>
+                                    {calc.daysPassed} / {HAWL_DAYS} يوم
+                                </Typography>
+                            </Box>
+                            <LinearProgress
+                                variant="determinate"
+                                value={calc.hawlProgress}
+                                sx={{
+                                    height: 8, borderRadius: 4,
+                                    bgcolor: alpha(theme.palette.divider, 0.4),
+                                    '& .MuiLinearProgress-bar': {
+                                        borderRadius: 4,
+                                        bgcolor: calc.hawlComplete ? '#10B981' : '#F59E0B',
+                                    }
+                                }}
+                            />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
+                                <Typography variant="caption" color="text.disabled">
+                                    {calc.hawlComplete
+                                        ? '✅ اكتمل الحول'
+                                        : `⏳ متبقٍّ ${calc.daysLeft} يوم`}
+                                </Typography>
+                                <Typography variant="caption" color="text.disabled">
+                                    تاريخ الاستحقاق: {calc.dueDate}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+
+                    {!hawlDate && (
+                        <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha('#F59E0B', 0.07), border: `1px dashed ${alpha('#F59E0B', 0.4)}` }}>
+                            <Typography variant="body2" color="text.secondary" textAlign="center">
+                                أدخل تاريخ بلوغ النصاب لحساب الحول وموعد استحقاق الزكاة
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {/* Zakat amount */}
+                    <Box sx={{
+                        p: 2.5, borderRadius: 2.5,
+                        background: calc.zakatDue
+                            ? `linear-gradient(135deg, ${alpha('#EF4444', 0.1)}, ${alpha('#EF4444', 0.05)})`
+                            : calc.exceedsNisab
+                                ? `linear-gradient(135deg, ${alpha('#F59E0B', 0.08)}, ${alpha('#F59E0B', 0.03)})`
+                                : alpha(theme.palette.action.hover, 0.3),
+                        border: `2px solid ${alpha(statusColor, 0.3)}`,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}>
+                        <Box>
+                            <Typography variant="body2" fontWeight={700} color="text.secondary">
+                                مقدار الزكاة الواجبة
+                            </Typography>
+                            <Typography variant="caption" color="text.disabled">
+                                2.5% من قيمة المخزون {calc.exceedsNisab ? '' : '(لم يبلغ النصاب)'}
+                            </Typography>
+                        </Box>
+                        <Typography variant="h5" fontWeight={900} color={statusColor}>
+                            {fmt(calc.zakatAmount)}
+                        </Typography>
+                    </Box>
+
+                    {/* Islamic note */}
+                    <Box sx={{
+                        p: 1.5, borderRadius: 2,
+                        bgcolor: alpha('#4F46E5', 0.04),
+                        border: `1px solid ${alpha('#4F46E5', 0.1)}`,
+                        display: 'flex', gap: 1,
+                    }}>
+                        <InfoIcon sx={{ fontSize: 16, color: '#4F46E5', mt: 0.2, flexShrink: 0 }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                            زكاة عروض التجارة: تجب على التاجر المسلم إذا بلغت قيمة بضاعته النصاب وحال عليها الحول القمري (354 يوماً).
+                            المعدل: 2.5% من قيمة البضاعة بسعر الشراء أو البيع حسب رأي الفقهاء.
+                        </Typography>
+                    </Box>
+                </Stack>
+
+            </Box>
+        </UnifiedModal>
+    );
+}
+
+function InfoRow({ label, value, color }: { label: string; value: string; color: string }) {
+    const theme = useTheme();
+    return (
+        <Box sx={{
+            p: 1.5, borderRadius: 2, textAlign: 'center',
+            bgcolor: alpha(color, 0.05),
+            border: `1px solid ${alpha(color, 0.15)}`,
+        }}>
+            <Typography variant="h6" fontWeight={800} color={color} sx={{ fontSize: '0.95rem' }}>{value}</Typography>
+            <Typography variant="caption" color="text.secondary">{label}</Typography>
+        </Box>
     );
 }
 
@@ -84,6 +350,7 @@ export default function Inventory() {
     const [pageSize, setPageSize] = useState(50);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showZakat, setShowZakat] = useState(false);
     const [editForm, setEditForm] = useState({ stock_qty: 0, purchase_price: 0, sale_price: 0, min_qty: 0 });
 
     const { showNotification } = useNotification();
@@ -100,7 +367,7 @@ export default function Inventory() {
         })
     });
 
-    /* Full query (no pagination limit) just for stats */
+    /* Full query for accurate stats */
     const { data: allProducts } = useQuery({
         queryKey: ['inventory-all-stats'],
         queryFn: () => productService.getAll({ limit: 10000 }),
@@ -111,14 +378,12 @@ export default function Inventory() {
     const stats = useMemo(() => {
         const list = allProducts || [];
         const totalValue = list.reduce((s, p) => s + (p.stock_qty ?? 0) * (p.purchase_price ?? 0), 0);
-        const saleValue  = list.reduce((s, p) => s + (p.stock_qty ?? 0) * (p.sale_price ?? 0), 0);
-        const profit     = saleValue - totalValue;
         const outCount   = list.filter(p => p.stock_qty <= 0).length;
         const lowCount   = list.filter(p => p.stock_qty > 0 && p.stock_qty <= p.min_qty).length;
-        return { totalValue, profit, outCount, lowCount, total: list.length };
+        return { totalValue, outCount, lowCount, total: list.length };
     }, [allProducts]);
 
-    /* Filtered rows for DataGrid */
+    /* Filtered rows */
     const filteredRows = useMemo(() => {
         let rows = products || [];
         if (stockStatusFilter === 'out') rows = rows.filter(p => p.stock_qty <= 0);
@@ -174,12 +439,8 @@ export default function Inventory() {
             renderCell: (params) => {
                 const status = getStockStatus(params.row);
                 return (
-                    <Chip
-                        icon={status.icon}
-                        label={params.value}
-                        color={status.color as 'error' | 'warning' | 'success'}
-                        size="small"
-                    />
+                    <Chip icon={status.icon} label={params.value}
+                        color={status.color as 'error' | 'warning' | 'success'} size="small" />
                 );
             }
         },
@@ -203,12 +464,9 @@ export default function Inventory() {
             renderCell: (params) => {
                 const status = getStockStatus(params.row);
                 return (
-                    <Chip
-                        label={status.label}
+                    <Chip label={status.label}
                         color={status.color as 'error' | 'warning' | 'success'}
-                        size="small"
-                        variant="outlined"
-                    />
+                        size="small" variant="outlined" />
                 );
             }
         },
@@ -250,12 +508,15 @@ export default function Inventory() {
                     color={theme.palette.primary.main}
                     sub={`${stats.total} منتج`}
                 />
+                {/* Zakat calculator card */}
                 <StatCard
-                    label="هامش الربح المتوقع"
-                    value={fmt(stats.profit)}
-                    icon={<ProfitIcon fontSize="small" />}
+                    label="حاسبة زكاة التجارة"
+                    value="احسب الزكاة"
+                    icon={<ZakatIcon fontSize="small" />}
                     color="#10B981"
-                    sub={stats.profit >= 0 ? 'ربح' : 'خسارة'}
+                    sub="النقر للحساب"
+                    clickable
+                    onClick={() => setShowZakat(true)}
                 />
                 <StatCard
                     label="منتجات منخفضة"
@@ -291,12 +552,9 @@ export default function Inventory() {
                         sx={{ flex: 1, minWidth: '200px' }}
                     />
                     <TextField
-                        select
-                        label="حالة المخزون"
-                        value={stockStatusFilter}
+                        select label="حالة المخزون" value={stockStatusFilter}
                         onChange={(e) => setStockStatusFilter(e.target.value)}
-                        size="small"
-                        sx={{ minWidth: 160 }}
+                        size="small" sx={{ minWidth: 160 }}
                     >
                         <MenuItem value="">الكل</MenuItem>
                         <MenuItem value="ok">✅ كافي</MenuItem>
@@ -324,12 +582,9 @@ export default function Inventory() {
                         border: 'none',
                         '& .MuiDataGrid-cell': { borderColor: alpha(theme.palette.divider, 0.4) },
                         '& .MuiDataGrid-columnHeaders': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                            borderRadius: 0,
+                            backgroundColor: alpha(theme.palette.primary.main, 0.05), borderRadius: 0,
                         },
-                        '& .MuiDataGrid-row:hover': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.03),
-                        },
+                        '& .MuiDataGrid-row:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.03) },
                     }}
                 />
             </Paper>
@@ -370,6 +625,13 @@ export default function Inventory() {
                     </Stack>
                 </Box>
             </UnifiedModal>
+
+            {/* Zakat Calculator Dialog */}
+            <ZakatDialog
+                open={showZakat}
+                onClose={() => setShowZakat(false)}
+                inventoryValue={stats.totalValue}
+            />
         </Box>
     );
 }
