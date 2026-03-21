@@ -15,11 +15,8 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { forwardRef } from 'react';
 
-// Transition animation
 const Transition = forwardRef(function Transition(
-    props: TransitionProps & {
-        children: React.ReactElement;
-    },
+    props: TransitionProps & { children: React.ReactElement },
     ref: React.Ref<unknown>,
 ) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -37,16 +34,6 @@ interface UnifiedModalProps {
     dividers?: boolean;
 }
 
-/**
- * UnifiedModal - نافذة منبثقة موحدة لجميع أجزاء التطبيق
- * 
- * المميزات:
- * - تصميم موحد عبر التطبيق
- * - انتقالات سلسة (Fade + Slide)
- * - دعم RTL
- * - زوايا دائرية (Rounded)
- * - رأس/جسم/تذييل محددة
- */
 export default function UnifiedModal({
     open,
     onClose,
@@ -59,6 +46,7 @@ export default function UnifiedModal({
     dividers = true
 }: UnifiedModalProps) {
     const theme = useTheme();
+    const isLight = theme.palette.mode === 'light';
 
     return (
         <Dialog
@@ -67,101 +55,91 @@ export default function UnifiedModal({
             maxWidth={maxWidth}
             fullWidth={fullWidth}
             TransitionComponent={Transition}
-            TransitionProps={{
-                timeout: {
-                    enter: 300,
-                    exit: 200
-                }
-            }}
+            TransitionProps={{ timeout: { enter: 280, exit: 180 } }}
             PaperProps={{
                 elevation: 8,
                 sx: {
-                    borderRadius: 3,
+                    borderRadius: 3.5,
                     overflow: 'hidden',
-                    // Add subtle animation on open
-                    animation: 'scaleIn 0.3s ease-out',
-                    '@keyframes scaleIn': {
-                        '0%': {
-                            transform: 'scale(0.9)',
-                            opacity: 0
-                        },
-                        '100%': {
-                            transform: 'scale(1)',
-                            opacity: 1
-                        }
-                    }
                 }
             }}
             BackdropProps={{
                 sx: {
-                    backgroundColor: alpha(theme.palette.common.black, 0.6),
-                    backdropFilter: 'blur(4px)'
+                    backgroundColor: alpha(theme.palette.common.black, 0.55),
+                    backdropFilter: 'blur(6px)'
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2,
-                    background: theme.palette.mode === 'light'
-                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`
-                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
-                    borderBottom: dividers ? `1px solid ${theme.palette.divider}` : 'none'
-                }}
-            >
-                <Typography variant="h6" component="div" fontWeight="bold">
-                    {title}
-                </Typography>
-                {showCloseButton && (
-                    <IconButton
-                        onClick={onClose}
-                        size="small"
-                        sx={{
-                            color: theme.palette.text.secondary,
-                            transition: 'all 0.2s',
-                            '&:hover': {
-                                color: theme.palette.error.main,
-                                backgroundColor: alpha(theme.palette.error.main, 0.1),
-                                transform: 'rotate(90deg)'
-                            }
-                        }}
-                    >
-                        <CloseIcon />
-                    </IconButton>
-                )}
-            </DialogTitle>
-
-            {/* Content */}
-            <DialogContent
-                dividers={dividers}
-                sx={{
-                    py: 3,
-                    px: 3
-                }}
-            >
-                {children}
-            </DialogContent>
-
-            {/* Actions */}
-            {actions && (
-                <DialogActions
+            {/* dir="rtl" كـ wrapper لأن Dialog يُرسَم في Portal خارج شجرة React */}
+            <Box dir="rtl">
+                {/* Header */}
+                <DialogTitle
+                    component="div"
                     sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
                         px: 3,
                         py: 2,
-                        background: theme.palette.mode === 'light'
-                            ? alpha(theme.palette.grey[50], 0.5)
-                            : alpha(theme.palette.grey[900], 0.5),
-                        borderTop: dividers ? `1px solid ${theme.palette.divider}` : 'none'
+                        background: isLight
+                            ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.06)} 0%, ${alpha(theme.palette.secondary.main, 0.04)} 100%)`
+                            : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.12)} 0%, ${alpha(theme.palette.secondary.main, 0.08)} 100%)`,
+                        borderBottom: dividers ? `1px solid ${theme.palette.divider}` : 'none',
                     }}
                 >
-                    <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'flex-end' }}>
-                        {actions}
-                    </Box>
-                </DialogActions>
-            )}
+                    <Typography variant="h6" fontWeight={700} sx={{ flex: 1 }}>
+                        {title}
+                    </Typography>
+                    {showCloseButton && (
+                        <IconButton
+                            onClick={onClose}
+                            size="small"
+                            sx={{
+                                color: 'text.secondary',
+                                transition: 'all 0.2s',
+                                '&:hover': {
+                                    color: 'error.main',
+                                    bgcolor: alpha(theme.palette.error.main, 0.1),
+                                    transform: 'rotate(90deg)'
+                                }
+                            }}
+                        >
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                </DialogTitle>
+
+                {/* Content */}
+                <DialogContent
+                    dividers={false}
+                    sx={{
+                        py: 3,
+                        px: 3,
+                        borderTop: dividers ? `1px solid ${theme.palette.divider}` : 'none',
+                    }}
+                >
+                    {children}
+                </DialogContent>
+
+                {/* Actions */}
+                {actions && (
+                    <DialogActions
+                        sx={{
+                            px: 3,
+                            py: 2,
+                            background: isLight
+                                ? alpha(theme.palette.grey[50], 0.8)
+                                : alpha(theme.palette.grey[900], 0.6),
+                            borderTop: `1px solid ${theme.palette.divider}`,
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'flex-start' }}>
+                            {actions}
+                        </Box>
+                    </DialogActions>
+                )}
+            </Box>
         </Dialog>
     );
 }

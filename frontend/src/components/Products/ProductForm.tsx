@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Box, Tabs, Tab, InputAdornment, Stack } from '@mui/material';
+import {
+    Box, Tabs, Tab, InputAdornment, Stack, FormControlLabel, Switch, Typography
+} from '@mui/material';
 import { CustomInput, CustomButton, CustomSelect } from '../Common';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { categoryService } from '../../services/categoryService';
@@ -12,7 +14,7 @@ const productSchema = z.object({
     name: z.string().min(1, 'اسم المنتج مطلوب'),
     sku: z.string().optional(),
     barcode: z.string().optional(),
-    category_id: z.number().optional(),
+    category_id: z.number().optional().nullable(),
     purchase_price: z.number().min(0, 'السعر يجب أن يكون أكبر من أو يساوي 0'),
     sale_price: z.number().min(0, 'السعر يجب أن يكون أكبر من أو يساوي 0'),
     stock_qty: z.number().int().min(0, 'الكمية يجب أن تكون أكبر من أو تساوي 0'),
@@ -44,6 +46,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             name: '',
             sku: '',
             barcode: '',
+            category_id: undefined,
             purchase_price: 0,
             sale_price: 0,
             stock_qty: 0,
@@ -59,7 +62,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 name: product.name,
                 sku: product.sku || '',
                 barcode: product.barcode || '',
-                category_id: product.category_id,
+                category_id: product.category_id ?? undefined,
                 purchase_price: product.purchase_price,
                 sale_price: product.sale_price,
                 stock_qty: product.stock_qty,
@@ -73,6 +76,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 name: '',
                 sku: '',
                 barcode: '',
+                category_id: undefined,
                 purchase_price: 0,
                 sale_price: 0,
                 stock_qty: 0,
@@ -81,6 +85,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 is_active: true
             });
         }
+        setTabValue(0);
     }, [product, reset]);
 
     const createMutation = useMutation({
@@ -94,87 +99,120 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     });
 
     const onSubmit = (data: ProductFormData) => {
+        const payload = {
+            ...data,
+            category_id: data.category_id ?? undefined,
+        };
         if (product) {
-            updateMutation.mutate(data);
+            updateMutation.mutate(payload);
         } else {
-            createMutation.mutate(data);
+            createMutation.mutate(payload);
         }
     };
 
-    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-        setTabValue(newValue);
-    };
+    const isLoading = createMutation.isPending || updateMutation.isPending;
 
     return (
         <form onSubmit={handleSubmit(onSubmit)}>
-            <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs
+                value={tabValue}
+                onChange={(_e, v) => setTabValue(v)}
+                sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+            >
                 <Tab label="بيانات أساسية" />
                 <Tab label="التسعير" />
                 <Tab label="المخزون" />
             </Tabs>
 
-            {/* Tab 1: Basic Info */}
+            {/* Tab 0: Basic Info — hidden بـ CSS فقط، لا تُحذف من DOM لكي تبقى قيم الحقول */}
             <Box role="tabpanel" hidden={tabValue !== 0}>
-                {tabValue === 0 && (
-                    <Stack spacing={2}>
+                <Stack spacing={2}>
+                    <Controller
+                        name="name"
+                        control={control}
+                        render={({ field }) => (
+                            <CustomInput
+                                {...field}
+                                label="اسم المنتج"
+                                fullWidth
+                                error={!!errors.name}
+                                helperText={errors.name?.message}
+                            />
+                        )}
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 2 }}>
                         <Controller
-                            name="name"
+                            name="barcode"
                             control={control}
                             render={({ field }) => (
                                 <CustomInput
                                     {...field}
-                                    label="اسم المنتج"
+                                    label="الباركود"
                                     fullWidth
-                                    error={!!errors.name}
-                                    helperText={errors.name?.message}
                                 />
                             )}
                         />
-
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Controller
-                                name="barcode"
-                                control={control}
-                                render={({ field }) => (
-                                    <CustomInput
-                                        {...field}
-                                        label="الباركود"
-                                        fullWidth
-                                    />
-                                )}
-                            />
-                            <Controller
-                                name="sku"
-                                control={control}
-                                render={({ field }) => (
-                                    <CustomInput
-                                        {...field}
-                                        label="SKU"
-                                        fullWidth
-                                    />
-                                )}
-                            />
-                        </Box>
-
                         <Controller
-                            name="category_id"
+                            name="sku"
                             control={control}
                             render={({ field }) => (
-                                <CustomSelect
+                                <CustomInput
                                     {...field}
-                                    label="الفئة"
+                                    label="SKU"
                                     fullWidth
-                                    options={categories?.map(c => ({ value: c.id, label: c.name })) || []}
                                 />
                             )}
                         />
-                    </Stack>
-                )}
+                    </Box>
+
+                    <Controller
+                        name="category_id"
+                        control={control}
+                        render={({ field }) => (
+                            <CustomSelect
+                                {...field}
+                                value={field.value ?? ''}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    field.onChange(v === '' ? undefined : Number(v));
+                                }}
+                                label="الفئة"
+                                fullWidth
+                                options={[
+                                    { value: '', label: '— بدون فئة —' },
+                                    ...(categories?.map(c => ({ value: c.id, label: c.name })) || [])
+                                ]}
+                            />
+                        )}
+                    />
+
+                    <Controller
+                        name="is_active"
+                        control={control}
+                        render={({ field }) => (
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={field.value}
+                                        onChange={(e) => field.onChange(e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Typography variant="body2" fontWeight={500}>
+                                        {field.value ? 'المنتج نشط' : 'المنتج معطّل'}
+                                    </Typography>
+                                }
+                            />
+                        )}
+                    />
+                </Stack>
             </Box>
 
-            {/* Tab 2: Pricing */}
+            {/* Tab 1: Pricing */}
             <Box role="tabpanel" hidden={tabValue !== 1}>
-                {tabValue === 1 && (
+                <Stack spacing={2}>
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <Controller
                             name="purchase_price"
@@ -213,75 +251,75 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                             )}
                         />
                     </Box>
-                )}
+                </Stack>
             </Box>
 
-            {/* Tab 3: Inventory */}
+            {/* Tab 2: Inventory */}
             <Box role="tabpanel" hidden={tabValue !== 2}>
-                {tabValue === 2 && (
-                    <Stack spacing={2}>
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Controller
-                                name="stock_qty"
-                                control={control}
-                                render={({ field }) => (
-                                    <CustomInput
-                                        {...field}
-                                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                        label="الكمية الحالية"
-                                        type="number"
-                                        fullWidth
-                                        error={!!errors.stock_qty}
-                                        helperText={errors.stock_qty?.message}
-                                    />
-                                )}
-                            />
-                            <Controller
-                                name="min_qty"
-                                control={control}
-                                render={({ field }) => (
-                                    <CustomInput
-                                        {...field}
-                                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                        label="حد الطلب"
-                                        type="number"
-                                        fullWidth
-                                        error={!!errors.min_qty}
-                                        helperText={errors.min_qty?.message}
-                                    />
-                                )}
-                            />
-                        </Box>
-
+                <Stack spacing={2}>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
                         <Controller
-                            name="unit"
+                            name="stock_qty"
                             control={control}
                             render={({ field }) => (
-                                <CustomSelect
+                                <CustomInput
                                     {...field}
-                                    label="الوحدة"
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                    label="الكمية الحالية"
+                                    type="number"
                                     fullWidth
-                                    options={[
-                                        { value: 'piece', label: 'قطعة' },
-                                        { value: 'kg', label: 'كغ' },
-                                        { value: 'liter', label: 'لتر' },
-                                        { value: 'box', label: 'علبة' }
-                                    ]}
+                                    error={!!errors.stock_qty}
+                                    helperText={errors.stock_qty?.message}
                                 />
                             )}
                         />
-                    </Stack>
-                )}
+                        <Controller
+                            name="min_qty"
+                            control={control}
+                            render={({ field }) => (
+                                <CustomInput
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                    label="حد الطلب"
+                                    type="number"
+                                    fullWidth
+                                    error={!!errors.min_qty}
+                                    helperText={errors.min_qty?.message}
+                                />
+                            )}
+                        />
+                    </Box>
+
+                    <Controller
+                        name="unit"
+                        control={control}
+                        render={({ field }) => (
+                            <CustomSelect
+                                {...field}
+                                label="الوحدة"
+                                fullWidth
+                                options={[
+                                    { value: 'piece', label: 'قطعة' },
+                                    { value: 'kg', label: 'كغ' },
+                                    { value: 'liter', label: 'لتر' },
+                                    { value: 'box', label: 'علبة' }
+                                ]}
+                            />
+                        )}
+                    />
+                </Stack>
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
-                <CustomButton onClick={onCancel} color="inherit">إلغاء</CustomButton>
+                <CustomButton onClick={onCancel} color="inherit" disabled={isLoading}>
+                    إلغاء
+                </CustomButton>
                 <CustomButton
                     type="submit"
                     variant="contained"
-                    loading={createMutation.isPending || updateMutation.isPending}
+                    loading={isLoading}
                 >
-                    حفظ
+                    {product ? 'حفظ التعديلات' : 'إضافة المنتج'}
                 </CustomButton>
             </Box>
         </form>
