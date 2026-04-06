@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import {
     InputBase, Box, IconButton, CircularProgress,
-    alpha, useTheme, type SxProps, type Theme,
+    alpha, type SxProps, type Theme,
 } from '@mui/material';
 import {
     SearchRounded as SearchIcon,
@@ -29,47 +29,53 @@ export default function SearchInput({
     sx,
     autoFocus,
 }: SearchInputProps) {
-    const theme = useTheme();
-    const isLight = theme.palette.mode === 'light';
     const inputRef = useRef<HTMLInputElement>(null);
     const hasValue = value.length > 0;
-
     const height = size === 'small' ? 40 : 48;
     const iconSize = size === 'small' ? 20 : 22;
 
     return (
         <Box
             onClick={() => inputRef.current?.focus()}
-            sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                height,
-                width: fullWidth ? '100%' : 'auto',
-                px: size === 'small' ? 1.5 : 2,
-                borderRadius: 2.5,
-                border: `1.5px solid`,
-                borderColor: alpha(theme.palette.divider, 0.7),
-                background: isLight
-                    ? alpha('#fff', 0.92)
-                    : alpha(theme.palette.background.paper, 0.7),
-                backdropFilter: 'blur(10px)',
-                transition: 'all 0.22s cubic-bezier(.4,0,.2,1)',
-                cursor: 'text',
-                '&:focus-within': {
-                    borderColor: theme.palette.primary.main,
-                    boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.13)}`,
-                    background: isLight ? '#fff' : theme.palette.background.paper,
-                    '& .search-icon': {
-                        color: theme.palette.primary.main,
+            sx={[
+                (theme) => ({
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    height,
+                    width: fullWidth ? '100%' : 'auto',
+                    px: size === 'small' ? 1.5 : 2,
+                    borderRadius: 2.5,
+                    border: '1.5px solid',
+                    borderColor: alpha(theme.palette.divider, 0.7),
+                    background:
+                        theme.palette.mode === 'light'
+                            ? alpha('#fff', 0.92)
+                            : alpha(theme.palette.background.paper, 0.7),
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.22s cubic-bezier(.4,0,.2,1)',
+                    cursor: 'text',
+                    '&:focus-within': {
+                        borderColor: theme.palette.primary.main,
+                        boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.13)}`,
+                        background:
+                            theme.palette.mode === 'light'
+                                ? '#fff'
+                                : theme.palette.background.paper,
+                        '& .search-icon': {
+                            color: theme.palette.primary.main,
+                        },
                     },
-                },
-                '&:hover:not(:focus-within)': {
-                    borderColor: alpha(theme.palette.primary.main, 0.45),
-                    background: isLight ? '#fff' : alpha(theme.palette.background.paper, 0.85),
-                },
-                ...sx,
-            }}
+                    '&:hover:not(:focus-within)': {
+                        borderColor: alpha(theme.palette.primary.main, 0.45),
+                        background:
+                            theme.palette.mode === 'light'
+                                ? '#fff'
+                                : alpha(theme.palette.background.paper, 0.85),
+                    },
+                }),
+                ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+            ]}
         >
             {/* Search icon */}
             <SearchIcon
@@ -82,7 +88,7 @@ export default function SearchInput({
                 }}
             />
 
-            {/* Input */}
+            {/* Text input */}
             <InputBase
                 inputRef={inputRef}
                 value={value}
@@ -96,15 +102,12 @@ export default function SearchInput({
                         p: 0,
                         color: 'text.primary',
                         fontFamily: 'Cairo, sans-serif',
-                        '&::placeholder': {
-                            color: 'text.disabled',
-                            opacity: 1,
-                        },
+                        '&::placeholder': { color: 'text.disabled', opacity: 1 },
                     },
                 }}
             />
 
-            {/* End adornment: loading spinner or clear button */}
+            {/* End: spinner while loading, clear button when text present */}
             {isLoading ? (
                 <CircularProgress
                     size={16}
@@ -113,12 +116,13 @@ export default function SearchInput({
             ) : hasValue ? (
                 <IconButton
                     size="small"
+                    tabIndex={-1}
                     onClick={(e) => {
                         e.stopPropagation();
                         onChange('');
                         inputRef.current?.focus();
                     }}
-                    sx={{
+                    sx={(theme) => ({
                         flexShrink: 0,
                         p: 0.3,
                         color: 'text.secondary',
@@ -129,7 +133,7 @@ export default function SearchInput({
                             color: 'error.main',
                             background: alpha(theme.palette.error.main, 0.1),
                         },
-                    }}
+                    })}
                 >
                     <ClearIcon sx={{ fontSize: 16 }} />
                 </IconButton>
