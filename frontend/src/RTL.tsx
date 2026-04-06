@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
-import rtlPlugin from 'stylis-plugin-rtl';
+import stylisPluginRtl from '@mui/stylis-plugin-rtl';
 import { prefixer } from 'stylis';
 
-// Create RTL cache
 const cacheRtl = createCache({
     key: 'muirtl',
-    stylisPlugins: [prefixer, rtlPlugin],
+    stylisPlugins: [prefixer, stylisPluginRtl],
 });
 
 export function RTL({ children }: { children: React.ReactNode }) {
