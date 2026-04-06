@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useQuery } from '@tanstack/react-query';
 import { Box, TextField, InputAdornment, Grid, Card, CardContent, Typography, Chip, CircularProgress, Tabs, Tab } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
@@ -75,6 +76,7 @@ const ProductCard = ({ product }: { product: Product }) => {
 
 export default function ProductExplorer() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
     const { data: categories } = useQuery({
@@ -83,9 +85,9 @@ export default function ProductExplorer() {
     });
 
     const { data: products, isLoading } = useQuery({
-        queryKey: ['products', searchQuery, selectedCategory],
+        queryKey: ['products', debouncedSearch, selectedCategory],
         queryFn: () => productService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             category_id: selectedCategory || undefined,
             limit: 50 // Load 50 items for now
         })

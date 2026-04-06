@@ -184,6 +184,7 @@ export default function Login() {
                                 disabled={loading}
                                 required
                                 autoFocus
+                                autoComplete="current-password"
                                 slotProps={{
                                     input: {
                                         startAdornment: (

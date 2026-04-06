@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -40,6 +41,7 @@ import { ar } from 'date-fns/locale';
 
 export default function SalesList() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -163,9 +165,9 @@ export default function SalesList() {
 
     // Fetch sales
     const { data: sales, isLoading } = useQuery({
-        queryKey: ['sales-list', searchQuery, statusFilter, paymentFilter, dateRange, page, pageSize],
+        queryKey: ['sales-list', debouncedSearch, statusFilter, paymentFilter, dateRange, page, pageSize],
         queryFn: () => salesService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             status: statusFilter || undefined,
             payment_method: paymentFilter || undefined,
             from_date: dateRange.from || undefined,

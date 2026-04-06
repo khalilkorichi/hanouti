@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -349,6 +350,7 @@ function InfoRow({ label, value, color }: { label: string; value: string; color:
 /* ═══════════════════════════════════════ */
 export default function Inventory() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [stockStatusFilter, setStockStatusFilter] = useState<string>('');
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(50);
@@ -372,9 +374,9 @@ export default function Inventory() {
 
     /* Paged query for the DataGrid */
     const { data: products, isLoading } = useQuery({
-        queryKey: ['inventory', searchQuery, stockStatusFilter, page, pageSize],
+        queryKey: ['inventory', debouncedSearch, stockStatusFilter, page, pageSize],
         queryFn: () => productService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             skip: page * pageSize,
             limit: pageSize,
         })

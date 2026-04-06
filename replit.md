@@ -4,9 +4,11 @@
 Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for retail businesses. Full-stack app with a React/Vite frontend and FastAPI backend. The UI is in Arabic (RTL layout) using the Cairo font.
 
 ## Architecture
-- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query, Zustand — port 5000
-- **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn — port 8000
+- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query (staleTime 30s, retry 1), Zustand — port 5000
+- **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn, GZip middleware — port 8000
 - **Database**: SQLite (default, `backend/hanouti.db`), PostgreSQL supported via `DATABASE_URL` env var
+- **Code splitting**: All pages are lazy-loaded via `React.lazy + Suspense` for faster initial load
+- **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer
 
 ## Project Structure
 ```

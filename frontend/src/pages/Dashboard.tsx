@@ -19,6 +19,7 @@ import {
     Switch,
     IconButton,
     Divider,
+    Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +36,7 @@ import {
     Remove as RemoveIcon,
     Delete as DeleteIcon,
     ShoppingCartCheckout as CheckoutIcon,
+    Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
 import { productService, type Product } from '../services/productService';
@@ -202,6 +204,7 @@ export default function Dashboard() {
     const [kpi, setKpi] = useState<KPIData | null>(null);
     const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
     const [loading, setLoading] = useState(true);
+    const [kpiError, setKpiError] = useState(false);
 
     const [activeDialog, setActiveDialog] = useState<'addProduct' | 'quickSale' | 'addCategory' | 'lowStock' | null>(null);
 
@@ -212,26 +215,29 @@ export default function Dashboard() {
         if (!token) navigate('/login');
     }, [navigate]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const token = localStorage.getItem('token');
-                const headers = { Authorization: `Bearer ${token}` };
-                const [kpiRes, topRes] = await Promise.allSettled([
-                    api.get('/reports/kpis', { headers }),
-                    api.get('/reports/top-products?limit=5', { headers }),
-                ]);
-                if (kpiRes.status === 'fulfilled') setKpi(kpiRes.value.data);
-                if (topRes.status === 'fulfilled') setTopProducts(topRes.value.data || []);
-            } catch (_) {
-                // silently fail
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchDashboardData = useCallback(async () => {
+        setLoading(true);
+        setKpiError(false);
+        try {
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            const [kpiRes, topRes] = await Promise.allSettled([
+                api.get('/reports/kpis', { headers }),
+                api.get('/reports/top-products?limit=5', { headers }),
+            ]);
+            if (kpiRes.status === 'fulfilled') setKpi(kpiRes.value.data);
+            else setKpiError(true);
+            if (topRes.status === 'fulfilled') setTopProducts(topRes.value.data || []);
+        } catch (_) {
+            setKpiError(true);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
 
     const stats = [
         {
@@ -331,6 +337,21 @@ export default function Dashboard() {
                     بيع جديد
                 </Button>
             </Box>
+
+            {/* KPI Error Banner */}
+            {kpiError && !loading && (
+                <Alert
+                    severity="warning"
+                    sx={{ mb: 3, borderRadius: 2.5, fontWeight: 600 }}
+                    action={
+                        <Button color="inherit" size="small" startIcon={<RefreshIcon />} onClick={fetchDashboardData}>
+                            إعادة المحاولة
+                        </Button>
+                    }
+                >
+                    تعذّر تحميل بيانات لوحة التحكم — تحقق من تشغيل الخادم
+                </Alert>
+            )}
 
             {/* KPI Cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>
