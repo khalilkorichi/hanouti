@@ -8,6 +8,7 @@ export { default as CustomSelect } from './CustomSelect';
 export { default as CustomButton } from './CustomButton';
 export { default as CustomCard } from './CustomCard';
 export { default as BulkActionsBar } from './BulkActionsBar';
+export { default as SearchInput } from './SearchInput';
 
 // Export types
 export type { CustomInputProps } from './CustomInput';

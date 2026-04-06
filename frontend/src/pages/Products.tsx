@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '../hooks/useDebounce';
 import {
     Box,
     Typography,
-    TextField,
-    InputAdornment,
     Chip,
     Tooltip,
     Alert,
@@ -16,7 +15,6 @@ import {
     Add as AddIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
-    Search as SearchIcon,
     FileDownload as ExportIcon,
     FileUpload as ImportIcon,
     FileDownloadOutlined as ExportCsvIcon,
@@ -24,7 +22,7 @@ import {
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import { productService, type Product } from '../services/productService';
-import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar } from '../components/Common';
+import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar, SearchInput } from '../components/Common';
 import { useNotification } from '../contexts/NotificationContext';
 import ProductForm from '../components/Products/ProductForm';
 import ImportProductsModal from '../components/Products/ImportProductsModal';
@@ -33,6 +31,7 @@ export default function Products() {
     const queryClient = useQueryClient();
     const { showNotification } = useNotification();
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -43,17 +42,17 @@ export default function Products() {
     const [bulkLoading, setBulkLoading] = useState(false);
 
     const { data: products, isLoading, error } = useQuery({
-        queryKey: ['products', searchQuery, paginationModel],
+        queryKey: ['products', debouncedSearch, paginationModel],
         queryFn: () => productService.getAll({
             skip: paginationModel.page * paginationModel.pageSize,
             limit: paginationModel.pageSize,
-            query: searchQuery || undefined
+            query: debouncedSearch || undefined
         })
     });
 
     const { data: totalCount } = useQuery({
-        queryKey: ['products-count', searchQuery],
-        queryFn: () => productService.getCount({ query: searchQuery || undefined })
+        queryKey: ['products-count', debouncedSearch],
+        queryFn: () => productService.getCount({ query: debouncedSearch || undefined })
     });
 
     const deleteMutation = useMutation({
@@ -290,23 +289,11 @@ export default function Products() {
             </Box>
 
             <Box sx={{ mb: 3 }}>
-                <TextField
-                    fullWidth
-                    placeholder="بحث في المنتجات (الاسم، الباركود، SKU)..."
+                <SearchInput
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
-                    sx={{
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: 3
-                        }
-                    }}
+                    onChange={setSearchQuery}
+                    placeholder="بحث بالاسم، الباركود، أو رمز SKU..."
+                    isLoading={isLoading}
                 />
             </Box>
 

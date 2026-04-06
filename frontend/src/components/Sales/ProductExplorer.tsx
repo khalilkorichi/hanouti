@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useQuery } from '@tanstack/react-query';
-import { Box, TextField, InputAdornment, Grid, Card, CardContent, Typography, Chip, CircularProgress, Tabs, Tab } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import { Box, Grid, Card, CardContent, Typography, Chip, CircularProgress, Tabs, Tab } from '@mui/material';
 import { productService, type Product } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
 import { useCartStore } from '../../store/cartStore';
 import { useDraggable } from '@dnd-kit/core';
 import { useNotification } from '../../contexts/NotificationContext';
+import { SearchInput } from '../Common';
 
 // Draggable Product Card
 const ProductCard = ({ product }: { product: Product }) => {
@@ -97,18 +97,11 @@ export default function ProductExplorer() {
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Search & Filter */}
             <Box>
-                <TextField
-                    fullWidth
-                    placeholder="بحث عن منتج..."
+                <SearchInput
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
+                    onChange={setSearchQuery}
+                    placeholder="بحث عن منتج للإضافة للسلة..."
+                    isLoading={isLoading}
                     sx={{ mb: 2 }}
                 />
 

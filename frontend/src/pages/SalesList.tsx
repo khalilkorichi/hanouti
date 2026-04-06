@@ -5,7 +5,6 @@ import {
     Box,
     Paper,
     TextField,
-    InputAdornment,
     MenuItem,
     Stack,
     Typography,
@@ -19,7 +18,6 @@ import {
     Button,
 } from '@mui/material';
 import {
-    Search as SearchIcon,
     Visibility as ViewIcon,
     Print as PrintIcon,
     Cancel as CancelIcon,
@@ -33,7 +31,7 @@ import {
     DeleteForeverOutlined as HardDeleteIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar } from '../components/Common';
+import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
@@ -619,18 +617,11 @@ export default function SalesList() {
             {/* Filters */}
             <Paper sx={{ p: 2, mb: 2, borderRadius: 3, boxShadow: 'none', border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                    <TextField
-                        placeholder="بحث برقم الفاتورة..."
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon />
-                                </InputAdornment>
-                            )
-                        }}
-                        size="small"
+                        onChange={setSearchQuery}
+                        placeholder="بحث برقم الفاتورة أو اسم العميل..."
+                        isLoading={isLoading}
                         sx={{ flex: 1, minWidth: '200px' }}
                     />
                     <TextField

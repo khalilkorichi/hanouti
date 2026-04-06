@@ -20,7 +20,6 @@ import {
     Button,
 } from '@mui/material';
 import {
-    Search as SearchIcon,
     Edit as EditIcon,
     Warning as WarningIcon,
     CheckCircle as CheckCircleIcon,
@@ -38,7 +37,7 @@ import {
     TuneOutlined as SetMinQtyIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
+import { CustomButton, UnifiedModal, BulkActionsBar, SearchInput } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -660,18 +659,11 @@ export default function Inventory() {
             {/* Filters */}
             <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                    <TextField
-                        placeholder="بحث عن منتج..."
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                                </InputAdornment>
-                            )
-                        }}
-                        size="small"
+                        onChange={setSearchQuery}
+                        placeholder="بحث عن منتج بالاسم أو الباركود..."
+                        isLoading={isLoading}
                         sx={{ flex: 1, minWidth: '200px' }}
                     />
                     <TextField
