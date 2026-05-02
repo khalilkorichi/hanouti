@@ -1,15 +1,25 @@
 name: Build Windows Installer
 
+# Triggers:
+#   - Tag push (v*.*.*)        → builds + creates GitHub Release with .exe attached
+#   - Manual dispatch          → builds artifact only (downloadable from Actions tab)
+#   - Push to master/main      → builds artifact only (continuous validation)
 on:
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Optional release tag (e.g. v1.0.1). Leave empty to skip release upload.'
-        required: false
-        default: ''
   push:
+    branches:
+      - master
+      - main
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+
+# Cancel duplicate runs on the same ref to save minutes.
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # needed to create releases and push to release-windows branch
 
 jobs:
   build:
@@ -18,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -29,6 +41,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements-build.txt
 
       - name: Install Python build deps
         run: |
@@ -37,6 +51,27 @@ jobs:
 
       - name: Build backend.exe (PyInstaller)
         run: python backend/build_exe.py
+
+      - name: Cache root npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-root-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: npm-root-
+
+      - name: Cache frontend npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-frontend-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          restore-keys: npm-frontend-
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/electron-builder/Cache
+          key: electron-builder-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: electron-builder-${{ runner.os }}-
 
       - name: Install root Electron deps
         run: npm install --no-audit --no-fund --legacy-peer-deps
@@ -53,16 +88,27 @@ jobs:
       - name: Build NSIS installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CSC_LINK / CSC_KEY_PASSWORD: set as repo secrets when you obtain
+          # a code-signing certificate. Builds run unsigned without them.
         run: npx electron-builder --win --x64 --publish never
 
-      - name: Upload installer artifact
+      - name: Show build artifacts
+        shell: bash
+        run: |
+          ls -lah release/ || echo "(no release dir)"
+          echo "--- artifacts ---"
+          find release -maxdepth 2 -type f -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" 2>/dev/null
+
+      - name: Upload installer as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hanouti-windows-installer
+          name: hanouti-windows-installer-${{ github.sha }}
           path: |
             release/*.exe
             release/*.exe.blockmap
-          retention-days: 14
+            release/latest.yml
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Stage release artifacts on release-windows branch
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -75,12 +121,14 @@ jobs:
           git config --global user.name "Hanouti Release Bot"
           git fetch origin release-windows:release-windows 2>/dev/null || git checkout --orphan release-windows
           git checkout release-windows 2>/dev/null || git checkout --orphan release-windows
-          # wipe everything and copy fresh artifacts
           git rm -rf . 2>/dev/null || true
           mkdir -p frontend-dist backend-dist
           cp -r app-files/frontend-dist/* frontend-dist/
           cp -r app-files/backend-dist/* backend-dist/
-          echo "Hanouti release artifacts (auto-published)" > README.md
+          echo "# Hanouti — Release Artifacts" > README.md
+          echo "" >> README.md
+          echo "Auto-published from tag \`${{ github.ref_name }}\`." >> README.md
+          echo "Used by the in-app updater to fetch fresh frontend & backend files." >> README.md
           git add -A
           git commit -m "release: ${{ github.ref_name }}"
           git push -f origin release-windows
@@ -89,8 +137,29 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: Hanouti ${{ github.ref_name }}
           files: |
             release/*.exe
             release/*.exe.blockmap
+            release/latest.yml
           draft: false
           prerelease: false
+          generate_release_notes: true
+          body: |
+            ## ⚡ Hanouti ${{ github.ref_name }} — Windows Installer
+
+            ### 📥 التحميل (Download)
+
+            **[⬇️ Hanouti-Setup-x64.exe](https://github.com/khalilkorichi/hanouti/releases/download/${{ github.ref_name }}/Hanouti-Setup-${{ github.ref_name }}-x64.exe)** — مثبّت Windows x64
+
+            ### 🚀 التثبيت (Install)
+            1. حمّل الملف أعلاه
+            2. شغّله واتبع المعالج (العربية مفعّلة افتراضياً)
+            3. افتح "Hanouti" من قائمة ابدأ
+
+            > أوّل تشغيل: قد يظهر تحذير SmartScreen — اضغط "المزيد من المعلومات" → "تشغيل على أي حال".
+
+            ### 🔄 التحديث التلقائي
+            النسخ المثبّتة سابقاً ستكتشف هذا الإصدار تلقائياً وتعرض إشعاراً.
+            يمكن تطبيقه من **الإعدادات → التحديثات**.
