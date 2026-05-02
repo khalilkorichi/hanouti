@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
     Typography, Box, TextField, Switch, Stack, Avatar,
-    useTheme, alpha, Tooltip, Divider, Paper, IconButton,
+    useTheme, alpha, Tooltip, Paper, IconButton,
 } from '@mui/material';
 import {
     Security as SecurityIcon,

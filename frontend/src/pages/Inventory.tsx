@@ -331,7 +331,7 @@ function ZakatDialog({ open, onClose, inventoryValue }: { open: boolean; onClose
 }
 
 function InfoRow({ label, value, color }: { label: string; value: string; color: string }) {
-    const theme = useTheme();
+    useTheme();
     return (
         <Box sx={{
             p: 1.5, borderRadius: 2, textAlign: 'center',
@@ -447,6 +447,7 @@ export default function Inventory() {
     const isAllSelected = allAvailableIds.length > 0 && selectedIds.length === allAvailableIds.length;
 
     const handleSelectAll = () => {
+        if (!apiRef.current) return;
         if (isAllSelected) {
             apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set() });
         } else {

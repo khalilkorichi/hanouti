@@ -98,6 +98,7 @@ export default function Products() {
     const isAllSelected = allAvailableIds.length > 0 && selectedIds.length === allAvailableIds.length;
 
     const handleSelectAll = () => {
+        if (!apiRef.current) return;
         if (isAllSelected) {
             apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set() });
         } else {
