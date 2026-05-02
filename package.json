@@ -3,11 +3,21 @@
   "version": "1.0.0",
   "description": "Hanouti — Smart Inventory & POS desktop application (Electron + FastAPI)",
   "main": "electron/main.cjs",
-  "author": {
-    "name": "Khalil Korichi",
+  "homepage": "https://github.com/khalilkorichi/hanouti",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/khalilkorichi/hanouti.git"
+  },
+  "bugs": {
+    "url": "https://github.com/khalilkorichi/hanouti/issues",
     "email": "khalil@hanouti.app"
   },
-  "license": "Proprietary",
+  "author": {
+    "name": "Khalil Korichi",
+    "email": "khalil@hanouti.app",
+    "url": "https://github.com/khalilkorichi"
+  },
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "scripts": {
     "frontend:dev": "npm --prefix frontend run dev",

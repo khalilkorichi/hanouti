@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Notification } = require('electron');
 const log = require('electron-log');
 
 const {
@@ -171,6 +171,46 @@ ipcMain.handle('updater:apply-update', async (_e, scanResult) => {
 
 // ─── lifecycle ─────────────────────────────────────────────────────────
 
+// ─── background update check ───────────────────────────────────────────
+// Runs ~30s after launch, then every 6h. Best-effort, fully silent on
+// failure — never bothers the user with errors. Surfaces a single OS-level
+// notification (and a renderer event) when updates exist.
+
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const UPDATE_CHECK_INITIAL_DELAY_MS = 30 * 1000;
+
+async function backgroundUpdateCheck() {
+  if (isDev) return;
+  try {
+    const result = await updater.scanChanges();
+    if (result && result.totalChanges > 0) {
+      log.info(`[main] background check: ${result.totalChanges} updates available`);
+      // Tell the renderer so it can badge the Settings tab.
+      sendStatus({ state: 'updates-available-bg', totalChanges: result.totalChanges, branch: result.branch });
+      // OS notification (Windows 10/11 toast).
+      if (Notification.isSupported()) {
+        const n = new Notification({
+          title: 'تحديث جديد متاح — Hanouti',
+          body: `يوجد ${result.totalChanges} ملف(ات) جديد(ة). افتح الإعدادات → التحديثات لتطبيق التحديث.`,
+          silent: false,
+        });
+        n.on('click', () => {
+          if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+            mainWindow.webContents.send('updater:open-panel');
+          }
+        });
+        n.show();
+      }
+    } else {
+      log.info('[main] background check: up to date');
+    }
+  } catch (e) {
+    log.warn('[main] background check failed (silent):', e.message);
+  }
+}
+
 app.whenReady().then(async () => {
   // Clean any leftover staging/old dirs from a previously-interrupted update.
   await updater.cleanupOrphans().catch((e) => log.warn('[main] cleanupOrphans', e.message));
@@ -188,6 +228,10 @@ app.whenReady().then(async () => {
     dialog.showErrorBox('فشل تشغيل الخادم الداخلي', e.message);
   }
   await createMainWindow();
+
+  // Schedule background update checks.
+  setTimeout(backgroundUpdateCheck, UPDATE_CHECK_INITIAL_DELAY_MS);
+  setInterval(backgroundUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
 });
 
 app.on('window-all-closed', () => {

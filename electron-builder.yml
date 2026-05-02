@@ -1,6 +1,6 @@
 appId: com.khalilkorichi.hanouti
 productName: Hanouti
-copyright: Copyright © ${author}
+copyright: Copyright © 2026 Khalil Korichi. All rights reserved.
 
 directories:
   output: release
@@ -10,6 +10,9 @@ files:
   - electron/**/*
   - package.json
   - "!**/*.md"
+  - "!**/{.eslintrc,.prettierrc,.editorconfig}"
+  - "!**/{test,tests,__tests__,coverage}/**"
+  - "!**/*.{ts,tsx,map}"
 
 extraResources:
   - from: app-files
@@ -18,7 +21,24 @@ extraResources:
       - "**/*"
 
 asar: true
+asarUnpack:
+  - "**/*.node"
+
+# Maximum compression keeps the installer small (~important for Algerian
+# bandwidth). Trade-off: ~30s slower to build but ~30% smaller .exe.
 compression: maximum
+
+# Used by the in-app updater UI ("Check for new full release") and by
+# electron-updater if the user later opts in to full-installer auto-updates.
+publish:
+  - provider: github
+    owner: khalilkorichi
+    repo: hanouti
+    releaseType: release
+
+# Differential download support (electron-updater).
+electronUpdaterCompatibility: ">=2.16"
+detectUpdateChannel: true
 
 win:
   target:
@@ -28,6 +48,13 @@ win:
   artifactName: "Hanouti-Setup-${version}-${arch}.${ext}"
   publisherName: Khalil Korichi
   rfc3161TimeStampServer: http://timestamp.digicert.com
+  # Sign builds when a code-signing cert is provided in CI:
+  #   CSC_LINK + CSC_KEY_PASSWORD environment variables.
+  # Without those, builds are unsigned (Windows shows SmartScreen warning
+  # on first run — users click "More info" → "Run anyway").
+  verifyUpdateCodeSignature: false
+  # Lower the AppCompat noise on Windows 10/11.
+  requestedExecutionLevel: asInvoker
 
 nsis:
   oneClick: false
@@ -40,7 +67,19 @@ nsis:
   artifactName: "Hanouti-Setup-${version}-${arch}.${ext}"
   language: 1025
   multiLanguageInstaller: true
+  displayLanguageSelector: true
+  installerLanguages:
+    - ar_SA
+    - en_US
+    - fr_FR
   include: build/installer.nsh
   warningsAsErrors: false
-  # If you want a custom icon, drop one at build/icon.ico and uncomment:
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+  menuCategory: Hanouti
+  # Drop a custom 256x256 icon at build/icon.ico to brand installer & app.
   # installerHeaderIcon: build/icon.ico
+  # installerIcon: build/icon.ico
+  # uninstallerIcon: build/icon.ico
+  # installerSidebar: build/installer-sidebar.bmp  # 164x314 BMP
+  # uninstallerSidebar: build/uninstaller-sidebar.bmp

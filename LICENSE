@@ -1,0 +1,54 @@
+Hanouti — Proprietary Software License
+======================================
+
+Copyright (c) 2026 Khalil Korichi. All rights reserved.
+
+The software product known as "Hanouti" (the "Software"), including all
+source code, binaries, documentation, graphics, design, and accompanying
+materials, is the exclusive intellectual property of Khalil Korichi (the
+"Author"). It is licensed, not sold.
+
+1. GRANT OF LICENSE
+   Subject to the terms below, the Author grants the end user a personal,
+   non-exclusive, non-transferable, revocable license to install and use
+   the Software on a single device, for the user's own retail / point of
+   sale operations.
+
+2. RESTRICTIONS
+   The end user MAY NOT:
+     a) Copy, redistribute, sublicense, sell, rent, lease, or lend the
+        Software or any portion of it.
+     b) Modify, adapt, translate, reverse engineer, decompile, disassemble,
+        or create derivative works based on the Software, except to the
+        extent expressly permitted by applicable law.
+     c) Remove, alter, or obscure any copyright, trademark, or other
+        proprietary rights notices contained in the Software.
+     d) Use the Software for the benefit of any third party (e.g. as part
+        of a managed service offering) without a separate written agreement
+        from the Author.
+
+3. DATA OWNERSHIP
+   All business data created or stored by the user inside the Software
+   (products, sales, customers, etc.) belongs solely to the user. The
+   Software does not transmit user data to the Author or any third party.
+
+4. UPDATES
+   The Software may include an automatic update mechanism that downloads
+   updates from the Author's official GitHub repository. Updates are
+   subject to this same license.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+   OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+6. TERMINATION
+   This license terminates automatically upon any breach by the user. Upon
+   termination, the user must uninstall and destroy all copies of the
+   Software in their possession.
+
+7. CONTACT
+   For commercial licensing, partnerships, or any other inquiries:
+   khalil@hanouti.app
