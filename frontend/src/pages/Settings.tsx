@@ -19,6 +19,9 @@ import {
     Brightness7 as LightIcon,
     TextFields as FontIcon,
     GitHub as GitHubIcon,
+    RoundedCorner as RadiusIcon,
+    ViewCompact as DensityIcon,
+    Animation as AnimationIcon,
 } from '@mui/icons-material';
 import { CustomButton } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
@@ -47,7 +50,10 @@ const NAV_ITEMS: NavItem[] = [
 export default function Settings() {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
-    const { mode, toggleMode, primaryColor, setPrimaryColor, fontSize, setFontSize } = useAppTheme();
+    const {
+        mode, toggleMode, primaryColor, setPrimaryColor, fontSize, setFontSize,
+        radius, setRadius, density, setDensity, animSpeed, setAnimSpeed,
+    } = useAppTheme();
     const { showNotification } = useNotification();
 
     const [activeSection, setActiveSection] = useState<SectionKey>('profile');
@@ -258,7 +264,7 @@ export default function Settings() {
                         </SettingsCard>
 
                         <SettingsCard title="لون السمة الرئيسي">
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
                                 {Object.entries(COLOR_PRESETS).map(([name, color]) => (
                                     <Tooltip key={name} title={name} arrow>
                                         <Box
@@ -279,6 +285,146 @@ export default function Settings() {
                                         </Box>
                                     </Tooltip>
                                 ))}
+                                <Tooltip title="لون مخصص" arrow>
+                                    <Box
+                                        component="label"
+                                        sx={{
+                                            position: 'relative',
+                                            width: 48, height: 48, borderRadius: '50%',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: `conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #06b6d4, #4f46e5, #8b5cf6, #f43f5e)`,
+                                            boxShadow: !Object.values(COLOR_PRESETS).includes(primaryColor)
+                                                ? `0 0 0 2.5px ${primaryColor}, 0 4px 12px ${alpha(primaryColor, 0.45)}`
+                                                : `0 2px 8px rgba(0,0,0,0.15)`,
+                                            border: `3px solid ${isLight ? '#fff' : '#1a1a2e'}`,
+                                            transition: 'all 0.2s',
+                                            '&:hover': { transform: 'scale(1.12)' },
+                                        }}
+                                    >
+                                        <input
+                                            type="color"
+                                            value={primaryColor}
+                                            onChange={(e) => setPrimaryColor(e.target.value)}
+                                            style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', borderRadius: '50%' }}
+                                        />
+                                        {!Object.values(COLOR_PRESETS).includes(primaryColor) && (
+                                            <CheckCircleIcon sx={{ color: '#fff', fontSize: 20, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+                                        )}
+                                    </Box>
+                                </Tooltip>
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="انحناء الزوايا" icon={<RadiusIcon />}>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                {(['sharp', 'medium', 'rounded'] as const).map((r) => {
+                                    const labels = { sharp: 'حادة', medium: 'متوسطة', rounded: 'دائرية' };
+                                    const radiusMap = { sharp: 4, medium: 10, rounded: 16 };
+                                    const isSelected = radius === r;
+                                    return (
+                                        <Box
+                                            key={r}
+                                            onClick={() => {
+                                                setRadius(r);
+                                                showNotification(`تم تغيير انحناء الزوايا إلى ${labels[r]}`, 'success');
+                                            }}
+                                            sx={{
+                                                flex: 1, py: 2.5, cursor: 'pointer',
+                                                borderRadius: `${radiusMap[r]}px`,
+                                                border: `2px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.8)}`,
+                                                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.07) : 'transparent',
+                                                textAlign: 'center', transition: 'all 0.2s',
+                                                '&:hover': { borderColor: theme.palette.primary.main, bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                            }}
+                                        >
+                                            <Box sx={{
+                                                width: 40, height: 40, mx: 'auto', mb: 0.8,
+                                                borderRadius: `${radiusMap[r]}px`,
+                                                bgcolor: isSelected ? theme.palette.primary.main : alpha(theme.palette.text.secondary, 0.3),
+                                                transition: 'all 0.2s',
+                                            }} />
+                                            <Typography variant="caption" color={isSelected ? 'primary.main' : 'text.secondary'} fontWeight={isSelected ? 700 : 500}>
+                                                {labels[r]}
+                                            </Typography>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="كثافة العناصر" icon={<DensityIcon />}>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                {(['compact', 'comfortable', 'spacious'] as const).map((d) => {
+                                    const labels = { compact: 'مدمجة', comfortable: 'مريحة', spacious: 'واسعة' };
+                                    const descs = { compact: 'مساحات صغيرة', comfortable: 'متوازنة', spacious: 'مساحات كبيرة' };
+                                    const isSelected = density === d;
+                                    return (
+                                        <Box
+                                            key={d}
+                                            onClick={() => {
+                                                setDensity(d);
+                                                showNotification(`تم تغيير الكثافة إلى ${labels[d]}`, 'success');
+                                            }}
+                                            sx={{
+                                                flex: 1, py: 2, px: 1.5, borderRadius: 2.5, cursor: 'pointer',
+                                                border: `2px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.8)}`,
+                                                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.07) : 'transparent',
+                                                textAlign: 'center', transition: 'all 0.2s',
+                                                '&:hover': { borderColor: theme.palette.primary.main, bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                            }}
+                                        >
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: d === 'compact' ? 0.4 : d === 'comfortable' ? 0.8 : 1.2, mb: 1 }}>
+                                                {[0, 1, 2].map(i => (
+                                                    <Box key={i} sx={{
+                                                        width: d === 'compact' ? 5 : d === 'comfortable' ? 6 : 7,
+                                                        height: d === 'compact' ? 14 : d === 'comfortable' ? 18 : 22,
+                                                        borderRadius: 0.5,
+                                                        bgcolor: isSelected ? theme.palette.primary.main : alpha(theme.palette.text.secondary, 0.3),
+                                                    }} />
+                                                ))}
+                                            </Box>
+                                            <Typography variant="body2" color={isSelected ? 'primary.main' : 'text.primary'} fontWeight={isSelected ? 700 : 600}>
+                                                {labels[d]}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>
+                                                {descs[d]}
+                                            </Typography>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </SettingsCard>
+
+                        <SettingsCard title="سرعة الحركات" icon={<AnimationIcon />}>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                {(['off', 'fast', 'normal'] as const).map((s) => {
+                                    const labels = { off: 'بدون', fast: 'سريعة', normal: 'عادية' };
+                                    const descs = { off: 'بدون انتقالات', fast: 'انتقالات سريعة', normal: 'انتقالات سلسة' };
+                                    const isSelected = animSpeed === s;
+                                    return (
+                                        <Box
+                                            key={s}
+                                            onClick={() => {
+                                                setAnimSpeed(s);
+                                                showNotification(`تم تغيير سرعة الحركات إلى ${labels[s]}`, 'success');
+                                            }}
+                                            sx={{
+                                                flex: 1, py: 2, px: 1.5, borderRadius: 2.5, cursor: 'pointer',
+                                                border: `2px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.8)}`,
+                                                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.07) : 'transparent',
+                                                textAlign: 'center', transition: 'all 0.2s',
+                                                '&:hover': { borderColor: theme.palette.primary.main, bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                            }}
+                                        >
+                                            <Typography variant="body2" color={isSelected ? 'primary.main' : 'text.primary'} fontWeight={isSelected ? 700 : 600}>
+                                                {labels[s]}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>
+                                                {descs[s]}
+                                            </Typography>
+                                        </Box>
+                                    );
+                                })}
                             </Box>
                         </SettingsCard>
                     </Stack>

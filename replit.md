@@ -4,10 +4,11 @@
 Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for retail businesses. Full-stack app with a React/Vite frontend and FastAPI backend. The UI is in Arabic (RTL layout) using the Cairo font.
 
 ## Architecture
-- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query (staleTime 30s, retry 1), Zustand — port 5000
+- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query (staleTime 30s, gcTime 30min, placeholderData=keepPreviousData for instant nav-back), Zustand — port 5000
 - **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn, GZip middleware — port 8000
-- **Database**: SQLite (default, `backend/hanouti.db`), PostgreSQL supported via `DATABASE_URL` env var
-- **Code splitting**: All pages are lazy-loaded via `React.lazy + Suspense` for faster initial load
+- **Database**: SQLite with WAL mode, 64MB cache, 256MB mmap, NORMAL synchronous, 5s busy timeout (default `backend/hanouti.db`), PostgreSQL with connection pool (10+20) supported via `DATABASE_URL` env var
+- **Composite DB indexes**: products(category_id+is_active, stock_qty+min_qty, is_active+name), sales(status+created_at, created_at), sale_items(sale_id, product_id, sale_id+product_id), stock_movements(product_id+created_at)
+- **Code splitting + preload**: Pages are lazy-loaded via `React.lazy + Suspense`. After login, all routes are preloaded in background via `requestIdleCallback` for instant navigation.
 - **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer
 
 ## Project Structure
@@ -24,7 +25,7 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
   index.html       - HTML entry with Cairo/Tajawal fonts
   src/
     contexts/
-      ThemeContext.tsx  - SINGLE SOURCE OF TRUTH for theming. MUI theme: primary #4F46E5 (customizable), secondary #06B6D4, Cairo font, modern shadows. Components must NOT hardcode `fontFamily: 'Cairo'` — theme typography handles it globally.
+      ThemeContext.tsx  - SINGLE SOURCE OF TRUTH for theming. Persisted tokens (localStorage): mode (light/dark), primaryColor (6 presets + custom hex), fontSize (small/medium/large), radius (sharp/medium/rounded), density (compact/comfortable/spacious), animSpeed (off/fast/normal). Drives MUI theme.shape.borderRadius + per-component overrides for Button/Card/TextField/Chip/Tooltip/Dialog padding & radius. Components must NOT hardcode `fontFamily: 'Cairo'` or `borderRadius: N` — theme handles both globally.
       NotificationContext.tsx  - Multi-notification queue system: up to 5 simultaneous toasts, progress bar, hover-to-pause, slide animation, action buttons
     components/Layout/
       MainLayout.tsx  - Persistent sidebar (desktop) + temporary drawer (mobile)

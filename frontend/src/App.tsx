@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { RTL } from './RTL';
@@ -6,16 +6,27 @@ import MainLayout from './components/Layout/MainLayout';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AppThemeProvider, useAppTheme } from './contexts/ThemeContext';
 
-const Dashboard      = lazy(() => import('./pages/Dashboard'));
-const Login          = lazy(() => import('./pages/Login'));
-const Settings       = lazy(() => import('./pages/Settings'));
-const Products       = lazy(() => import('./pages/Products'));
-const Categories     = lazy(() => import('./pages/Categories'));
-const Sales          = lazy(() => import('./pages/Sales'));
-const SalesList      = lazy(() => import('./pages/SalesList'));
-const Inventory      = lazy(() => import('./pages/Inventory'));
-const Reports        = lazy(() => import('./pages/Reports'));
-const ComponentsDemo = lazy(() => import('./pages/ComponentsDemo'));
+const loadDashboard      = () => import('./pages/Dashboard');
+const loadLogin          = () => import('./pages/Login');
+const loadSettings       = () => import('./pages/Settings');
+const loadProducts       = () => import('./pages/Products');
+const loadCategories     = () => import('./pages/Categories');
+const loadSales          = () => import('./pages/Sales');
+const loadSalesList      = () => import('./pages/SalesList');
+const loadInventory      = () => import('./pages/Inventory');
+const loadReports        = () => import('./pages/Reports');
+const loadComponentsDemo = () => import('./pages/ComponentsDemo');
+
+const Dashboard      = lazy(loadDashboard);
+const Login          = lazy(loadLogin);
+const Settings       = lazy(loadSettings);
+const Products       = lazy(loadProducts);
+const Categories     = lazy(loadCategories);
+const Sales          = lazy(loadSales);
+const SalesList      = lazy(loadSalesList);
+const Inventory      = lazy(loadInventory);
+const Reports        = lazy(loadReports);
+const ComponentsDemo = lazy(loadComponentsDemo);
 
 function PageLoader() {
     return (
@@ -34,6 +45,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppContent() {
     const { mode, toggleMode } = useAppTheme();
     const isDarkMode = mode === 'dark';
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback
+            || ((cb: () => void) => setTimeout(cb, 1500));
+        idle(() => {
+            loadDashboard(); loadProducts(); loadSales(); loadInventory();
+            loadCategories(); loadSalesList(); loadReports(); loadSettings();
+        });
+    }, []);
 
     const wrap = (Component: React.ComponentType) => (
         <ProtectedRoute>

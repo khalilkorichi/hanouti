@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -47,6 +47,12 @@ class Product(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
+    __table_args__ = (
+        Index("ix_products_category_active", "category_id", "is_active"),
+        Index("ix_products_stock_min", "stock_qty", "min_qty"),
+        Index("ix_products_active_name", "is_active", "name"),
+    )
+
 class Sale(Base):
     __tablename__ = "sales"
 
@@ -69,12 +75,17 @@ class Sale(Base):
 
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        Index("ix_sales_status_created", "status", "created_at"),
+        Index("ix_sales_created_desc", "created_at"),
+    )
+
 class SaleItem(Base):
     __tablename__ = "sale_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    sale_id = Column(Integer, ForeignKey("sales.id"))
-    product_id = Column(Integer, ForeignKey("products.id"))
+    sale_id = Column(Integer, ForeignKey("sales.id"), index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), index=True)
     
     qty = Column(Integer, default=1)
     unit_price = Column(Float, default=0.0)
@@ -83,6 +94,10 @@ class SaleItem(Base):
     
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product")
+
+    __table_args__ = (
+        Index("ix_sale_items_sale_product", "sale_id", "product_id"),
+    )
 
 class StockMovement(Base):
     __tablename__ = "stock_movements"
@@ -99,4 +114,8 @@ class StockMovement(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     product = relationship("Product")
+
+    __table_args__ = (
+        Index("ix_stock_mov_product_created", "product_id", "created_at"),
+    )
 
