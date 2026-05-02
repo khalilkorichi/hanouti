@@ -16,7 +16,10 @@ contextBridge.exposeInMainWorld('electronUpdater', {
   getConfig: () => ipcRenderer.invoke('updater:get-config'),
   setConfig: (partial) => ipcRenderer.invoke('updater:set-config', partial),
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
-  downloadInstaller: (asset) => ipcRenderer.invoke('updater:download', asset),
+  // SECURITY: takes no arguments — the main process re-fetches the latest
+  // release and picks the asset itself, so the renderer cannot inject
+  // an arbitrary download URL.
+  downloadInstaller: () => ipcRenderer.invoke('updater:download'),
   installAndRelaunch: (installerPath) => ipcRenderer.invoke('updater:install', installerPath),
   onStatus: (callback) => {
     const listener = (_event, payload) => callback(payload);

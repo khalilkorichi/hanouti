@@ -113,7 +113,8 @@ export default function UpdaterPanel() {
         if (!updater || !check || check.state !== 'update-available' || !check.asset) return;
         setBusy(true);
         try {
-            const r = await updater.downloadInstaller(check.asset);
+            // No asset arg passed — main process re-fetches and validates.
+            const r = await updater.downloadInstaller();
             setDownloadedPath(r.path);
             showNotification(
                 'اكتمل التحميل. اضغط "ابدأ التثبيت الآن" لإكمال الترقية.',

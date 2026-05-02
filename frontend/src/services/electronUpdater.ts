@@ -82,7 +82,13 @@ declare global {
             getConfig: () => Promise<UpdaterConfig>;
             setConfig: (partial: Partial<UpdaterConfig>) => Promise<UpdaterConfig>;
             checkForUpdates: () => Promise<UpdateCheckResult>;
-            downloadInstaller: (asset: ReleaseAsset) => Promise<{ path: string; size: number }>;
+            /**
+             * Triggers a download of the latest release installer.
+             * Takes no arguments: the main process re-fetches the release
+             * metadata from GitHub and validates the asset itself, so the
+             * renderer cannot inject an arbitrary download URL.
+             */
+            downloadInstaller: () => Promise<{ path: string; size: number; name: string }>;
             installAndRelaunch: (installerPath: string) => Promise<{ launched: true }>;
             onStatus: (cb: (status: UpdaterStatus) => void) => () => void;
         };

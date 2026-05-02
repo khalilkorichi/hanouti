@@ -88,6 +88,33 @@ function parseSemver(v) {
   return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10), m[4] || ''];
 }
 
+function comparePrerelease(a, b) {
+  // Semver §11: identifiers with letters compare lexically; numeric
+  // identifiers compare numerically; numeric < non-numeric per identifier.
+  if (a === b) return 0;
+  const ap = a.split('.');
+  const bp = b.split('.');
+  for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
+    const x = ap[i];
+    const y = bp[i];
+    if (x === undefined) return -1; // shorter prerelease < longer
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      const d = parseInt(x, 10) - parseInt(y, 10);
+      if (d !== 0) return d > 0 ? 1 : -1;
+    } else if (xn) {
+      return -1; // numeric < non-numeric
+    } else if (yn) {
+      return 1;
+    } else if (x !== y) {
+      return x > y ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
 function isNewer(remote, current) {
   const r = parseSemver(remote);
   const c = parseSemver(current);
@@ -96,10 +123,11 @@ function isNewer(remote, current) {
     if (r[i] > c[i]) return true;
     if (r[i] < c[i]) return false;
   }
-  // 1.0.0 > 1.0.0-beta1, 1.0.0-rc2 > 1.0.0-rc1
+  // Equal numeric parts: a release with no prerelease > any prerelease.
   if (r[3] === '' && c[3] !== '') return true;
   if (r[3] !== '' && c[3] === '') return false;
-  return r[3] > c[3];
+  // Both prereleases — compare per semver §11 (rc10 > rc2, rc.2 > rc.1).
+  return comparePrerelease(r[3], c[3]) > 0;
 }
 
 // ─── GitHub API ───────────────────────────────────────────────────────
@@ -179,15 +207,58 @@ async function checkForUpdates() {
 
 let activeDownload = null;
 
-async function downloadInstaller(asset, send) {
-  if (!asset || !asset.downloadUrl) {
-    throw new Error('لا يوجد ملفّ مثبّت Windows في هذا الإصدار');
-  }
+// Defense-in-depth: even though we re-fetch the asset URL from GitHub
+// inside the main process, also enforce that the host belongs to GitHub.
+// Prevents a renderer-side compromise + a hypothetical man-in-the-middle
+// in our cached release JSON from redirecting downloads to a hostile host.
+const ALLOWED_DOWNLOAD_HOSTS = new Set([
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+  'codeload.github.com',
+]);
+
+/**
+ * Download the latest GitHub release installer.
+ *
+ * SECURITY: this function takes NO renderer-supplied URL. It always
+ * re-fetches the latest release in the main process and picks the asset
+ * itself, so a compromised renderer cannot persuade us to download or
+ * later execute an attacker-controlled binary via the IPC channel.
+ */
+async function downloadInstaller(send) {
   if (activeDownload) {
     throw new Error('يوجد تحميل آخر نشط بالفعل');
   }
 
-  // Whitelist allowed filename chars to prevent path-traversal via asset name.
+  // Re-fetch the latest release server-side; do NOT trust the renderer.
+  const cfg = await loadConfig();
+  const release = await fetchLatestRelease(cfg);
+  if (!release) throw new Error('لا توجد إصدارات منشورة على المستودع');
+  const asset = pickWindowsAsset(release);
+  if (!asset || !asset.browser_download_url) {
+    throw new Error('لا يوجد ملفّ مثبّت Windows في هذا الإصدار');
+  }
+  if (!/\.exe$/i.test(asset.name)) {
+    throw new Error('الأصل المنشور ليس ملفّ تثبيت .exe');
+  }
+
+  // Validate URL & host.
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(asset.browser_download_url);
+  } catch {
+    throw new Error('رابط التنزيل غير صالح');
+  }
+  if (parsedUrl.protocol !== 'https:') {
+    throw new Error('رابط التنزيل ليس HTTPS');
+  }
+  if (!ALLOWED_DOWNLOAD_HOSTS.has(parsedUrl.hostname)) {
+    throw new Error(`مصدر التنزيل غير مسموح: ${parsedUrl.hostname}`);
+  }
+
+  // Whitelist filename chars (defence against weird release-naming) and
+  // confine the file inside our updates dir.
   const safeName = String(asset.name).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 200);
   const dir = getUpdatesDir();
   await fsp.mkdir(dir, { recursive: true });
@@ -198,32 +269,49 @@ async function downloadInstaller(asset, send) {
   await fsp.rm(dest, { force: true }).catch(() => {});
   await fsp.rm(tmp, { force: true }).catch(() => {});
 
-  send?.({ state: 'downloading', current: 0, total: asset.size || 0, percent: 0 });
+  const expectedSize = Number(asset.size) || 0;
+  send?.({ state: 'downloading', current: 0, total: expectedSize, percent: 0 });
 
-  const res = await fetch(asset.downloadUrl, {
+  log.info(`[updater] downloading ${safeName} from ${parsedUrl.hostname}`);
+  const res = await fetch(asset.browser_download_url, {
     headers: { 'User-Agent': 'hanouti-updater' },
     redirect: 'follow',
   });
   if (!res.ok || !res.body) {
     throw new Error(`تعذّر التحميل من GitHub: HTTP ${res.status}`);
   }
+  // Re-validate the post-redirect host (GitHub redirects to the CDN).
+  const finalHost = (() => { try { return new URL(res.url).hostname; } catch { return ''; } })();
+  if (finalHost && !ALLOWED_DOWNLOAD_HOSTS.has(finalHost)) {
+    throw new Error(`إعادة توجيه التنزيل إلى مضيف غير موثوق: ${finalHost}`);
+  }
 
-  const total = Number(res.headers.get('content-length')) || asset.size || 0;
+  const total = Number(res.headers.get('content-length')) || expectedSize;
   const writer = fs.createWriteStream(tmp);
+
+  // Trap stream errors so disk I/O failures surface as proper updater errors.
+  let writerError = null;
+  writer.on('error', (e) => { writerError = e; log.error('[updater] write stream error:', e.message); });
+
   let downloaded = 0;
   let lastEmit = 0;
-
   activeDownload = { tmp, dest };
 
   try {
     const reader = res.body.getReader();
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      if (writerError) throw writerError;
       const { done, value } = await reader.read();
       if (done) break;
       // Backpressure-aware write.
       if (!writer.write(Buffer.from(value))) {
-        await new Promise((resolve) => writer.once('drain', resolve));
+        await new Promise((resolve, reject) => {
+          const onDrain = () => { writer.off('error', onErr); resolve(); };
+          const onErr = (e) => { writer.off('drain', onDrain); reject(e); };
+          writer.once('drain', onDrain);
+          writer.once('error', onErr);
+        });
       }
       downloaded += value.length;
       const now = Date.now();
@@ -234,10 +322,17 @@ async function downloadInstaller(asset, send) {
       }
     }
     await new Promise((resolve, reject) => writer.end((err) => (err ? reject(err) : resolve())));
+
+    // Verify size: GitHub gives us the asset size in the API; the download
+    // must match exactly. Catches truncated/incomplete downloads.
+    if (expectedSize > 0 && downloaded !== expectedSize) {
+      throw new Error(`اكتمال التحميل غير متطابق: حجم الملفّ ${downloaded} لا يطابق ${expectedSize} المتوقّع`);
+    }
+
     await fsp.rename(tmp, dest);
     log.info(`[updater] downloaded ${safeName} (${downloaded} bytes) → ${dest}`);
     send?.({ state: 'downloaded', path: dest, size: downloaded });
-    return { path: dest, size: downloaded };
+    return { path: dest, size: downloaded, name: safeName };
   } catch (e) {
     writer.destroy();
     await fsp.rm(tmp, { force: true }).catch(() => {});
