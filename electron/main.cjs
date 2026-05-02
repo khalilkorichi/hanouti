@@ -247,9 +247,11 @@ ipcMain.handle('updater:check', async () => {
   }
 });
 
-ipcMain.handle('updater:download', async (_e, asset) => {
+ipcMain.handle('updater:download', async () => {
   try {
-    return await updater.downloadInstaller(asset, sendStatus);
+    // No renderer-supplied data — the updater module re-fetches the
+    // latest release and validates the asset host itself.
+    return await updater.downloadInstaller(sendStatus);
   } catch (e) {
     log.error('[updater] download failed:', e.message);
     sendStatus({ state: 'error', message: e.message });

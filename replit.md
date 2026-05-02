@@ -35,11 +35,27 @@ frontend/src/
   components/Settings/UpdaterPanel.tsx - Updater UI (in Settings → التحديثات tab)
 ```
 
-**Auto-updater** (Settings → التحديثات): connects to a configurable GitHub repo
-(default `khalilkorichi/hanouti`, branch `release-windows`), computes git-blob
-SHA1 of every local file under `app-files/`, downloads only changed files into
-a TEMP staging dir with SHA verification + 3 retries (exp. backoff), then
-atomically copies into the live app dir. Path-traversal-safe, contextBridge-isolated.
+**Auto-updater** (Settings → التحديثات) — rewritten in v1.0.5/v1.0.6:
+uses the standard **GitHub Releases API** (default repo `khalilkorichi/hanouti`).
+Flow:
+1. `checkForUpdates()` → `GET /repos/<owner>/<repo>/releases/latest`, parses
+   `tag_name`, runs strict semver compare (incl. proper §11 prerelease ordering
+   so `rc10` > `rc2`), returns release notes + `.exe` asset metadata.
+2. `downloadInstaller()` (no renderer args; main process re-fetches the release
+   and picks the asset itself) streams the `.exe` to
+   `%APPDATA%/Hanouti/updates/<name>.partial`, validates HTTPS + GitHub host
+   allow-list (`github.com`, `objects.githubusercontent.com`,
+   `release-assets.githubusercontent.com`, `codeload.github.com`), re-validates
+   after CDN redirect, verifies downloaded byte-count matches `asset.size`,
+   atomic rename to final.
+3. `installAndRelaunch(path)` stops the backend, `spawn(detached:true,
+   stdio:'ignore')` + `unref()` the installer, then `app.quit()` after 1.2s
+   so NSIS can take over (UAC + auto-relaunch).
+
+IPC contract is intentionally minimal so the renderer cannot inject arbitrary
+download URLs. Path-traversal-safe (filename whitelist + updates-dir confinement),
+contextBridge-isolated. Auto-checks every 6 hours and shows a Windows desktop
+notification when an update is available.
 
 **Build instructions**: see `README-WINDOWS.md`. Trigger via GitHub Actions
 (`Build Windows Installer` workflow) or locally via `npm run dist:win` on Windows.
