@@ -1,10 +1,11 @@
-import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, type ErrorInfo, type ReactNode } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { RTL } from './RTL';
 import MainLayout from './components/Layout/MainLayout';
-import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import { AppThemeProvider, useAppTheme } from './contexts/ThemeContext';
+import { isElectron, getElectronUpdater, getElectronAPI } from './services/electronUpdater';
 
 // In Electron the page is loaded via file:// — BrowserRouter then sees the
 // pathname as the absolute file path (e.g. "/C:/Program%20Files/Hanouti/...")
@@ -94,6 +95,53 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
 }
 
+/**
+ * Global one-shot listener for the post-install success snackbar.
+ *
+ * Mounted at App-root level so the event is delivered no matter which
+ * page the user happens to land on after upgrading. Uses a session-level
+ * dedupe key in addition to a ref so the snackbar fires AT MOST ONCE
+ * per session even if React strict-mode re-runs the effect or the user
+ * also opens the Updater Settings panel (which has its own listener
+ * for live status updates but does NOT show this snackbar anymore).
+ */
+function UpgradeSuccessNotifier() {
+    const { showNotification } = useNotification();
+    const firedRef = useRef(false);
+    useEffect(() => {
+        if (!isElectron()) return;
+        const updater = getElectronUpdater();
+        const api = getElectronAPI();
+        if (!updater || !api) return;
+        const cleanup = updater.onStatus((s) => {
+            if (s.state !== 'upgrade-success') return;
+            if (firedRef.current) return;
+            // Session-level dedupe in case the listener was mounted twice
+            // (StrictMode dev double-effect, etc.).
+            const SESSION_KEY = `hanouti.upgrade-notified.${s.to}`;
+            try {
+                if (window.sessionStorage.getItem(SESSION_KEY)) return;
+                window.sessionStorage.setItem(SESSION_KEY, '1');
+            } catch { /* private mode etc. — keep going */ }
+            firedRef.current = true;
+            showNotification(
+                `تمّت ترقية البرنامج بنجاح من v${s.from} إلى v${s.to}.`,
+                'success',
+                {
+                    title: 'مرحباً بك في الإصدار الجديد',
+                    duration: 0,
+                    action: {
+                        label: 'ما الجديد؟',
+                        onClick: () => api.openExternal(s.releaseUrl),
+                    },
+                },
+            );
+        });
+        return cleanup;
+    }, [showNotification]);
+    return null;
+}
+
 function AppContent() {
     const { mode, toggleMode } = useAppTheme();
     const isDarkMode = mode === 'dark';
@@ -144,6 +192,7 @@ export default function App() {
             <RTL>
                 <AppThemeProvider>
                     <NotificationProvider>
+                        <UpgradeSuccessNotifier />
                         <AppContent />
                     </NotificationProvider>
                 </AppThemeProvider>

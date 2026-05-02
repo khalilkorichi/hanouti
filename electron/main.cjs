@@ -242,7 +242,21 @@ ipcMain.handle('shell:open-external', (_e, url) => {
 });
 
 ipcMain.handle('updater:get-config', () => updater.loadConfig());
-ipcMain.handle('updater:set-config', (_e, partial) => updater.saveConfig(partial || {}));
+ipcMain.handle('updater:set-config', (_e, partial) => {
+  // Defense in depth: even though sanitizeConfig() in updater.cjs strictly
+  // validates each field, restrict the renderer-facing IPC to ONLY the
+  // user-mutable fields so the renderer cannot spoof `lastKnownVersion`
+  // (which would falsely trigger or suppress the post-install snackbar)
+  // or `downloadDir` (which has its own picker IPC that performs a free-
+  // space + writability check before persisting).
+  const safe = {};
+  if (partial && typeof partial === 'object') {
+    if (typeof partial.repoOwner === 'string') safe.repoOwner = partial.repoOwner;
+    if (typeof partial.repoName === 'string') safe.repoName = partial.repoName;
+    if (typeof partial.includePrerelease === 'boolean') safe.includePrerelease = partial.includePrerelease;
+  }
+  return updater.saveConfig(safe);
+});
 
 ipcMain.handle('updater:check', async () => {
   try {
@@ -263,6 +277,18 @@ ipcMain.handle('updater:download', async () => {
     // latest release and validates the asset host itself.
     return await updater.downloadInstaller(sendStatus);
   } catch (e) {
+    // User-initiated cancel is NOT a download failure — translate the
+    // sentinel error to an idle status (the renderer's own cancel
+    // handler shows its own "تمّ الإلغاء" toast). Other errors keep
+    // the original loud failure UI.
+    const isCancel = e && (e.message === 'تمّ إلغاء التحميل' || e.name === 'AbortError');
+    if (isCancel) {
+      log.info('[updater] download canceled by user');
+      sendStatus({ state: 'idle' });
+      // Re-throw so the renderer-side handleDownload's catch branch
+      // doesn't proceed as if the download succeeded.
+      throw new Error('canceled');
+    }
     log.error('[updater] download failed:', e.message);
     sendStatus({ state: 'error', message: e.message });
     throw e;
@@ -272,7 +298,7 @@ ipcMain.handle('updater:download', async () => {
 ipcMain.handle('updater:install', async (_e, installerPath) => {
   try {
     // Stop the backend so its sqlite file isn't locked while NSIS replaces
-    // %ProgramFiles%\Hanouti\. The OS will of course also kill it when we
+    // the installed app dir. The OS will of course also kill it when we
     // app.quit(), but stopping early keeps the data file consistent.
     log.info('[updater] stopping backend before installer launch');
     stopBackend();
@@ -284,6 +310,25 @@ ipcMain.handle('updater:install', async (_e, installerPath) => {
     sendStatus({ state: 'error', message: e.message });
     throw e;
   }
+});
+
+// ─── pause / resume / cancel for active download ──────────────────────
+ipcMain.handle('updater:pause', () => updater.pauseDownload());
+ipcMain.handle('updater:resume', () => updater.resumeDownload());
+ipcMain.handle('updater:cancel', () => updater.cancelDownload());
+
+// ─── configurable download directory ──────────────────────────────────
+ipcMain.handle('updater:get-download-info', () => updater.getDownloadDirInfo());
+ipcMain.handle('updater:pick-download-dir', async () => {
+  // Always validate inside main; never trust a renderer-supplied path.
+  return await updater.pickDownloadDir(mainWindow);
+});
+ipcMain.handle('updater:reset-download-dir', async () => {
+  await updater.saveConfig({ downloadDir: null });
+  return await updater.getDownloadDirInfo();
+});
+ipcMain.handle('updater:open-download-folder', async (_e, filePath) => {
+  return await updater.openDownloadFolder(filePath);
 });
 
 // ─── hot-update IPC ───────────────────────────────────────────────────
@@ -392,6 +437,46 @@ async function backgroundUpdateCheck() {
   }
 }
 
+/**
+ * One-shot post-install success notification.
+ *
+ * Compare `lastKnownVersion` (persisted by the previous launch) to the
+ * current `app.getVersion()`. If they differ AND the previous version
+ * is older, the user just successfully upgraded — surface an Arabic
+ * Snackbar with a "ما الجديد؟" link to the GitHub release page. After
+ * notifying, persist the new version so we don't fire again on next
+ * launch.
+ */
+async function checkPostInstallSuccess() {
+  try {
+    const cfg = await updater.loadConfig();
+    const current = app.getVersion();
+    const previous = cfg.lastKnownVersion;
+    // Always persist the current version (idempotent — no-op when equal).
+    if (previous !== current) {
+      await updater.saveConfig({ lastKnownVersion: current });
+    }
+    if (!previous || previous === current) return; // first launch or no upgrade
+    if (!updater._isNewer(current, previous)) return; // downgrade — don't celebrate
+
+    log.info(`[main] detected successful upgrade from v${previous} to v${current}`);
+    // Build the release URL (best effort — works for tags published as v<semver>).
+    const releaseUrl = `https://github.com/${cfg.repoOwner}/${cfg.repoName}/releases/tag/v${current}`;
+    // Wait for the renderer to be ready before sending so the snackbar
+    // doesn't get dropped during initial paint.
+    setTimeout(() => {
+      sendStatus({
+        state: 'upgrade-success',
+        from: previous,
+        to: current,
+        releaseUrl,
+      });
+    }, 2500);
+  } catch (e) {
+    log.warn('[main] checkPostInstallSuccess failed:', e.message);
+  }
+}
+
 app.whenReady().then(async () => {
   // Best-effort cleanup of stale partial downloads / week-old installers.
   await updater.cleanupOldDownloads();
@@ -417,6 +502,9 @@ app.whenReady().then(async () => {
     // Show a helpful, in-window error screen with diagnostic steps.
     await loadFrontendOrError(e.message || String(e));
   }
+
+  // STEP 4 — Detect a successful upgrade and notify the user once.
+  await checkPostInstallSuccess();
 
   // Schedule background update checks.
   setTimeout(backgroundUpdateCheck, UPDATE_CHECK_INITIAL_DELAY_MS);

@@ -27,11 +27,20 @@ import {
     Restore as RollbackIcon,
     Replay as ReloadIcon,
     Layers as ChannelIcon,
+    Pause as PauseIcon,
+    PlayArrow as PlayIcon,
+    Stop as StopIcon,
+    FolderOpen as FolderOpenIcon,
+    Folder as FolderIcon,
+    RestartAlt as ResetIcon,
+    Storage as StorageIcon,
+    CachedOutlined as CachedIcon,
 } from '@mui/icons-material';
 import {
     isElectron, getElectronUpdater, getElectronAPI,
     type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult,
     type AppInfo, type FileDiff, type FileDiffEntry, type ChannelInfo,
+    type DownloadDirInfo,
 } from '../../services/electronUpdater';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -48,6 +57,25 @@ function formatDate(iso?: string): string {
     try {
         return new Date(iso).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
     } catch { return iso; }
+}
+
+/** Bytes/sec → human-readable e.g. "1.4 MB/s". 0 → empty. */
+function formatSpeed(bps?: number): string {
+    if (!bps || bps <= 0) return '';
+    return `${formatBytes(bps)}/ث`;
+}
+
+/** Seconds → human-readable Arabic ETA, e.g. "بقي 2د 15ث". */
+function formatEta(seconds?: number | null): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return '';
+    const s = Math.round(seconds);
+    if (s < 60) return `بقي ${s}ث`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    if (m < 60) return rs > 0 ? `بقي ${m}د ${rs}ث` : `بقي ${m}د`;
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return rm > 0 ? `بقي ${h}س ${rm}د` : `بقي ${h}س`;
 }
 
 // ─── File-level diff card ────────────────────────────────────────────
@@ -302,11 +330,23 @@ export default function UpdaterPanel() {
     const [check, setCheck] = useState<UpdateCheckResult | null>(null);
     const [status, setStatus] = useState<UpdaterStatus>({ state: 'idle' });
     const [downloadedPath, setDownloadedPath] = useState<string | null>(null);
+    const [downloadReused, setDownloadReused] = useState(false);
     const [busy, setBusy] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [channel, setChannel] = useState<ChannelInfo | null>(null);
     const [hotApplied, setHotApplied] = useState(false);
+    const [downloadDirInfo, setDownloadDirInfo] = useState<DownloadDirInfo | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
+
+    const refreshDownloadInfo = async () => {
+        if (!updater) return;
+        try {
+            const info = await updater.getDownloadDirInfo();
+            setDownloadDirInfo(info);
+        } catch (e) {
+            console.error('[updater] getDownloadDirInfo failed', e);
+        }
+    };
 
     const refreshChannel = async () => {
         if (!updater?.hotUpdate) return;
@@ -323,14 +363,16 @@ export default function UpdaterPanel() {
         let alive = true;
         (async () => {
             try {
-                const [info, cfg] = await Promise.all([
+                const [info, cfg, ddi] = await Promise.all([
                     electronAPI.getAppInfo(),
                     updater.getConfig(),
+                    updater.getDownloadDirInfo(),
                 ]);
                 if (!alive) return;
                 setAppInfo(info);
                 setConfig(cfg);
                 setDraftConfig(cfg);
+                setDownloadDirInfo(ddi);
                 if (updater.hotUpdate) {
                     const c = await updater.hotUpdate.getChannel();
                     if (alive) setChannel(c);
@@ -340,8 +382,15 @@ export default function UpdaterPanel() {
             }
         })();
         cleanupRef.current = updater.onStatus((s) => {
+            // Note: 'upgrade-success' is handled by the global
+            // <UpgradeSuccessNotifier /> in App.tsx so it fires regardless
+            // of which page the user is on. We deliberately ignore it here.
+            if (s.state === 'upgrade-success') return;
             setStatus(s);
-            if (s.state === 'downloaded') setDownloadedPath(s.path);
+            if (s.state === 'downloaded') {
+                setDownloadedPath(s.path);
+                setDownloadReused(Boolean(s.reused));
+            }
             if (s.state === 'hot-updated') setHotApplied(true);
         });
         return () => {
@@ -379,21 +428,102 @@ export default function UpdaterPanel() {
     const handleDownload = async () => {
         if (!updater || !check || check.state !== 'update-available' || !check.asset) return;
         setBusy(true);
+        setDownloadReused(false);
         try {
             // No asset arg passed — main process re-fetches and validates.
             const r = await updater.downloadInstaller();
             setDownloadedPath(r.path);
+            setDownloadReused(Boolean(r.reused));
             showNotification(
-                'اكتمل التحميل. اضغط "ابدأ التثبيت الآن" لإكمال الترقية.',
+                r.reused
+                    ? 'وُجد ملفّ تثبيت سابق صالح — لا حاجة لإعادة التحميل. اضغط "ابدأ التثبيت الآن".'
+                    : 'اكتمل التحميل. اضغط "ابدأ التثبيت الآن" لإكمال الترقية.',
                 'success',
-                { title: 'جاهز للتثبيت' },
+                { title: r.reused ? 'إعادة استخدام تنزيل سابق' : 'جاهز للتثبيت' },
             );
+            // Refresh free-space chip after a successful download.
+            await refreshDownloadInfo();
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            showNotification(msg, 'error', { title: 'فشل التحميل' });
-            setStatus({ state: 'error', message: msg });
+            // Sentinel from main.cjs when handleCancelDownload triggered the abort —
+            // the cancel handler already showed its own info toast, so don't pile on
+            // a "فشل التحميل" error notification.
+            if (msg !== 'canceled' && msg !== 'تمّ إلغاء التحميل') {
+                showNotification(msg, 'error', { title: 'فشل التحميل' });
+                setStatus({ state: 'error', message: msg });
+            }
         } finally {
             setBusy(false);
+        }
+    };
+
+    const handlePauseDownload = async () => {
+        if (!updater) return;
+        try { await updater.pauseDownload(); } catch (e) {
+            console.error('[updater] pause failed', e);
+        }
+    };
+
+    const handleResumeDownload = async () => {
+        if (!updater) return;
+        try { await updater.resumeDownload(); } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'تعذّر الاستئناف' });
+        }
+    };
+
+    const handleCancelDownload = async () => {
+        if (!updater) return;
+        try {
+            await updater.cancelDownload();
+            setDownloadedPath(null);
+            setDownloadReused(false);
+            showNotification('تمّ إلغاء التحميل وحذف الملفّ المؤقّت.', 'info');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل الإلغاء' });
+        }
+    };
+
+    const handlePickDownloadDir = async () => {
+        if (!updater) return;
+        try {
+            const r = await updater.pickDownloadDir();
+            if (r.canceled) return;
+            if (!r.ok) {
+                showNotification(r.reason || 'تعذّر استخدام المجلّد المختار', 'error', { title: 'مجلّد غير صالح' });
+                return;
+            }
+            await refreshDownloadInfo();
+            showNotification('تمّ تغيير مجلّد التحميل.', 'success');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل اختيار المجلّد' });
+        }
+    };
+
+    const handleResetDownloadDir = async () => {
+        if (!updater) return;
+        try {
+            const info = await updater.resetDownloadDir();
+            setDownloadDirInfo(info);
+            showNotification('تمّ استرجاع المجلّد الافتراضي.', 'success');
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل الاسترجاع' });
+        }
+    };
+
+    const handleOpenDownloadFolder = async (filePath?: string) => {
+        if (!updater) return;
+        try {
+            const r = await updater.openDownloadFolder(filePath);
+            if (!r.ok) {
+                showNotification(r.reason || 'تعذّر فتح المجلّد', 'warning');
+            }
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error');
         }
     };
 
@@ -486,6 +616,7 @@ export default function UpdaterPanel() {
         switch (status.state) {
             case 'checking': return { label: 'جارٍ التحقّق...', color: 'info' as const };
             case 'downloading': return { label: 'جارٍ التحميل', color: 'info' as const };
+            case 'paused': return { label: 'موقوف مؤقّتاً', color: 'warning' as const };
             case 'downloaded': return { label: 'جاهز للتثبيت', color: 'success' as const };
             case 'installing': return { label: 'جارٍ التثبيت', color: 'info' as const };
             case 'hot-updating': return { label: 'تحديث سريع جارٍ...', color: 'info' as const };
@@ -543,11 +674,18 @@ export default function UpdaterPanel() {
     }
 
     const downloading = status.state === 'downloading';
-    const downloadProgress = downloading ? status.percent : 0;
-    const downloadCurrent = downloading ? status.current : 0;
-    const downloadTotal = downloading
+    const paused = status.state === 'paused';
+    const downloadActive = downloading || paused;
+    const downloadCurrent = downloading || paused ? status.current : 0;
+    const downloadTotal = downloading || paused
         ? status.total
         : (check?.state === 'update-available' && check.asset ? check.asset.size : 0);
+    const downloadProgress = downloadActive && downloadTotal > 0
+        ? Math.min(100, Math.round((downloadCurrent / downloadTotal) * 100))
+        : (downloading ? status.percent : 0);
+    const downloadSpeed = downloading ? status.speed : undefined;
+    const downloadEta = downloading ? status.eta : undefined;
+    const downloadName = downloadActive ? status.name : undefined;
 
     return (
         <Stack spacing={3}>
@@ -610,19 +748,75 @@ export default function UpdaterPanel() {
                     </Stack>
                 </Stack>
 
-                {downloading && (
+                {downloadActive && (
                     <Box sx={{ mt: 2.5 }}>
-                        <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                            <Typography variant="caption" color="text.secondary">
-                                جارٍ التحميل... {formatBytes(downloadCurrent)} / {formatBytes(downloadTotal)}
-                            </Typography>
-                            <Typography variant="caption" fontWeight={700}>{downloadProgress}%</Typography>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5} flexWrap="wrap" gap={1}>
+                            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                                <Typography variant="caption" color="text.secondary">
+                                    {paused ? 'موقوف مؤقّتاً' : 'جارٍ التحميل'} · {formatBytes(downloadCurrent)} / {formatBytes(downloadTotal)}
+                                </Typography>
+                                {downloading && downloadSpeed ? (
+                                    <Chip size="small" variant="outlined" label={formatSpeed(downloadSpeed)} />
+                                ) : null}
+                                {downloading && downloadEta ? (
+                                    <Chip size="small" variant="outlined" color="info" label={formatEta(downloadEta)} />
+                                ) : null}
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                                <Typography variant="caption" fontWeight={700}>{downloadProgress}%</Typography>
+                                {downloading ? (
+                                    <Tooltip title="إيقاف مؤقّت">
+                                        <IconButton size="small" onClick={handlePauseDownload}>
+                                            <PauseIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                ) : (
+                                    <Tooltip title="استئناف">
+                                        <IconButton size="small" color="primary" onClick={handleResumeDownload}>
+                                            <PlayIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                                <Tooltip title="إلغاء التحميل">
+                                    <IconButton size="small" color="error" onClick={handleCancelDownload}>
+                                        <StopIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title="فتح مجلّد التحميل">
+                                    <IconButton size="small" onClick={() => handleOpenDownloadFolder()}>
+                                        <FolderOpenIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            </Stack>
                         </Stack>
                         <LinearProgress
-                            variant="determinate"
+                            variant={paused ? 'determinate' : 'determinate'}
                             value={downloadProgress}
-                            sx={{ height: 8, borderRadius: 4 }}
+                            color={paused ? 'warning' : 'primary'}
+                            sx={{ height: 8, borderRadius: 4, opacity: paused ? 0.6 : 1 }}
                         />
+                        {downloadName && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {downloadName}
+                            </Typography>
+                        )}
+                    </Box>
+                )}
+
+                {status.state === 'downloaded' && downloadReused && (
+                    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.success.main, 0.1) }}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <CachedIcon color="success" fontSize="small" />
+                            <Typography variant="body2" color="success.main" sx={{ flex: 1 }}>
+                                جاهز للتثبيت من تنزيل سابق — تمّ التحقّق من سلامة الملفّ بالـ SHA-512.
+                            </Typography>
+                            <Button
+                                size="small" startIcon={<FolderOpenIcon />}
+                                onClick={() => downloadedPath && handleOpenDownloadFolder(downloadedPath)}
+                            >
+                                فتح المجلّد
+                            </Button>
+                        </Stack>
                     </Box>
                 )}
 
@@ -728,6 +922,63 @@ export default function UpdaterPanel() {
                                 }
                                 label="تضمين الإصدارات التجريبية (pre-release)"
                             />
+
+                            {/* ── Download directory picker ─────────── */}
+                            <Box sx={{
+                                p: 2, borderRadius: 2,
+                                border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+                                bgcolor: alpha(theme.palette.background.default, 0.5),
+                            }}>
+                                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                                    <FolderIcon fontSize="small" color="action" />
+                                    <Typography variant="body2" fontWeight={700}>
+                                        مجلّد تحميل ملفّات التحديث
+                                    </Typography>
+                                    {downloadDirInfo?.isDefault && (
+                                        <Chip size="small" variant="outlined" label="افتراضي" />
+                                    )}
+                                </Stack>
+                                <Typography
+                                    variant="caption" color="text.secondary"
+                                    sx={{ display: 'block', mb: 1, wordBreak: 'break-all', fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}
+                                >
+                                    {downloadDirInfo?.path || '...'}
+                                </Typography>
+                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                    <Button
+                                        size="small" variant="outlined" startIcon={<FolderOpenIcon />}
+                                        onClick={handlePickDownloadDir}
+                                    >
+                                        تغيير المجلّد
+                                    </Button>
+                                    {!downloadDirInfo?.isDefault && (
+                                        <Button
+                                            size="small" variant="text" startIcon={<ResetIcon />}
+                                            onClick={handleResetDownloadDir}
+                                        >
+                                            استرجاع الافتراضي
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="small" variant="text" startIcon={<FolderOpenIcon />}
+                                        onClick={() => handleOpenDownloadFolder()}
+                                    >
+                                        فتح المجلّد
+                                    </Button>
+                                    <Box sx={{ flex: 1 }} />
+                                    {downloadDirInfo?.freeBytes != null && (
+                                        <Tooltip title={`الحدّ الأدنى المطلوب: ${formatBytes(downloadDirInfo.minRequiredBytes)}`}>
+                                            <Chip
+                                                size="small" icon={<StorageIcon sx={{ fontSize: 14 }} />}
+                                                color={downloadDirInfo.freeBytes < downloadDirInfo.minRequiredBytes ? 'error' : 'default'}
+                                                variant="outlined"
+                                                label={`متوفّر: ${formatBytes(downloadDirInfo.freeBytes)}`}
+                                            />
+                                        </Tooltip>
+                                    )}
+                                </Stack>
+                            </Box>
+
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 <Button onClick={() => { setDraftConfig(config); setShowSettings(false); }}>
                                     إلغاء
