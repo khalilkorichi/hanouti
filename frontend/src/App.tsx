@@ -1,10 +1,62 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { RTL } from './RTL';
 import MainLayout from './components/Layout/MainLayout';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AppThemeProvider, useAppTheme } from './contexts/ThemeContext';
+
+// In Electron the page is loaded via file:// — BrowserRouter then sees the
+// pathname as the absolute file path (e.g. "/C:/Program%20Files/Hanouti/...")
+// and no route matches → blank page. HashRouter sidesteps this by routing
+// off the URL hash (#/login), which works under any protocol.
+const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+const Router = isFileProtocol ? HashRouter : BrowserRouter;
+
+interface ErrorBoundaryState { error: Error | null; }
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+    state: ErrorBoundaryState = { error: null };
+
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { error };
+    }
+
+    componentDidCatch(error: Error, info: ErrorInfo) {
+        // Surfaces React render-time crashes that would otherwise produce a
+        // blank screen. Logged to devtools console + main-process log.
+        // eslint-disable-next-line no-console
+        console.error('[ErrorBoundary] render error:', error, info);
+    }
+
+    render() {
+        if (this.state.error) {
+            return (
+                <div dir="rtl" style={{
+                    minHeight: '100vh', padding: 40, fontFamily: "'Cairo','Tajawal',sans-serif",
+                    background: '#0F172A', color: '#fff', lineHeight: 1.6,
+                }}>
+                    <h1 style={{ color: '#F87171', fontSize: 28, marginBottom: 8 }}>تعذّر تحميل الواجهة</h1>
+                    <p style={{ color: '#94A3B8', marginBottom: 24 }}>حدث خطأ غير متوقّع أثناء عرض الصفحة.</p>
+                    <pre style={{
+                        background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)',
+                        padding: 16, borderRadius: 8, fontSize: 13, color: '#FCA5A5',
+                        whiteSpace: 'pre-wrap', wordBreak: 'break-word', direction: 'ltr', textAlign: 'left',
+                    }}>{String(this.state.error?.stack || this.state.error?.message || this.state.error)}</pre>
+                    <button
+                        onClick={() => window.location.reload()}
+                        style={{
+                            marginTop: 24, background: '#38BDF8', color: '#0F172A', border: 'none',
+                            padding: '12px 24px', borderRadius: 6, fontSize: 14, fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                    >إعادة تحميل البرنامج</button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 const loadDashboard      = () => import('./pages/Dashboard');
 const loadLogin          = () => import('./pages/Login');
@@ -68,7 +120,7 @@ function AppContent() {
     );
 
     return (
-        <BrowserRouter>
+        <Router>
             <Routes>
                 <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
                 <Route path="/"               element={wrap(Dashboard)} />
@@ -82,18 +134,20 @@ function AppContent() {
                 <Route path="/components-demo" element={wrap(ComponentsDemo)} />
                 <Route path="*"              element={<Navigate to="/" replace />} />
             </Routes>
-        </BrowserRouter>
+        </Router>
     );
 }
 
 export default function App() {
     return (
-        <RTL>
-            <AppThemeProvider>
-                <NotificationProvider>
-                    <AppContent />
-                </NotificationProvider>
-            </AppThemeProvider>
-        </RTL>
+        <ErrorBoundary>
+            <RTL>
+                <AppThemeProvider>
+                    <NotificationProvider>
+                        <AppContent />
+                    </NotificationProvider>
+                </AppThemeProvider>
+            </RTL>
+        </ErrorBoundary>
     );
 }
