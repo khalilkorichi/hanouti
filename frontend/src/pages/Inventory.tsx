@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
@@ -9,17 +10,14 @@ import {
     Stack,
     Typography,
     Chip,
-    IconButton,
     Tooltip,
     alpha,
     useTheme,
-    Fade,
     Divider,
     LinearProgress,
     Button,
 } from '@mui/material';
 import {
-    Search as SearchIcon,
     Edit as EditIcon,
     Warning as WarningIcon,
     CheckCircle as CheckCircleIcon,
@@ -37,7 +35,7 @@ import {
     TuneOutlined as SetMinQtyIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal, BulkActionsBar } from '../components/Common';
+import { CustomButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -349,6 +347,7 @@ function InfoRow({ label, value, color }: { label: string; value: string; color:
 /* ═══════════════════════════════════════ */
 export default function Inventory() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [stockStatusFilter, setStockStatusFilter] = useState<string>('');
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(50);
@@ -372,9 +371,9 @@ export default function Inventory() {
 
     /* Paged query for the DataGrid */
     const { data: products, isLoading } = useQuery({
-        queryKey: ['inventory', searchQuery, stockStatusFilter, page, pageSize],
+        queryKey: ['inventory', debouncedSearch, stockStatusFilter, page, pageSize],
         queryFn: () => productService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             skip: page * pageSize,
             limit: pageSize,
         })
@@ -604,21 +603,12 @@ export default function Inventory() {
     ];
 
     return (
-        <Box dir="rtl">
-            {/* Header */}
-            <Fade in timeout={500}>
-                <Box sx={{ mb: 3 }}>
-                    <Typography variant="h4" fontWeight="bold" sx={{
-                        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.5
-                    }}>
-                        إدارة المخزون
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        متابعة المخزون وتعديل الكميات والأسعار
-                    </Typography>
-                </Box>
-            </Fade>
+        <Box>
+            <PageHeader
+                title="إدارة المخزون"
+                subtitle="متابعة المخزون وتعديل الكميات والأسعار"
+                icon={<InventoryIcon />}
+            />
 
             {/* ── Stats cards ── */}
             <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -658,18 +648,11 @@ export default function Inventory() {
             {/* Filters */}
             <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                    <TextField
-                        placeholder="بحث عن منتج..."
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                                </InputAdornment>
-                            )
-                        }}
-                        size="small"
+                        onChange={setSearchQuery}
+                        placeholder="بحث عن منتج بالاسم أو الباركود..."
+                        isLoading={isLoading}
                         sx={{ flex: 1, minWidth: '200px' }}
                     />
                     <TextField

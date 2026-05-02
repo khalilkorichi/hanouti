@@ -122,14 +122,14 @@ const CustomButton = forwardRef<HTMLButtonElement, CustomButtonProps>(
                             size={20}
                             sx={{
                                 color: variant === 'contained' ? 'inherit' : theme.palette.primary.main,
-                                marginLeft: 1
+                                marginInlineEnd: 1
                             }}
                         />
-                        <span style={{ marginRight: 8 }}>جاري المعالجة...</span>
+                        <span style={{ marginInlineStart: 8 }}>جاري المعالجة...</span>
                     </>
                 ) : (
                     <>
-                        {icon && <span style={{ marginLeft: 8, display: 'flex', alignItems: 'center' }}>{icon}</span>}
+                        {icon && <span style={{ marginInlineEnd: 8, display: 'flex', alignItems: 'center' }}>{icon}</span>}
                         {children}
                     </>
                 )}

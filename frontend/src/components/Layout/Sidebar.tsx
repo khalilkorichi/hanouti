@@ -56,7 +56,6 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
 
     return (
         <Box
-            dir="rtl"
             sx={{
                 height: '100%',
                 display: 'flex',
@@ -172,11 +171,14 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                                     '&::before': {
                                                         content: '""',
                                                         position: 'absolute',
-                                                        right: 0,
+                                                        insetInlineStart: 0,
                                                         top: '20%',
                                                         height: '60%',
                                                         width: 3,
-                                                        borderRadius: '3px 0 0 3px',
+                                                        borderStartStartRadius: 0,
+                                                        borderEndStartRadius: 0,
+                                                        borderStartEndRadius: 3,
+                                                        borderEndEndRadius: 3,
                                                         backgroundColor: item.color,
                                                     },
                                                 }
@@ -208,7 +210,6 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                                 primaryTypographyProps={{
                                                     fontSize: '0.9rem',
                                                     fontWeight: isActive ? 700 : 500,
-                                                    fontFamily: '"Cairo", sans-serif',
                                                     textAlign: 'start',
                                                 }}
                                                 sx={{ m: 0 }}
@@ -256,7 +257,6 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                 primaryTypographyProps={{
                                     fontSize: '0.9rem',
                                     fontWeight: 600,
-                                    fontFamily: '"Cairo", sans-serif',
                                     textAlign: 'start',
                                 }}
                                 sx={{ m: 0 }}

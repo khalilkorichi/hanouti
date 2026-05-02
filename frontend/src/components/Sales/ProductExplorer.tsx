@@ -1,12 +1,13 @@
 import { useState } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useQuery } from '@tanstack/react-query';
-import { Box, TextField, InputAdornment, Grid, Card, CardContent, Typography, Chip, CircularProgress, Tabs, Tab } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import { Box, Grid, Card, CardContent, Typography, Chip, CircularProgress, Tabs, Tab } from '@mui/material';
 import { productService, type Product } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
 import { useCartStore } from '../../store/cartStore';
 import { useDraggable } from '@dnd-kit/core';
 import { useNotification } from '../../contexts/NotificationContext';
+import { SearchInput } from '../Common';
 
 // Draggable Product Card
 const ProductCard = ({ product }: { product: Product }) => {
@@ -75,6 +76,7 @@ const ProductCard = ({ product }: { product: Product }) => {
 
 export default function ProductExplorer() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
     const { data: categories } = useQuery({
@@ -83,9 +85,9 @@ export default function ProductExplorer() {
     });
 
     const { data: products, isLoading } = useQuery({
-        queryKey: ['products', searchQuery, selectedCategory],
+        queryKey: ['products', debouncedSearch, selectedCategory],
         queryFn: () => productService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             category_id: selectedCategory || undefined,
             limit: 50 // Load 50 items for now
         })
@@ -95,18 +97,11 @@ export default function ProductExplorer() {
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Search & Filter */}
             <Box>
-                <TextField
-                    fullWidth
-                    placeholder="بحث عن منتج..."
+                <SearchInput
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
+                    onChange={setSearchQuery}
+                    placeholder="بحث عن منتج للإضافة للسلة..."
+                    isLoading={isLoading}
                     sx={{ mb: 2 }}
                 />
 

@@ -8,9 +8,12 @@ export { default as CustomSelect } from './CustomSelect';
 export { default as CustomButton } from './CustomButton';
 export { default as CustomCard } from './CustomCard';
 export { default as BulkActionsBar } from './BulkActionsBar';
+export { default as SearchInput } from './SearchInput';
+export { default as PageHeader } from './PageHeader';
 
 // Export types
 export type { CustomInputProps } from './CustomInput';
 export type { SelectOption, CustomSelectProps } from './CustomSelect';
 export type { CustomButtonProps } from './CustomButton';
 export type { CustomCardProps } from './CustomCard';
+export type { PageHeaderProps } from './PageHeader';

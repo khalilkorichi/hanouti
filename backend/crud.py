@@ -604,7 +604,7 @@ def get_dashboard_kpis(db: Session, from_date: datetime, to_date: datetime):
     # Profit calculation
     profit_result = db.query(
         func.sum((models.SaleItem.unit_price - models.Product.purchase_price) * models.SaleItem.qty).label('profit')
-    ).join(
+    ).select_from(models.SaleItem).join(
         models.Product, models.SaleItem.product_id == models.Product.id
     ).join(
         models.Sale, models.SaleItem.sale_id == models.Sale.id
@@ -734,6 +734,156 @@ def get_stock_status_distribution(db: Session):
         "out": int(out_count)
     }
 
+def get_kpis_with_comparison(db: Session, from_date: datetime, to_date: datetime):
+    """KPIs with comparison vs equivalent previous period."""
+    period_len = to_date - from_date
+    prev_from = from_date - period_len
+    prev_to = from_date
+
+    current = get_dashboard_kpis(db, from_date=from_date, to_date=to_date)
+    previous = get_dashboard_kpis(db, from_date=prev_from, to_date=prev_to)
+
+    def pct(c, p):
+        if p == 0:
+            return 100.0 if c > 0 else 0.0
+        return ((c - p) / p) * 100.0
+
+    return {
+        **current,
+        "previous": {
+            "total_sales": previous["total_sales"],
+            "total_orders": previous["total_orders"],
+            "avg_order_value": previous["avg_order_value"],
+            "net_profit": previous["net_profit"],
+        },
+        "growth": {
+            "total_sales": pct(current["total_sales"], previous["total_sales"]),
+            "total_orders": pct(current["total_orders"], previous["total_orders"]),
+            "avg_order_value": pct(current["avg_order_value"], previous["avg_order_value"]),
+            "net_profit": pct(current["net_profit"], previous["net_profit"]),
+        },
+    }
+
+
+def get_sales_by_category(db: Session, from_date: datetime, to_date: datetime):
+    """Sales grouped by product category."""
+    from sqlalchemy import func, and_
+    rows = db.query(
+        models.Category.id,
+        models.Category.name,
+        func.sum(models.SaleItem.line_total).label("revenue"),
+        func.sum(models.SaleItem.qty).label("qty"),
+        func.count(models.SaleItem.id).label("items"),
+    ).select_from(models.Category).join(
+        models.Product, models.Product.category_id == models.Category.id
+    ).join(
+        models.SaleItem, models.SaleItem.product_id == models.Product.id
+    ).join(
+        models.Sale, models.SaleItem.sale_id == models.Sale.id
+    ).filter(
+        and_(
+            models.Sale.created_at >= from_date,
+            models.Sale.created_at <= to_date,
+            models.Sale.status == "completed",
+        )
+    ).group_by(models.Category.id, models.Category.name).order_by(
+        func.sum(models.SaleItem.line_total).desc()
+    ).all()
+    return [
+        {"id": r.id, "name": r.name,
+         "revenue": float(r.revenue or 0), "qty": int(r.qty or 0), "items": int(r.items or 0)}
+        for r in rows
+    ]
+
+
+def get_payment_methods(db: Session, from_date: datetime, to_date: datetime):
+    """Payment methods distribution."""
+    from sqlalchemy import func, and_
+    rows = db.query(
+        models.Sale.payment_method,
+        func.count(models.Sale.id).label("count"),
+        func.sum(models.Sale.total).label("total"),
+    ).filter(
+        and_(
+            models.Sale.created_at >= from_date,
+            models.Sale.created_at <= to_date,
+            models.Sale.status == "completed",
+        )
+    ).group_by(models.Sale.payment_method).all()
+    return [
+        {"method": r.payment_method, "count": int(r.count or 0), "total": float(r.total or 0)}
+        for r in rows
+    ]
+
+
+def get_sales_by_weekday(db: Session, from_date: datetime, to_date: datetime):
+    """Sales grouped by weekday (0=Mon ... 6=Sun)."""
+    from sqlalchemy import and_
+    rows = db.query(models.Sale.created_at, models.Sale.total).filter(
+        and_(
+            models.Sale.created_at >= from_date,
+            models.Sale.created_at <= to_date,
+            models.Sale.status == "completed",
+        )
+    ).all()
+    buckets = {i: {"count": 0, "total": 0.0} for i in range(7)}
+    for created_at, total in rows:
+        wd = created_at.weekday()
+        buckets[wd]["count"] += 1
+        buckets[wd]["total"] += float(total or 0)
+    names = ["الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
+    return [
+        {"weekday": i, "name": names[i], "count": buckets[i]["count"], "total": buckets[i]["total"]}
+        for i in range(7)
+    ]
+
+
+def get_sales_by_hour(db: Session, from_date: datetime, to_date: datetime):
+    """Sales grouped by hour of day (0-23)."""
+    from sqlalchemy import and_
+    rows = db.query(models.Sale.created_at, models.Sale.total).filter(
+        and_(
+            models.Sale.created_at >= from_date,
+            models.Sale.created_at <= to_date,
+            models.Sale.status == "completed",
+        )
+    ).all()
+    buckets = {i: {"count": 0, "total": 0.0} for i in range(24)}
+    for created_at, total in rows:
+        h = created_at.hour
+        buckets[h]["count"] += 1
+        buckets[h]["total"] += float(total or 0)
+    return [
+        {"hour": i, "label": f"{i:02d}:00", "count": buckets[i]["count"], "total": buckets[i]["total"]}
+        for i in range(24)
+    ]
+
+
+def get_inventory_value(db: Session):
+    """Total inventory value (cost & retail) + stock-related counts."""
+    from sqlalchemy import func
+    cost_value = db.query(
+        func.sum(models.Product.purchase_price * models.Product.stock_qty)
+    ).filter(models.Product.is_active == True).scalar() or 0
+    retail_value = db.query(
+        func.sum(models.Product.sale_price * models.Product.stock_qty)
+    ).filter(models.Product.is_active == True).scalar() or 0
+    total_units = db.query(func.sum(models.Product.stock_qty)).filter(
+        models.Product.is_active == True
+    ).scalar() or 0
+    total_skus = db.query(func.count(models.Product.id)).filter(
+        models.Product.is_active == True
+    ).scalar() or 0
+    potential_profit = float(retail_value) - float(cost_value)
+    return {
+        "cost_value": float(cost_value),
+        "retail_value": float(retail_value),
+        "potential_profit": potential_profit,
+        "total_units": int(total_units),
+        "total_skus": int(total_skus),
+    }
+
+
 def get_profit_margin(db: Session, from_date: datetime, to_date: datetime):
     """Calculate profit margin for the period"""
     from sqlalchemy import func, and_
@@ -752,7 +902,7 @@ def get_profit_margin(db: Session, from_date: datetime, to_date: datetime):
     # Total cost
     cost = db.query(
         func.sum(models.Product.purchase_price * models.SaleItem.qty)
-    ).join(
+    ).select_from(models.SaleItem).join(
         models.Product, models.SaleItem.product_id == models.Product.id
     ).join(
         models.Sale, models.SaleItem.sale_id == models.Sale.id

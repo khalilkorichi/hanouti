@@ -78,16 +78,14 @@ const CustomCard = forwardRef<HTMLDivElement, CustomCardProps>(
                 ref={ref}
                 elevation={elevation}
                 sx={{
-                    borderRadius: 3,
                     overflow: 'hidden',
                     position: 'relative',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     background: getGradientBackground(),
 
                     ...(hoverEffect && {
                         '&:hover': {
-                            transform: 'translateY(-8px)',
-                            boxShadow: theme.shadows[8],
+                            transform: 'translateY(-2px)',
+                            boxShadow: theme.shadows[4],
                             '& .card-overlay': {
                                 opacity: 1
                             }
@@ -97,13 +95,13 @@ const CustomCard = forwardRef<HTMLDivElement, CustomCardProps>(
                     ...(interactive && {
                         cursor: 'pointer',
                         '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: `0 12px 24px ${alpha(theme.palette.primary.main, 0.15)}`,
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.12)}`,
                             borderColor: borderColor ? alpha(borderColor, 0.8) : undefined
                         },
                         '&:active': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: theme.shadows[4]
+                            transform: 'translateY(0)',
+                            boxShadow: theme.shadows[2]
                         }
                     }),
 

@@ -4,9 +4,12 @@
 Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for retail businesses. Full-stack app with a React/Vite frontend and FastAPI backend. The UI is in Arabic (RTL layout) using the Cairo font.
 
 ## Architecture
-- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query, Zustand — port 5000
-- **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn — port 8000
-- **Database**: SQLite (default, `backend/hanouti.db`), PostgreSQL supported via `DATABASE_URL` env var
+- **Frontend**: React 19 + TypeScript + Vite, Material UI v7, TanStack Query (staleTime 30s, gcTime 30min, placeholderData=keepPreviousData for instant nav-back), Zustand — port 5000
+- **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn, GZip middleware — port 8000
+- **Database**: SQLite with WAL mode, 64MB cache, 256MB mmap, NORMAL synchronous, 5s busy timeout (default `backend/hanouti.db`), PostgreSQL with connection pool (10+20) supported via `DATABASE_URL` env var
+- **Composite DB indexes**: products(category_id+is_active, stock_qty+min_qty, is_active+name), sales(status+created_at, created_at), sale_items(sale_id, product_id, sale_id+product_id), stock_movements(product_id+created_at)
+- **Code splitting + preload**: Pages are lazy-loaded via `React.lazy + Suspense`. After login, all routes are preloaded in background via `requestIdleCallback` for instant navigation.
+- **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer
 
 ## Project Structure
 ```
@@ -22,8 +25,17 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
   index.html       - HTML entry with Cairo/Tajawal fonts
   src/
     contexts/
-      ThemeContext.tsx  - MUI theme: modern color system, Cairo font, rich shadows
+      ThemeContext.tsx  - SINGLE SOURCE OF TRUTH for theming. Persisted tokens (localStorage): mode (light/dark), primaryColor (6 presets + custom hex), fontSize (small/medium/large), radius (sharp/medium/rounded), density (compact/comfortable/spacious), animSpeed (off/fast/normal). Drives MUI theme.shape.borderRadius + per-component overrides for Button/Card/TextField/Chip/Tooltip/Dialog padding & radius. Components must NOT hardcode `fontFamily: 'Cairo'` or `borderRadius: N` — theme handles both globally.
       NotificationContext.tsx  - Multi-notification queue system: up to 5 simultaneous toasts, progress bar, hover-to-pause, slide animation, action buttons
+    components/Common/
+      PageHeader.tsx  - UNIFIED page-top hero used by ALL pages.
+                        Props: title, subtitle, icon, titleEmoji, actions, accent, compact, sx, disableGlow.
+                        Renders: gradient avatar circle + gradient title + subtitle + actions slot + corner glow.
+                        Dark mode: alpha 0.22 (vs 0.07 light), brighter title gradient via primary.light/secondary.light,
+                        inner highlight box-shadow, stronger border. RTL-safe (insetInlineEnd).
+                        Replaces ad-hoc page headers in Dashboard/Products/Categories/SalesList/Inventory/Reports/Settings.
+      CustomCard, CustomButton, CustomIconButton, CustomInput, CustomSelect, SearchInput,
+      BulkActionsBar, UnifiedModal — other shared primitives.
     components/Layout/
       MainLayout.tsx  - Persistent sidebar (desktop) + temporary drawer (mobile)
       Header.tsx      - Glassmorphism header with page title, theme toggle, user avatar
@@ -32,7 +44,12 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
       Login.tsx      - Modern login with gradient background, show/hide password
       Dashboard.tsx  - KPI cards + Quick actions + Top products (real API data)
       Products.tsx, Categories.tsx, Sales.tsx, SalesList.tsx
-      Inventory.tsx, Reports.tsx, Settings.tsx
+      Inventory.tsx, Settings.tsx
+      Reports.tsx    - Hero header, 4 KPI cards with growth chips (% vs previous period),
+                       insights strip (top category/peakday/peakhour), 9 chart sections:
+                       gradient area chart, donut(stock+center number), top-products with progress bars,
+                       category donut, weekday bar, payment-methods bars, hour line,
+                       radial profit margin, inventory value stats. Error state + retry.
     services/
       api.ts         - Axios instance with baseURL '/api' (proxied to backend)
       reportsService.ts, productService.ts, salesService.ts, etc.
@@ -46,6 +63,31 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
 ## API Proxy
 Frontend routes `/api/*` through Vite proxy → backend `localhost:8000`.
 All fetch calls use relative `/api/...` paths — never hardcoded localhost URLs.
+
+## Reports Endpoints (10 total)
+- `/reports/kpis?period=...` — current + `previous{}` + `growth{}` (% change vs equivalent prev period)
+- `/reports/sales-over-time`, `/reports/top-products?limit=N`, `/reports/stock-status`
+- `/reports/profit-margin` (revenue/cost/profit/margin%)
+- `/reports/sales-by-category` (uses `.select_from(Category)` to disambiguate joins)
+- `/reports/payment-methods`, `/reports/sales-by-weekday`, `/reports/sales-by-hour`
+- `/reports/inventory-value` (cost_value/retail_value/potential_profit/total_units/total_skus)
+- **SQLAlchemy gotcha**: aggregate queries that mix columns from multiple unrelated tables MUST
+  use `.select_from(<central_table>)` before `.join(...)` chains, else InvalidRequestError.
+
+## RTL & UI Consistency Rules (IMPORTANT)
+The app uses MUI + emotion `@mui/stylis-plugin-rtl` for bidi behavior. To avoid breaking RTL:
+
+1. **NEVER use `direction: 'rtl'` inside `sx`** — use the `dir="rtl"` HTML attribute instead.
+2. **Single root `dir="rtl"`** lives in `MainLayout.tsx`. Page roots must NOT add their own `dir="rtl"` (it cascades). EXCEPTION: content rendered inside MUI `Dialog`/`Popover` portals needs its own `dir="rtl"` because portals escape the React tree.
+3. **Use logical CSS properties** for any directional spacing/positioning:
+   - `marginInlineStart` / `marginInlineEnd` (NOT `ml`/`mr`/`marginLeft`/`marginRight`)
+   - `insetInlineStart` / `insetInlineEnd` (NOT `left`/`right`)
+   - `paddingInlineStart` / `paddingInlineEnd`
+   - `borderInlineStart` / `borderInlineEnd`
+4. **Never hardcode `fontFamily: 'Cairo'` in components** — `ThemeContext.tsx` typography sets it globally on every MUI component. Hardcoding it overrides font-size scaling from Settings.
+5. **Use `theme.palette.*` for colors** — only category-style accent colors may be inlined (e.g. sidebar menu badges). Never duplicate `theme.palette.primary.main` as a hex.
+6. **Use the `api` service (axios) for all backend calls** — never `fetch('/api/...')`. The api service handles baseURL, headers, and credentials uniformly.
+7. **Use the `PageHeader` common component for every page top header** — never reinvent gradient-title + subtitle + actions markup inline. Pass `actions={<>...</>}` for the right-side cluster. For sub-section headers (Settings), use `compact` + `accent={color}`.
 
 ## UI Design System
 - **Font**: Cairo (Arabic), Tajawal fallback

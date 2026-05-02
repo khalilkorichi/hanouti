@@ -18,10 +18,11 @@ import {
 import {
     Edit as EditIcon,
     Delete as DeleteIcon,
-    Add as AddIcon
+    Add as AddIcon,
+    Category as CategoryIcon,
 } from '@mui/icons-material';
 import { categoryService, type Category, type CategoryCreate, type CategoryUpdate } from '../services/categoryService';
-import { UnifiedModal, CustomButton, CustomInput, CustomIconButton } from '../components/Common';
+import { UnifiedModal, CustomButton, CustomInput, CustomIconButton, PageHeader } from '../components/Common';
 
 export default function Categories() {
     const queryClient = useQueryClient();
@@ -96,18 +97,17 @@ export default function Categories() {
     if (error) return <Alert severity="error">حدث خطأ أثناء تحميل البيانات</Alert>;
 
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h4" fontWeight="bold">الفئات</Typography>
-                <CustomButton
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleOpenModal()}
-                >
-                    إضافة فئة
-                </CustomButton>
-            </Box>
+        <Box sx={{ p: 3 }}>
+            <PageHeader
+                title="الفئات"
+                subtitle="تنظيم منتجاتك في فئات وأقسام"
+                icon={<CategoryIcon />}
+                actions={
+                    <CustomButton variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>
+                        إضافة فئة
+                    </CustomButton>
+                }
+            />
 
             <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 2 }}>
                 <Table>

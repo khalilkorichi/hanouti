@@ -19,6 +19,7 @@ import {
     Switch,
     IconButton,
     Divider,
+    Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,12 +36,14 @@ import {
     Remove as RemoveIcon,
     Delete as DeleteIcon,
     ShoppingCartCheckout as CheckoutIcon,
+    Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
 import { productService, type Product } from '../services/productService';
 import { categoryService, type CategoryCreate } from '../services/categoryService';
 import { salesService } from '../services/salesService';
-import { UnifiedModal, CustomButton, CustomInput } from '../components/Common';
+import { UnifiedModal, CustomButton, CustomInput, PageHeader } from '../components/Common';
+import { Storefront as StorefrontIcon } from '@mui/icons-material';
 import ProductForm from '../components/Products/ProductForm';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -195,13 +198,12 @@ function QuickActionCard({
 export default function Dashboard() {
     const navigate = useNavigate();
     const theme = useTheme();
-    const isLight = theme.palette.mode === 'light';
-    const { showNotification } = useNotification();
-    const queryClient = useQueryClient();
+    const { showNotification: _showNotification } = useNotification();
 
     const [kpi, setKpi] = useState<KPIData | null>(null);
     const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
     const [loading, setLoading] = useState(true);
+    const [kpiError, setKpiError] = useState(false);
 
     const [activeDialog, setActiveDialog] = useState<'addProduct' | 'quickSale' | 'addCategory' | 'lowStock' | null>(null);
 
@@ -212,26 +214,29 @@ export default function Dashboard() {
         if (!token) navigate('/login');
     }, [navigate]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const token = localStorage.getItem('token');
-                const headers = { Authorization: `Bearer ${token}` };
-                const [kpiRes, topRes] = await Promise.allSettled([
-                    api.get('/reports/kpis', { headers }),
-                    api.get('/reports/top-products?limit=5', { headers }),
-                ]);
-                if (kpiRes.status === 'fulfilled') setKpi(kpiRes.value.data);
-                if (topRes.status === 'fulfilled') setTopProducts(topRes.value.data || []);
-            } catch (_) {
-                // silently fail
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchDashboardData = useCallback(async () => {
+        setLoading(true);
+        setKpiError(false);
+        try {
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            const [kpiRes, topRes] = await Promise.allSettled([
+                api.get('/reports/kpis', { headers }),
+                api.get('/reports/top-products?limit=5', { headers }),
+            ]);
+            if (kpiRes.status === 'fulfilled') setKpi(kpiRes.value.data);
+            else setKpiError(true);
+            if (topRes.status === 'fulfilled') setTopProducts(topRes.value.data || []);
+        } catch (_) {
+            setKpiError(true);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
 
     const stats = [
         {
@@ -291,46 +296,42 @@ export default function Dashboard() {
 
     return (
         <Box>
-            {/* Welcome Banner */}
-            <Box
-                sx={{
-                    mb: 4, p: { xs: 3, md: 4 }, borderRadius: 4,
-                    background: isLight
-                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`
-                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    flexWrap: 'wrap', gap: 2,
-                }}
-            >
-                <Box>
-                    <Typography
-                        variant="h4" fontWeight={800} gutterBottom
+            <PageHeader
+                title="مرحباً بك في حانوتي"
+                titleEmoji="👋"
+                subtitle="هذا ملخص أداء متجرك اليوم"
+                icon={<StorefrontIcon />}
+                actions={
+                    <Button
+                        variant="contained"
+                        startIcon={<ReceiptIcon />}
+                        onClick={() => setActiveDialog('quickSale')}
                         sx={{
-                            fontSize: { xs: '1.5rem', md: '2rem' },
+                            borderRadius: 2.5, px: 3, py: 1.1,
                             background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                            boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.35)}`,
+                            '&:hover': { boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.45)}` },
                         }}
                     >
-                        مرحباً بك في حانوتي 👋
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" fontWeight={500}>
-                        هذا ملخص أداء متجرك اليوم
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<ReceiptIcon />}
-                    onClick={() => setActiveDialog('quickSale')}
-                    sx={{
-                        borderRadius: 2.5, px: 3, py: 1.2,
-                        boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.35)}`,
-                        '&:hover': { boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}` },
-                    }}
+                        بيع جديد
+                    </Button>
+                }
+            />
+
+            {/* KPI Error Banner */}
+            {kpiError && !loading && (
+                <Alert
+                    severity="warning"
+                    sx={{ mb: 3, borderRadius: 2.5, fontWeight: 600 }}
+                    action={
+                        <Button color="inherit" size="small" startIcon={<RefreshIcon />} onClick={fetchDashboardData}>
+                            إعادة المحاولة
+                        </Button>
+                    }
                 >
-                    بيع جديد
-                </Button>
-            </Box>
+                    تعذّر تحميل بيانات لوحة التحكم — تحقق من تشغيل الخادم
+                </Alert>
+            )}
 
             {/* KPI Cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>

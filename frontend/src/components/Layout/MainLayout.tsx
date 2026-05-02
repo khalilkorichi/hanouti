@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
+import api from '../../services/api';
 
 interface MainLayoutProps {
     children: ReactNode;
@@ -30,15 +31,12 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await fetch('/api/users/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                const { data: user } = await api.get('/users/me', {
+                    headers: { Authorization: `Bearer ${token}` },
                 });
 
-                if (response.ok) {
-                    const user = await response.json();
-                    if (user.requires_password_change) {
-                        setForcePasswordChange(true);
-                    }
+                if (user?.requires_password_change) {
+                    setForcePasswordChange(true);
                 }
             } catch (error) {
                 console.error('Error checking user status:', error);

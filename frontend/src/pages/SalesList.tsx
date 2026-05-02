@@ -1,24 +1,20 @@
 import { useState, useMemo } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
     Paper,
     TextField,
-    InputAdornment,
     MenuItem,
     Stack,
     Typography,
     Chip,
-    IconButton,
-    Tooltip,
     alpha,
     useTheme,
-    Fade,
     Slide,
     Button,
 } from '@mui/material';
 import {
-    Search as SearchIcon,
     Visibility as ViewIcon,
     Print as PrintIcon,
     Cancel as CancelIcon,
@@ -30,9 +26,10 @@ import {
     CancelOutlined as BulkCancelIcon,
     DeleteOutlineOutlined as DeleteIcon,
     DeleteForeverOutlined as HardDeleteIcon,
+    ReceiptLongOutlined as SalesListIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar } from '../components/Common';
+import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
@@ -40,6 +37,7 @@ import { ar } from 'date-fns/locale';
 
 export default function SalesList() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 350);
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [paymentFilter, setPaymentFilter] = useState<string>('');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -163,9 +161,9 @@ export default function SalesList() {
 
     // Fetch sales
     const { data: sales, isLoading } = useQuery({
-        queryKey: ['sales-list', searchQuery, statusFilter, paymentFilter, dateRange, page, pageSize],
+        queryKey: ['sales-list', debouncedSearch, statusFilter, paymentFilter, dateRange, page, pageSize],
         queryFn: () => salesService.getAll({
-            query: searchQuery || undefined,
+            query: debouncedSearch || undefined,
             status: statusFilter || undefined,
             payment_method: paymentFilter || undefined,
             from_date: dateRange.from || undefined,
@@ -397,27 +395,12 @@ export default function SalesList() {
     ];
 
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
-            {/* Header */}
-            <Fade in timeout={500}>
-                <Box sx={{ mb: 4 }}>
-                    <Typography
-                        variant="h4"
-                        fontWeight="bold"
-                        sx={{
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            mb: 1
-                        }}
-                    >
-                        سجل المبيعات
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        إدارة ومتابعة جميع عمليات البيع
-                    </Typography>
-                </Box>
-            </Fade>
+        <Box sx={{ p: 3 }}>
+            <PageHeader
+                title="سجل المبيعات"
+                subtitle="إدارة ومتابعة جميع عمليات البيع"
+                icon={<SalesListIcon />}
+            />
 
             {/* KPIs */}
             {kpis && (
@@ -617,18 +600,11 @@ export default function SalesList() {
             {/* Filters */}
             <Paper sx={{ p: 2, mb: 2, borderRadius: 3, boxShadow: 'none', border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                    <TextField
-                        placeholder="بحث برقم الفاتورة..."
+                    <SearchInput
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon />
-                                </InputAdornment>
-                            )
-                        }}
-                        size="small"
+                        onChange={setSearchQuery}
+                        placeholder="بحث برقم الفاتورة أو اسم العميل..."
+                        isLoading={isLoading}
                         sx={{ flex: 1, minWidth: '200px' }}
                     />
                     <TextField

@@ -1,152 +1,99 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 import { RTL } from './RTL';
 import MainLayout from './components/Layout/MainLayout';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Settings from './pages/Settings';
-import Products from './pages/Products';
-import Categories from './pages/Categories';
-import Sales from './pages/Sales';
-import SalesList from './pages/SalesList';
-import Inventory from './pages/Inventory';
-import Reports from './pages/Reports';
-import ComponentsDemo from './pages/ComponentsDemo';
 import { NotificationProvider } from './contexts/NotificationContext';
-
-
-
-// Protected Route Component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('token');
-
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-}
-
 import { AppThemeProvider, useAppTheme } from './contexts/ThemeContext';
 
+const loadDashboard      = () => import('./pages/Dashboard');
+const loadLogin          = () => import('./pages/Login');
+const loadSettings       = () => import('./pages/Settings');
+const loadProducts       = () => import('./pages/Products');
+const loadCategories     = () => import('./pages/Categories');
+const loadSales          = () => import('./pages/Sales');
+const loadSalesList      = () => import('./pages/SalesList');
+const loadInventory      = () => import('./pages/Inventory');
+const loadReports        = () => import('./pages/Reports');
+const loadComponentsDemo = () => import('./pages/ComponentsDemo');
+
+const Dashboard      = lazy(loadDashboard);
+const Login          = lazy(loadLogin);
+const Settings       = lazy(loadSettings);
+const Products       = lazy(loadProducts);
+const Categories     = lazy(loadCategories);
+const Sales          = lazy(loadSales);
+const SalesList      = lazy(loadSalesList);
+const Inventory      = lazy(loadInventory);
+const Reports        = lazy(loadReports);
+const ComponentsDemo = lazy(loadComponentsDemo);
+
+function PageLoader() {
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300 }}>
+            <CircularProgress size={36} />
+        </Box>
+    );
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+    const token = localStorage.getItem('token');
+    if (!token) return <Navigate to="/login" replace />;
+    return <>{children}</>;
+}
+
 function AppContent() {
-  const { mode, toggleMode } = useAppTheme();
-  const isDarkMode = mode === 'dark';
+    const { mode, toggleMode } = useAppTheme();
+    const isDarkMode = mode === 'dark';
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Login Route */}
-        <Route path="/login" element={<Login />} />
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback
+            || ((cb: () => void) => setTimeout(cb, 1500));
+        idle(() => {
+            loadDashboard(); loadProducts(); loadSales(); loadInventory();
+            loadCategories(); loadSalesList(); loadReports(); loadSettings();
+        });
+    }, []);
 
-        {/* Protected Routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Dashboard />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/products"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Products />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/categories"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Categories />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sales"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Sales />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sales-list"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <SalesList />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
+    const wrap = (Component: React.ComponentType) => (
+        <ProtectedRoute>
+            <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
+                <Suspense fallback={<PageLoader />}>
+                    <Component />
+                </Suspense>
+            </MainLayout>
+        </ProtectedRoute>
+    );
 
-        <Route
-          path="/inventory"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Inventory />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/reports"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Reports />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <Settings />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/components-demo"
-          element={
-            <ProtectedRoute>
-              <MainLayout isDarkMode={isDarkMode} onThemeToggle={toggleMode}>
-                <ComponentsDemo />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
-  );
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+                <Route path="/"               element={wrap(Dashboard)} />
+                <Route path="/products"       element={wrap(Products)} />
+                <Route path="/categories"     element={wrap(Categories)} />
+                <Route path="/sales"          element={wrap(Sales)} />
+                <Route path="/sales-list"     element={wrap(SalesList)} />
+                <Route path="/inventory"      element={wrap(Inventory)} />
+                <Route path="/reports"        element={wrap(Reports)} />
+                <Route path="/settings"       element={wrap(Settings)} />
+                <Route path="/components-demo" element={wrap(ComponentsDemo)} />
+                <Route path="*"              element={<Navigate to="/" replace />} />
+            </Routes>
+        </BrowserRouter>
+    );
 }
 
-function App() {
-  return (
-    <RTL>
-      <AppThemeProvider>
-        <NotificationProvider>
-          <AppContent />
-        </NotificationProvider>
-      </AppThemeProvider>
-    </RTL>
-  );
+export default function App() {
+    return (
+        <RTL>
+            <AppThemeProvider>
+                <NotificationProvider>
+                    <AppContent />
+                </NotificationProvider>
+            </AppThemeProvider>
+        </RTL>
+    );
 }
-
-export default App;
