@@ -1,0 +1,29 @@
+#1 - Standardize Sales Page KPI Icon Sizes
+What & Why
+On the Sales Record page (سجل المبيعات), the four KPI cards (مبيعات مكتملة, متوسط قيمة الطلب, عدد الطلبات, إجمالي المبيعات) render their icons with the same nominal fontSize, but the icons look inconsistent in size to the user because each MUI icon glyph has a different visual weight inside the same padded box (e.g. the $ and ✓ glyphs visually shrink while the trending-up arrow and receipt fill the box). The goal is to make the four icon badges look perfectly uniform — same square size, same icon size, same optical weight — so the row reads as a clean, balanced strip of KPIs.
+
+Done looks like
+All four KPI icon badges on the Sales Record page are visually identical in size and shape (same square dimensions, same corner radius, same internal padding).
+All four icons inside those badges read as the same visual size — no glyph appears noticeably smaller or larger than the others.
+Hover behavior (the subtle scale + rotate on the icon wrapper) is preserved and still feels consistent across the four cards.
+The colored tint of each badge (primary / secondary / amber / success) is preserved — only sizing/centering is standardized.
+The page header avatar (the large circular سجل المبيعات icon at the top) is left as-is unless its size also feels off in context; the focus is the four KPI cards.
+Layout on mobile, tablet, and desktop is unchanged (cards still wrap the same way at the existing breakpoints).
+No regressions on other pages that use the same PageHeader / icon-wrapper pattern.
+Out of scope
+Restyling the KPI cards themselves (gradients, borders, typography, numbers).
+Changing which icons are used, their colors, or the KPI metrics shown.
+Refactoring the page into a shared <KpiCard> component (can be a follow-up).
+Any changes to the filters, table, or other sections of the Sales Record page.
+Visual changes to other pages, even if they share similar KPI patterns.
+Steps
+Give the four KPI icon badges a fixed, identical footprint. Replace the current display: 'inline-flex' + p: 1.5 sizing with an explicit fixed width/height square (e.g. ~48px), centered content (alignItems/justifyContent: 'center'), and the same borderRadius on all four badges so the colored squares are guaranteed to be the same size regardless of the glyph inside.
+
+Lock the icon size and center it inside the badge. Use a single shared icon size (e.g. fontSize: 24) across all four icons, and ensure each icon is optically centered inside the fixed badge. If any specific glyph still looks visually smaller or larger than the others (commonly the $ / check-circle vs. the receipt / trending-up), nudge that one icon's fontSize slightly so all four read as the same visual weight — the goal is optical balance, not identical numeric fontSize.
+
+Verify the result on the running app. Open the Sales Record page in the preview, confirm the four icon badges and the icons inside them all look uniform side-by-side, check hover animation still works, and check the layout at desktop, tablet, and mobile widths. Compare against the user's attached screenshot to confirm the inconsistency is gone.
+
+Relevant files
+frontend/src/pages/SalesList.tsx:407-598
+frontend/src/components/Common/PageHeader.tsx
+attached_assets/image_1777734626419.png
