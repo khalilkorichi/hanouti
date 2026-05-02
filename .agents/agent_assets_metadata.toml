@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Rgc4u2txPTsSovuxOlfda"
+uri = "file://.github/workflows/build-windows.yml"
+type = "unspecified"
+title = "build-windows.yml (الإصدار الجديد — انسخه إلى GitHub)"
