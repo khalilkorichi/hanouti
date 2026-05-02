@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box, Stack, Typography, Paper, Button, Chip, LinearProgress, Collapse,
     TextField, Switch, FormControlLabel, useTheme, alpha, Avatar, Link,
+    List, ListItem, ListItemIcon, ListItemText, Tooltip, IconButton,
 } from '@mui/material';
 import {
     SystemUpdateAlt as UpdateIcon,
@@ -15,10 +16,22 @@ import {
     RocketLaunch as InstallIcon,
     NewReleases as NewIcon,
     InfoOutlined as InfoIcon,
+    Difference as DiffIcon,
+    AddCircleOutline as AddIcon,
+    RemoveCircleOutline as RemoveIcon,
+    SwapHoriz as ChangedIcon,
+    ExpandMore as ExpandMoreIcon,
+    ExpandLess as ExpandLessIcon,
+    InsertDriveFile as FileIcon,
+    FlashOn as HotIcon,
+    Restore as RollbackIcon,
+    Replay as ReloadIcon,
+    Layers as ChannelIcon,
 } from '@mui/icons-material';
 import {
     isElectron, getElectronUpdater, getElectronAPI,
-    type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult, type AppInfo,
+    type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult,
+    type AppInfo, type FileDiff, type FileDiffEntry, type ChannelInfo,
 } from '../../services/electronUpdater';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -35,6 +48,243 @@ function formatDate(iso?: string): string {
     try {
         return new Date(iso).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
     } catch { return iso; }
+}
+
+// ─── File-level diff card ────────────────────────────────────────────
+// Renders the SHA-256 manifest comparison between the local install and
+// the latest release. Uses MUI primitives — no extra deps.
+
+interface FileDiffSectionProps {
+    diff: FileDiff;
+    isLight: boolean;
+}
+
+function FileDiffList({
+    title, files, truncated, color, icon, totalCount,
+}: {
+    title: string;
+    files: FileDiffEntry[];
+    truncated: boolean;
+    color: 'warning' | 'success' | 'error';
+    icon: React.ReactNode;
+    totalCount: number;
+}) {
+    const [open, setOpen] = useState(false);
+    const theme = useTheme();
+    if (totalCount === 0) return null;
+    return (
+        <Box sx={{
+            mt: 1.5, borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette[color].main, 0.3)}`,
+            bgcolor: alpha(theme.palette[color].main, 0.04),
+        }}>
+            <Stack
+                direction="row" alignItems="center" spacing={1}
+                sx={{ px: 1.5, py: 1, cursor: 'pointer' }}
+                onClick={() => setOpen((o) => !o)}
+            >
+                <Avatar sx={{
+                    bgcolor: alpha(theme.palette[color].main, 0.15),
+                    color: `${color}.main`, width: 32, height: 32,
+                }}>
+                    {icon}
+                </Avatar>
+                <Typography variant="body2" fontWeight={700} sx={{ flex: 1 }}>
+                    {title}
+                </Typography>
+                <Chip
+                    size="small" color={color} variant="outlined"
+                    label={totalCount.toLocaleString('ar')}
+                />
+                <IconButton size="small">
+                    {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
+            </Stack>
+            <Collapse in={open}>
+                <List dense sx={{ pt: 0, pb: 1, maxHeight: 280, overflow: 'auto' }}>
+                    {files.map((f) => (
+                        <ListItem key={f.path} sx={{ py: 0.25 }}>
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                                <FileIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            </ListItemIcon>
+                            <ListItemText
+                                primary={
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}
+                                    >
+                                        {f.path}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <Typography variant="caption" color="text.secondary">
+                                        {formatBytes(f.size)}
+                                        {typeof f.oldSize === 'number' && f.oldSize !== f.size && (
+                                            <> · سابقاً {formatBytes(f.oldSize)}</>
+                                        )}
+                                    </Typography>
+                                }
+                            />
+                        </ListItem>
+                    ))}
+                    {truncated && (
+                        <ListItem sx={{ py: 0.25 }}>
+                            <ListItemText
+                                primary={
+                                    <Typography variant="caption" color="text.secondary" fontStyle="italic">
+                                        ... وملفّات إضافيّة (تمّ اقتطاع القائمة للعرض)
+                                    </Typography>
+                                }
+                            />
+                        </ListItem>
+                    )}
+                </List>
+            </Collapse>
+        </Box>
+    );
+}
+
+function FileDiffSection({ diff, isLight }: FileDiffSectionProps) {
+    const theme = useTheme();
+
+    if (!diff.available) {
+        return (
+            <Paper elevation={0} sx={{
+                p: 2.5, borderRadius: 3,
+                border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+                bgcolor: alpha(theme.palette.background.paper, isLight ? 0.7 : 0.4),
+            }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Avatar sx={{
+                        bgcolor: alpha(theme.palette.text.secondary, 0.12),
+                        color: 'text.secondary', width: 36, height: 36,
+                    }}>
+                        <DiffIcon fontSize="small" />
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={700}>
+                            تحليل شامل للملفّات غير متاح
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {diff.reason}
+                        </Typography>
+                    </Box>
+                </Stack>
+            </Paper>
+        );
+    }
+
+    const { counts, downloadSize, inSync, manifestVersion, manifestGeneratedAt } = diff;
+    const headerColor: 'success' | 'warning' = inSync ? 'success' : 'warning';
+
+    return (
+        <Paper elevation={0} sx={{
+            p: 2.5, borderRadius: 3,
+            border: `1px solid ${alpha(theme.palette[headerColor].main, 0.35)}`,
+            bgcolor: alpha(theme.palette[headerColor].main, isLight ? 0.04 : 0.10),
+        }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
+                <Avatar sx={{
+                    bgcolor: alpha(theme.palette[headerColor].main, 0.18),
+                    color: `${headerColor}.main`, width: 40, height: 40,
+                }}>
+                    <DiffIcon />
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={800}>
+                        تحليل شامل للملفّات (SHA-256)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {inSync
+                            ? `جميع الملفّات (${counts.unchanged.toLocaleString('ar')}) متطابقة تماماً مع الإصدار المنشور.`
+                            : `يحتاج التحديث إلى مزامنة ${(counts.changed + counts.added).toLocaleString('ar')} ملفّ — حجم التنزيل المتوقّع ${formatBytes(downloadSize)}.`
+                        }
+                    </Typography>
+                </Box>
+            </Stack>
+
+            {/* Counts row */}
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={1}>
+                <Tooltip title="إجمالي الملفّات في الإصدار البعيد">
+                    <Chip
+                        size="small" variant="outlined"
+                        icon={<FileIcon sx={{ fontSize: 14 }} />}
+                        label={`الإجمالي: ${counts.total.toLocaleString('ar')}`}
+                    />
+                </Tooltip>
+                <Tooltip title="ملفّات على جهازك مطابقة تماماً للإصدار البعيد">
+                    <Chip
+                        size="small" color="success" variant="outlined"
+                        icon={<CheckIcon sx={{ fontSize: 14 }} />}
+                        label={`متطابقة: ${counts.unchanged.toLocaleString('ar')}`}
+                    />
+                </Tooltip>
+                {counts.changed > 0 && (
+                    <Tooltip title="ملفّات موجودة على الجانبين لكنّ المحتوى تغيّر">
+                        <Chip
+                            size="small" color="warning" variant="filled"
+                            icon={<ChangedIcon sx={{ fontSize: 14, color: 'inherit' }} />}
+                            label={`متغيّرة: ${counts.changed.toLocaleString('ar')}`}
+                            sx={{ color: '#fff' }}
+                        />
+                    </Tooltip>
+                )}
+                {counts.added > 0 && (
+                    <Tooltip title="ملفّات جديدة في الإصدار البعيد سيتمّ تنزيلها">
+                        <Chip
+                            size="small" color="success" variant="filled"
+                            icon={<AddIcon sx={{ fontSize: 14, color: 'inherit' }} />}
+                            label={`مُضافة: ${counts.added.toLocaleString('ar')}`}
+                            sx={{ color: '#fff' }}
+                        />
+                    </Tooltip>
+                )}
+                {counts.removed > 0 && (
+                    <Tooltip title="ملفّات على جهازك لم تعد موجودة في الإصدار البعيد">
+                        <Chip
+                            size="small" color="error" variant="outlined"
+                            icon={<RemoveIcon sx={{ fontSize: 14 }} />}
+                            label={`ملغاة: ${counts.removed.toLocaleString('ar')}`}
+                        />
+                    </Tooltip>
+                )}
+            </Stack>
+
+            <FileDiffList
+                title="ملفّات تغيّر محتواها"
+                files={diff.changed}
+                truncated={diff.truncated.changed}
+                totalCount={counts.changed}
+                color="warning"
+                icon={<ChangedIcon sx={{ fontSize: 18 }} />}
+            />
+            <FileDiffList
+                title="ملفّات جديدة"
+                files={diff.added}
+                truncated={diff.truncated.added}
+                totalCount={counts.added}
+                color="success"
+                icon={<AddIcon sx={{ fontSize: 18 }} />}
+            />
+            <FileDiffList
+                title="ملفّات لم تعد موجودة في الإصدار البعيد"
+                files={diff.removed}
+                truncated={diff.truncated.removed}
+                totalCount={counts.removed}
+                color="error"
+                icon={<RemoveIcon sx={{ fontSize: 18 }} />}
+            />
+
+            {(manifestVersion || manifestGeneratedAt) && (
+                <Typography
+                    variant="caption" color="text.secondary"
+                    sx={{ display: 'block', mt: 1.5, opacity: 0.75 }}
+                >
+                    بصمة المرجع: v{manifestVersion}{manifestGeneratedAt && ` · ${formatDate(manifestGeneratedAt)}`}
+                </Typography>
+            )}
+        </Paper>
+    );
 }
 
 export default function UpdaterPanel() {
@@ -54,7 +304,19 @@ export default function UpdaterPanel() {
     const [downloadedPath, setDownloadedPath] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [channel, setChannel] = useState<ChannelInfo | null>(null);
+    const [hotApplied, setHotApplied] = useState(false);
     const cleanupRef = useRef<(() => void) | null>(null);
+
+    const refreshChannel = async () => {
+        if (!updater?.hotUpdate) return;
+        try {
+            const c = await updater.hotUpdate.getChannel();
+            setChannel(c);
+        } catch (e) {
+            console.error('[hotupdate] getChannel failed', e);
+        }
+    };
 
     useEffect(() => {
         if (!electronAvailable || !updater || !electronAPI) return;
@@ -69,6 +331,10 @@ export default function UpdaterPanel() {
                 setAppInfo(info);
                 setConfig(cfg);
                 setDraftConfig(cfg);
+                if (updater.hotUpdate) {
+                    const c = await updater.hotUpdate.getChannel();
+                    if (alive) setChannel(c);
+                }
             } catch (e) {
                 console.error('[updater] init failed', e);
             }
@@ -76,6 +342,7 @@ export default function UpdaterPanel() {
         cleanupRef.current = updater.onStatus((s) => {
             setStatus(s);
             if (s.state === 'downloaded') setDownloadedPath(s.path);
+            if (s.state === 'hot-updated') setHotApplied(true);
         });
         return () => {
             alive = false;
@@ -145,6 +412,63 @@ export default function UpdaterPanel() {
         }
     };
 
+    const handleHotApply = async () => {
+        if (!updater?.hotUpdate) return;
+        setBusy(true);
+        setHotApplied(false);
+        try {
+            const r = await updater.hotUpdate.apply();
+            await refreshChannel();
+            setHotApplied(true);
+            showNotification(
+                `تمّ تطبيق التحديث السريع (v${r.version}). اضغط "إعادة تحميل التطبيق" لتفعيله الآن.`,
+                'success',
+                { title: 'التحديث جاهز' },
+            );
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل التحديث السريع' });
+            setStatus({ state: 'error', message: msg });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleHotReload = async () => {
+        if (!updater?.hotUpdate) return;
+        try {
+            await updater.hotUpdate.reload();
+            // The window itself reloads — this code rarely runs to completion.
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل إعادة التحميل' });
+        }
+    };
+
+    const handleHotRollback = async () => {
+        if (!updater?.hotUpdate) return;
+        setBusy(true);
+        try {
+            const r = await updater.hotUpdate.rollback();
+            await refreshChannel();
+            if (r.rolledBack) {
+                showNotification(
+                    'تمّ الرجوع إلى النسخة الأصليّة المثبَّتة. أعد تحميل التطبيق لتفعيلها.',
+                    'success',
+                    { title: 'استعادة النسخة الأصليّة' },
+                );
+                setHotApplied(true);
+            } else {
+                showNotification(r.reason || 'لا توجد قناة نشطة للرجوع منها', 'info');
+            }
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل الرجوع' });
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleSaveConfig = async () => {
         if (!updater || !draftConfig) return;
         try {
@@ -164,14 +488,34 @@ export default function UpdaterPanel() {
             case 'downloading': return { label: 'جارٍ التحميل', color: 'info' as const };
             case 'downloaded': return { label: 'جاهز للتثبيت', color: 'success' as const };
             case 'installing': return { label: 'جارٍ التثبيت', color: 'info' as const };
+            case 'hot-updating': return { label: 'تحديث سريع جارٍ...', color: 'info' as const };
+            case 'hot-updated': return { label: 'جاهز لإعادة التحميل', color: 'success' as const };
             case 'error': return { label: 'خطأ', color: 'error' as const };
             default:
-                if (check?.state === 'update-available') return { label: 'تحديث متوفّر', color: 'warning' as const };
+                if (check?.state === 'update-available') {
+                    if (check.updateMode === 'hot') return { label: 'تحديث سريع متوفّر', color: 'info' as const };
+                    return { label: 'تحديث متوفّر', color: 'warning' as const };
+                }
                 if (check?.state === 'up-to-date') return { label: 'آخر إصدار', color: 'success' as const };
                 if (check?.state === 'no-releases') return { label: 'لا توجد إصدارات', color: 'default' as const };
                 return { label: 'جاهز', color: 'default' as const };
         }
-    }, [status.state, check?.state]);
+    }, [status.state, check?.state, check]);
+
+    // Hot-update progress derivation — kept separate from installer
+    // download progress so the two never collide on screen.
+    const hotUpdating = status.state === 'hot-updating';
+    const hotPhaseLabel = (() => {
+        if (!hotUpdating) return '';
+        switch (status.phase) {
+            case 'check': return 'التحقّق من الإصدار...';
+            case 'download': return 'تنزيل أرشيف الواجهة...';
+            case 'extract': return 'فكّ الأرشيف...';
+            case 'verify': return 'التحقّق من بصمات SHA-256...';
+            case 'install': return 'تفعيل القناة الجديدة...';
+            default: return 'جارٍ المعالجة...';
+        }
+    })();
 
     if (!electronAvailable) {
         return (
@@ -282,6 +626,55 @@ export default function UpdaterPanel() {
                     </Box>
                 )}
 
+                {hotUpdating && (
+                    <Box sx={{ mt: 2.5 }}>
+                        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <HotIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                                <Typography variant="caption" color="text.secondary">
+                                    {hotPhaseLabel}
+                                    {status.phase === 'download' && status.received != null && status.total != null && (
+                                        <> · {formatBytes(status.received)} / {formatBytes(status.total)}</>
+                                    )}
+                                </Typography>
+                            </Stack>
+                            <Typography variant="caption" fontWeight={700}>{status.percent || 0}%</Typography>
+                        </Stack>
+                        <LinearProgress
+                            variant={status.phase === 'download' ? 'determinate' : 'indeterminate'}
+                            value={status.percent || 0}
+                            color="info"
+                            sx={{ height: 8, borderRadius: 4 }}
+                        />
+                    </Box>
+                )}
+
+                {hotApplied && status.state !== 'hot-updating' && (
+                    <Box sx={{
+                        mt: 2, p: 2, borderRadius: 2,
+                        bgcolor: alpha(theme.palette.success.main, 0.10),
+                        border: `1px solid ${alpha(theme.palette.success.main, 0.4)}`,
+                    }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+                            <CheckIcon color="success" />
+                            <Box sx={{ flex: 1, minWidth: 200 }}>
+                                <Typography variant="body2" fontWeight={700} color="success.main">
+                                    التحديث جاهز للتطبيق
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    اضغط الزرّ لإعادة تحميل التطبيق وتفعيل الإصدار الجديد فوراً (لن يُعاد تشغيل البرنامج).
+                                </Typography>
+                            </Box>
+                            <Button
+                                variant="contained" color="success" startIcon={<ReloadIcon />}
+                                onClick={handleHotReload}
+                            >
+                                إعادة تحميل التطبيق الآن
+                            </Button>
+                        </Stack>
+                    </Box>
+                )}
+
                 {status.state === 'installing' && (
                     <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.info.main, 0.1) }}>
                         <Stack direction="row" spacing={1} alignItems="center">
@@ -350,26 +743,32 @@ export default function UpdaterPanel() {
 
             {/* ── Up-to-date card ──────────────────────────────── */}
             {check && check.state === 'up-to-date' && (
-                <Paper elevation={0} sx={{
-                    p: 3, borderRadius: 3,
-                    border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
-                    bgcolor: alpha(theme.palette.success.main, isLight ? 0.05 : 0.12),
-                }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Avatar sx={{ bgcolor: 'success.main', color: '#fff', width: 48, height: 48 }}>
-                            <CheckIcon />
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle1" fontWeight={700}>
-                                أنت تستخدم آخر إصدار
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                النسخة <b>v{check.currentVersion}</b> هي الأحدث المتوفّرة.
-                                {check.releaseDate && ` نُشرت في ${formatDate(check.releaseDate)}.`}
-                            </Typography>
-                        </Box>
-                    </Stack>
-                </Paper>
+                <>
+                    <Paper elevation={0} sx={{
+                        p: 3, borderRadius: 3,
+                        border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                        bgcolor: alpha(theme.palette.success.main, isLight ? 0.05 : 0.12),
+                    }}>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar sx={{ bgcolor: 'success.main', color: '#fff', width: 48, height: 48 }}>
+                                <CheckIcon />
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle1" fontWeight={700}>
+                                    أنت تستخدم آخر إصدار
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    النسخة <b>v{check.currentVersion}</b> هي الأحدث المتوفّرة.
+                                    {check.releaseDate && ` نُشرت في ${formatDate(check.releaseDate)}.`}
+                                    {check.fileDiff.available && check.fileDiff.inSync && (
+                                        <> · جميع الملفّات سليمة (تحقّق SHA-256).</>
+                                    )}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <FileDiffSection diff={check.fileDiff} isLight={isLight} />
+                </>
             )}
 
             {/* ── Update-available card ────────────────────────── */}
@@ -396,8 +795,20 @@ export default function UpdaterPanel() {
                                 {check.asset && ` · حجم التحميل: ${formatBytes(check.asset.size)}`}
                             </Typography>
                         </Box>
-                        <Stack direction="row" spacing={1}>
-                            {!downloadedPath && !downloading && check.asset && (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {/* HOT mode → live frontend update (no UAC, no restart) */}
+                            {check.updateMode === 'hot' && !hotApplied && (
+                                <Button
+                                    variant="contained" color="info"
+                                    startIcon={<HotIcon />}
+                                    disabled={busy || hotUpdating}
+                                    onClick={handleHotApply}
+                                >
+                                    تطبيق التحديث الفوريّ
+                                </Button>
+                            )}
+                            {/* INSTALLER mode → classic NSIS download + install */}
+                            {check.updateMode !== 'hot' && !downloadedPath && !downloading && check.asset && (
                                 <Button
                                     variant="contained" color="warning"
                                     startIcon={<DownloadIcon />}
@@ -407,7 +818,7 @@ export default function UpdaterPanel() {
                                     تحميل التحديث
                                 </Button>
                             )}
-                            {downloadedPath && (
+                            {check.updateMode !== 'hot' && downloadedPath && (
                                 <Button
                                     variant="contained" color="success"
                                     startIcon={<InstallIcon />}
@@ -416,7 +827,7 @@ export default function UpdaterPanel() {
                                     ابدأ التثبيت الآن
                                 </Button>
                             )}
-                            {!check.asset && (
+                            {check.updateMode !== 'hot' && !check.asset && (
                                 <Chip
                                     label="لا يوجد ملفّ مثبّت في هذا الإصدار"
                                     color="error" variant="outlined"
@@ -424,6 +835,44 @@ export default function UpdaterPanel() {
                             )}
                         </Stack>
                     </Stack>
+
+                    {/* Mode explanation banner — tells the user WHY this update
+                        is hot-or-not. Critical for trust: explains that
+                        hot updates skip UAC because nothing system-level
+                        is changing, and installer updates need UAC because
+                        the backend exe is being replaced. */}
+                    <Box sx={{
+                        mt: 2, p: 1.75, borderRadius: 2,
+                        border: `1px solid ${alpha(
+                            check.updateMode === 'hot' ? theme.palette.info.main : theme.palette.warning.main,
+                            0.35,
+                        )}`,
+                        bgcolor: alpha(
+                            check.updateMode === 'hot' ? theme.palette.info.main : theme.palette.warning.main,
+                            0.06,
+                        ),
+                    }}>
+                        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                            {check.updateMode === 'hot'
+                                ? <HotIcon color="info" fontSize="small" />
+                                : <InstallIcon color="warning" fontSize="small" />}
+                            <Box>
+                                <Typography
+                                    variant="caption" fontWeight={700}
+                                    color={check.updateMode === 'hot' ? 'info.main' : 'warning.main'}
+                                >
+                                    {check.updateMode === 'hot'
+                                        ? 'تحديث فوريّ (واجهة فقط)'
+                                        : 'تحديث كامل (يتطلّب المثبّت)'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                    {check.updateMode === 'hot'
+                                        ? `جميع التغييرات في ملفّات الواجهة فقط. سيُنزَّل أرشيف صغير (${check.hotArchive ? formatBytes(check.hotArchive.size) : ''})، يُتحقَّق من سلامته بصمةً ببصمة، ثم يُطبَّق فوراً بإعادة تحميل النافذة فقط — بدون إعادة تثبيت أو إعادة تشغيل.`
+                                        : 'هذا التحديث يعدّل ملفّات النظام (الخادم/Electron) المقفلة أثناء التشغيل، لذا يلزم المثبّت الكامل وصلاحيات المدير.'}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Box>
 
                     {check.releaseNotes && (
                         <Box sx={{
@@ -447,6 +896,23 @@ export default function UpdaterPanel() {
                         </Box>
                     )}
 
+                    {/* Special banner: same version but files differ (hot-fix re-publish) */}
+                    {!check.versionIsNewer && check.filesDiffer && (
+                        <Box sx={{
+                            mt: 2, p: 1.5, borderRadius: 2,
+                            border: `1px dashed ${alpha(theme.palette.warning.main, 0.5)}`,
+                            bgcolor: alpha(theme.palette.warning.main, 0.08),
+                        }}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <InfoIcon color="warning" fontSize="small" />
+                                <Typography variant="caption" color="warning.main" fontWeight={700}>
+                                    الإصدار v{check.currentVersion} نفسه لكنّ بعض الملفّات على جهازك
+                                    تختلف عن الإصدار المنشور — يُنصح بإعادة التثبيت لاستعادة سلامة الملفّات.
+                                </Typography>
+                            </Stack>
+                        </Box>
+                    )}
+
                     <Box sx={{ mt: 2 }}>
                         <Link
                             component="button"
@@ -458,6 +924,11 @@ export default function UpdaterPanel() {
                         </Link>
                     </Box>
                 </Paper>
+            )}
+
+            {/* ── File-level diff (always shown when an update is available) ── */}
+            {check && check.state === 'update-available' && (
+                <FileDiffSection diff={check.fileDiff} isLight={isLight} />
             )}
 
             {/* ── No releases card ─────────────────────────────── */}
@@ -472,6 +943,60 @@ export default function UpdaterPanel() {
                             {check.repoUrl}
                         </Link>.
                     </Typography>
+                </Paper>
+            )}
+
+            {/* ── Active channel card ──────────────────────────── */}
+            {channel && (
+                <Paper elevation={0} sx={{
+                    p: 2.5, borderRadius: 3,
+                    border: `1px solid ${alpha(
+                        channel.mode === 'channel' ? theme.palette.info.main : theme.palette.divider,
+                        channel.mode === 'channel' ? 0.4 : 0.7,
+                    )}`,
+                    bgcolor: channel.mode === 'channel'
+                        ? alpha(theme.palette.info.main, isLight ? 0.04 : 0.10)
+                        : 'transparent',
+                }}>
+                    <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Avatar sx={{
+                            bgcolor: alpha(
+                                channel.mode === 'channel' ? theme.palette.info.main : theme.palette.text.secondary,
+                                0.15,
+                            ),
+                            color: channel.mode === 'channel' ? 'info.main' : 'text.secondary',
+                            width: 40, height: 40,
+                        }}>
+                            <ChannelIcon fontSize="small" />
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                            <Typography variant="body2" fontWeight={700}>
+                                {channel.mode === 'channel'
+                                    ? `قناة الواجهة النشطة: v${channel.version}`
+                                    : 'الواجهة الأصليّة المثبَّتة (baseline)'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {channel.mode === 'channel'
+                                    ? `طُبِّقت في ${formatDate(channel.appliedAt || undefined)} · بصمة ${channel.sha8}`
+                                    : 'لم يُطبَّق أيّ تحديث سريع — تعمل بالنسخة التي ركّبها المثبّت.'}
+                            </Typography>
+                            {channel.mode === 'baseline' && channel.configuredPath && channel.configuredExists === false && (
+                                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+                                    ⚠ يوجد ملفّ قناة لكنّه يشير لمسار غير صالح — تمّ التراجع تلقائيّاً للنسخة الأصليّة.
+                                </Typography>
+                            )}
+                        </Box>
+                        {channel.mode === 'channel' && (
+                            <Button
+                                variant="outlined" color="warning" size="small"
+                                startIcon={<RollbackIcon />}
+                                disabled={busy}
+                                onClick={handleHotRollback}
+                            >
+                                العودة للنسخة الأصليّة
+                            </Button>
+                        )}
+                    </Stack>
                 </Paper>
             )}
 

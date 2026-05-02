@@ -9,9 +9,12 @@ const {
   startBackend, stopBackend, BACKEND_HOST, BACKEND_PORT,
 } = require('./backend-launcher.cjs');
 const updater = require('./updater.cjs');
-// Note: the updater module no longer exposes file-by-file diffing or
-// "live app-files" patching; it now downloads a full GitHub Release .exe
-// and lets NSIS handle the upgrade. See electron/updater.cjs header.
+const hotUpdater = require('./hotUpdater.cjs');
+// updater.cjs handles the version+SHA-256 check and the NSIS installer
+// flow (for changes that touch backend.exe / electron / native modules).
+// hotUpdater.cjs handles LIVE frontend-only updates by extracting a
+// signed tarball into a side channel and reloading the window — no UAC,
+// no restart, no installer. See each module's header for details.
 const { APP_NAME, APP_FILES_DIR, APP_FILES_LAYOUT, FRONTEND_DEV_URL } = require('./config.cjs');
 
 log.transports.file.level = 'info';
@@ -35,8 +38,15 @@ if (!gotLock) {
 }
 
 function getFrontendIndexPath() {
-  const base = app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirname, '..');
-  return path.join(base, APP_FILES_DIR, APP_FILES_LAYOUT.frontend, 'index.html');
+  // Packaged: ask the hot-updater for the active channel directory
+  // (falls back to baseline if no channel is active or it's corrupt).
+  // Dev: load directly from frontend/dist (Vite preview path) — only
+  // used when developers explicitly disable the dev URL.
+  if (app.isPackaged) {
+    const dir = hotUpdater.getActiveFrontendDir();
+    return path.join(dir, 'index.html');
+  }
+  return path.join(__dirname, '..', APP_FILES_DIR, APP_FILES_LAYOUT.frontend, 'index.html');
 }
 
 function sendStatus(payload) {
@@ -274,6 +284,66 @@ ipcMain.handle('updater:install', async (_e, installerPath) => {
     sendStatus({ state: 'error', message: e.message });
     throw e;
   }
+});
+
+// ─── hot-update IPC ───────────────────────────────────────────────────
+// Live frontend-only updates that don't require the NSIS installer.
+// SECURITY: the renderer cannot supply URLs/paths — applyHotUpdate
+// re-fetches the latest release inside the main process and validates
+// the asset host + SHA-256 of every extracted file before activating.
+
+ipcMain.handle('hotupdate:get-channel', async () => {
+  return await hotUpdater.getChannelInfo();
+});
+
+ipcMain.handle('hotupdate:apply', async () => {
+  try {
+    sendStatus({ state: 'hot-updating', phase: 'check', percent: 0 });
+    // Re-fetch release+manifest in main process — never trust renderer.
+    const release = await updater._fetchLatestReleaseForHotUpdate();
+    if (!release) throw new Error('لا توجد إصدارات منشورة على المستودع.');
+    const remoteManifest = await updater._fetchRemoteManifest(release);
+    if (!remoteManifest) {
+      throw new Error('لم يُرفق manifest.json بهذا الإصدار — لا يمكن التحقّق من السلامة.');
+    }
+    const result = await hotUpdater.applyHotUpdate({
+      release,
+      remoteManifest,
+      onProgress: (p) => sendStatus({
+        state: 'hot-updating',
+        phase: p.phase,
+        percent: typeof p.percent === 'number' ? p.percent : 0,
+        received: p.received,
+        total: p.total,
+      }),
+    });
+    sendStatus({ state: 'hot-updated', version: result.version, channelName: result.channelName });
+    log.info(`[hotupdate] applied ${result.channelName}`);
+    return result;
+  } catch (e) {
+    log.error('[hotupdate] apply failed:', e.message);
+    sendStatus({ state: 'error', message: e.message });
+    throw e;
+  }
+});
+
+ipcMain.handle('hotupdate:rollback', async () => {
+  try {
+    return await hotUpdater.rollbackToBaseline();
+  } catch (e) {
+    log.error('[hotupdate] rollback failed:', e.message);
+    throw e;
+  }
+});
+
+ipcMain.handle('hotupdate:reload', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return { reloaded: false };
+  // Force-reload by re-resolving the path (which checks active channel
+  // again) and calling loadFile. This applies a freshly-installed channel
+  // OR a rollback without restarting the app/backend.
+  await loadFrontendOrError(null);
+  log.info('[hotupdate] window reloaded');
+  return { reloaded: true };
 });
 
 // ─── lifecycle ─────────────────────────────────────────────────────────

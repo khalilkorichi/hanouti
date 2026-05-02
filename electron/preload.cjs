@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld('electronUpdater', {
   // an arbitrary download URL.
   downloadInstaller: () => ipcRenderer.invoke('updater:download'),
   installAndRelaunch: (installerPath) => ipcRenderer.invoke('updater:install', installerPath),
+  // Hot-update API — applies frontend-only updates LIVE without UAC or
+  // restart. SECURITY: also takes no URL/path arguments; the main process
+  // re-fetches the release, downloads the archive, and validates every
+  // extracted file's SHA-256 against the manifest before activating.
+  hotUpdate: {
+    getChannel: () => ipcRenderer.invoke('hotupdate:get-channel'),
+    apply: () => ipcRenderer.invoke('hotupdate:apply'),
+    rollback: () => ipcRenderer.invoke('hotupdate:rollback'),
+    reload: () => ipcRenderer.invoke('hotupdate:reload'),
+  },
   onStatus: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('updater:status', listener);

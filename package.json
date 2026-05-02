@@ -1,6 +1,6 @@
 {
   "name": "hanouti-desktop",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Hanouti — Smart Inventory & POS desktop application (Electron + FastAPI)",
   "main": "electron/main.cjs",
   "homepage": "https://github.com/khalilkorichi/hanouti",
@@ -28,8 +28,10 @@
     "electron:start": "electron .",
     "build:all": "npm run frontend:build && npm run backend:build",
     "stage:app-files": "node scripts/stage-app-files.cjs",
-    "dist:win": "npm run build:all && npm run stage:app-files && electron-builder --win --x64 --publish never",
-    "dist:dir": "npm run build:all && npm run stage:app-files && electron-builder --dir",
+    "build:manifest": "node scripts/build-manifest.cjs",
+    "build:frontend-archive": "node scripts/build-frontend-archive.cjs",
+    "dist:win": "npm run build:all && npm run stage:app-files && electron-builder --win --x64 --publish never && npm run build:manifest && npm run build:frontend-archive",
+    "dist:dir": "npm run build:all && npm run stage:app-files && electron-builder --dir && npm run build:manifest && npm run build:frontend-archive",
     "postinstall": "electron-builder install-app-deps || true"
   },
   "devDependencies": {

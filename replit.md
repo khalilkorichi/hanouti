@@ -35,11 +35,91 @@ frontend/src/
   components/Settings/UpdaterPanel.tsx - Updater UI (in Settings → التحديثات tab)
 ```
 
-**Auto-updater** (Settings → التحديثات): connects to a configurable GitHub repo
-(default `khalilkorichi/hanouti`, branch `release-windows`), computes git-blob
-SHA1 of every local file under `app-files/`, downloads only changed files into
-a TEMP staging dir with SHA verification + 3 retries (exp. backoff), then
-atomically copies into the live app dir. Path-traversal-safe, contextBridge-isolated.
+**Auto-updater** (Settings → التحديثات) — rewritten in v1.0.5/v1.0.6,
+extended in v1.0.7 with **comprehensive file-level (SHA-256) comparison**:
+uses the standard **GitHub Releases API** (default repo `khalilkorichi/hanouti`).
+
+**File-level diff (manifest.json)** — at build time `scripts/build-manifest.cjs`
+walks the staged `app-files/` (frontend-dist + backend-dist), SHA-256 hashes
+every file, and writes a sorted manifest:
+```
+{ schemaVersion:1, version, generatedAt, fileCount, totalSize,
+  files: [ { path, size, sha256 }, ... ] }
+```
+The CI workflow uploads `manifest.json` as a release asset alongside the
+`.exe`. The updater downloads it, computes the local manifest of the
+installed `app-files/` (resolved via `path.dirname(app.getAppPath())` when
+packaged), and diffs them — returning `{counts:{changed,added,removed,
+unchanged,total}, downloadSize, changed[], added[], removed[], truncated}`
+(per-category cap of 200 entries to keep IPC payload sane). The manifest
+fetch reuses the same HTTPS + GitHub host allow-list and re-validates the
+host post-CDN redirect.
+
+Flow:
+1. `checkForUpdates()` → `GET /repos/<owner>/<repo>/releases/latest`, parses
+   `tag_name`, runs strict semver compare (incl. proper §11 prerelease ordering
+   so `rc10` > `rc2`). **In parallel**: fetches `manifest.json` and computes
+   the local SHA-256 manifest, then diffs them. `updateAvailable = versionIsNewer
+   OR (fileDiff.available && !fileDiff.inSync)` — this catches hot-fix
+   re-publishes that share the same tag but ship different files. Returns
+   release notes + `.exe` asset metadata + `fileDiff` payload.
+2. `downloadInstaller()` (no renderer args; main process re-fetches the release
+   and picks the asset itself) streams the `.exe` to
+   `%APPDATA%/Hanouti/updates/<name>.partial`, validates HTTPS + GitHub host
+   allow-list (`github.com`, `objects.githubusercontent.com`,
+   `release-assets.githubusercontent.com`, `codeload.github.com`), re-validates
+   after CDN redirect, verifies downloaded byte-count matches `asset.size`,
+   atomic rename to final.
+3. `installAndRelaunch(path)` stops the backend, `spawn(detached:true,
+   stdio:'ignore')` + `unref()` the installer, then `app.quit()` after 1.2s
+   so NSIS can take over (UAC + auto-relaunch).
+
+The NSIS installer is still used for the actual replacement step **of
+backend/native files** because `electron.exe` and `backend.exe` are
+file-locked at runtime — only the installer can atomically swap them
+after killing the running process.
+
+**Frontend hot-updates (v1.0.7+, channels system)** — Slack/Discord/VS Code
+pattern. The frontend (HTML/JS/CSS) has NO file-lock, so it can be replaced
+live without re-running NSIS. `compareManifests` adds a `frontendOnly`
+flag (true when every changed/added/removed file lives under
+`frontend-dist/`); `checkForUpdates` returns a derived `updateMode`:
+- `'hot'` → frontend-only delta + `frontend-dist.tar.gz` asset present
+- `'installer'` → backend/native files changed, NSIS required
+- `'none' / 'unknown'` → no diff or manifest unavailable
+
+Each release uploads a `frontend-dist.tar.gz` asset (built by
+`scripts/build-frontend-archive.cjs` via the OS-bundled `tar` — no extra
+deps; Windows 10+ ships `tar.exe`). When mode is `'hot'`, the desktop
+client (`electron/hotUpdater.cjs`):
+1. Re-fetches release+manifest in main process (renderer never supplies URLs)
+2. Streams the tarball to `<userData>/updates/` (host allow-list,
+   100 MB hard cap, post-redirect re-validation, exact size match)
+3. Extracts to `<userData>/channels/.staging-<sha8>-<ts>/` via spawned `tar`
+4. Verifies every extracted file's SHA-256 against the release manifest
+   (8-way parallel; abort + cleanup on ANY mismatch)
+5. Atomic-renames staging → `<userData>/channels/frontend-<ver>-<sha8>/`
+6. Atomic-writes `<userData>/channels/active.json` pointing to (5)
+7. Prunes old channels keeping the 3 most recent
+
+`main.cjs` resolves the frontend path at every load via
+`hotUpdater.getActiveFrontendDir()`, which reads `active.json`,
+sanity-checks `index.html` exists+non-empty, and silently falls back to
+the installer baseline on ANY failure (corruption, manual deletion, etc).
+This makes the system self-healing: a corrupted hot update can never
+brick the app. One-click rollback simply deletes `active.json`.
+
+The IPC surface is minimal and zero-trust: `hotUpdate.{getChannel, apply,
+rollback, reload}` — no URLs/paths from the renderer. The UI shows a
+"تحديث فوريّ (واجهة فقط)" badge with explanation, an "تطبيق التحديث
+الفوريّ" button, live progress (download/extract/verify/install phases),
+"إعادة تحميل التطبيق الآن" after success, and an active-channel card with
+"العودة للنسخة الأصليّة" rollback button.
+
+IPC contract is intentionally minimal so the renderer cannot inject arbitrary
+download URLs. Path-traversal-safe (filename whitelist + updates-dir confinement),
+contextBridge-isolated. Auto-checks every 6 hours and shows a Windows desktop
+notification when an update is available.
 
 **Build instructions**: see `README-WINDOWS.md`. Trigger via GitHub Actions
 (`Build Windows Installer` workflow) or locally via `npm run dist:win` on Windows.
@@ -83,6 +163,14 @@ switches axios baseURL from the Vite `/api` proxy to `http://127.0.0.1:51730`.
       Dashboard.tsx  - KPI cards + Quick actions + Top products (real API data)
       Products.tsx, Categories.tsx, Sales.tsx, SalesList.tsx
       Inventory.tsx, Settings.tsx
+      Categories.tsx — Pro redesign (Task #3): 4 KPI cards (total/active/inactive/total-products),
+                       toolbar (search + status filter + sort + view-toggle + Excel export),
+                       DataGrid table view + Cards view with @dnd-kit drag-drop reorder,
+                       BulkActionsBar (activate/deactivate/delete), color picker (24 swatches) +
+                       icon picker (28 Material icons in CATEGORY_ICONS registry), live preview,
+                       duplicate-name guard. Reorder controls (drag + up/down arrows) are auto-
+                       disabled with an info banner + tooltip when sort != 'display_order' or any
+                       filter is active — prevents corrupting global order from a partial subset.
       Reports.tsx    - Hero header, 4 KPI cards with growth chips (% vs previous period),
                        insights strip (top category/peakday/peakhour), 9 chart sections:
                        gradient area chart, donut(stock+center number), top-products with progress bars,
