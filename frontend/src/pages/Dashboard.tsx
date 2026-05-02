@@ -40,7 +40,7 @@ import {
 } from '@mui/icons-material';
 import api from '../services/api';
 import { productService, type Product } from '../services/productService';
-import { categoryService, type CategoryCreate } from '../services/categoryService';
+import { categoryService, type Category, type CategoryCreate } from '../services/categoryService';
 import { salesService } from '../services/salesService';
 import { UnifiedModal, CustomButton, CustomInput, PageHeader } from '../components/Common';
 import { Storefront as StorefrontIcon } from '@mui/icons-material';
@@ -666,9 +666,9 @@ function AddCategoryDialog({ open, onClose }: { open: boolean; onClose: () => vo
     const { showNotification } = useNotification();
     const [form, setForm] = useState<CategoryCreate>({ name: '', description: '', is_active: true });
 
-    const { data: categories, isLoading } = useQuery({
+    const { data: categories, isLoading } = useQuery<Category[]>({
         queryKey: ['categories'],
-        queryFn: categoryService.getAll,
+        queryFn: () => categoryService.getAll(),
         enabled: open,
     });
 
