@@ -59,13 +59,14 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  # perMachine: true → installer always requests admin via UAC and installs
-  # to C:\Program Files\Hanouti\ for ALL users on the machine. This matches
-  # what shop owners expect (single multi-cashier install) and avoids the
-  # "cannot write to Program Files" error users hit when they manually
-  # change the install path.
-  perMachine: true
-  allowElevation: true
+  # perMachine: false → installer runs WITHOUT UAC and lands in the user's
+  # %LOCALAPPDATA%\Programs\Hanouti\ folder. Updates are a fast in-place
+  # file replacement (no admin prompt, no Defender re-scan of Program
+  # Files). Power users can still change the install path in the wizard.
+  # Existing perMachine installs at C:\Program Files\Hanouti\ are detected
+  # by build/installer.nsh and migrated on first upgrade.
+  perMachine: false
+  allowElevation: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Hanouti
@@ -83,6 +84,10 @@ nsis:
   deleteAppDataOnUninstall: false
   runAfterFinish: true
   menuCategory: Hanouti
+  # Differential packaging — emits a .blockmap alongside the installer so
+  # electron-updater (and any external consumer of latest.yml) can fetch
+  # only the changed blocks of the .exe on the next upgrade.
+  differentialPackage: true
   # Drop a custom 256x256 icon at build/icon.ico to brand installer & app.
   # installerHeaderIcon: build/icon.ico
   # installerIcon: build/icon.ico

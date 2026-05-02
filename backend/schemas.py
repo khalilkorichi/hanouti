@@ -38,6 +38,9 @@ class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: bool = True
+    color: Optional[str] = "#1976d2"
+    icon: Optional[str] = "Category"
+    display_order: int = 0
 
 class CategoryCreate(CategoryBase):
     pass
@@ -46,13 +49,33 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    display_order: Optional[int] = None
 
 class Category(CategoryBase):
     id: int
     created_at: datetime
+    product_count: int = 0
 
     class Config:
         from_attributes = True
+
+class CategoryReorderItem(BaseModel):
+    id: int
+    display_order: int
+
+class CategoryReorderRequest(BaseModel):
+    items: list["CategoryReorderItem"]
+
+class CategoryBulkActionRequest(BaseModel):
+    ids: list[int]
+    action: str  # 'activate' | 'deactivate' | 'delete'
+
+class CategoryBulkActionResult(BaseModel):
+    success_count: int
+    failed_count: int
+    errors: list[dict] = []
 
 # ============ Product Schemas ============
 class ProductBase(BaseModel):

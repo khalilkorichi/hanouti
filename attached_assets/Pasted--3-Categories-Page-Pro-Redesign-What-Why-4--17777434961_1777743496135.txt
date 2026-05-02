@@ -1,0 +1,73 @@
+#3 - Categories Page Pro Redesign
+What & Why
+صفحة الفئات الحالية بسيطة جداً (جدول من 4 أعمدة فقط، بدون بحث/فلترة/إجراءات/إحصائيات) ولا تواكب باقي الصفحات الاحترافية في النظام (مثل المنتجات والتقارير). الهدف: إعادة تصميم صفحة الفئات بشكل احترافي يطابق نمط باقي الصفحات، مع إضافة حقول جديدة (لون، أيقونة، ترتيب العرض) وأدوات تحكم متقدمة (بحث، فلترة، فرز، تحديد متعدد، إجراءات جماعية، تصدير، عرض كبطاقات/جدول، إحصائيات) لتوفير تجربة استخدام احترافية.
+
+Done looks like
+صفحة الفئات تعرض شريط إحصائيات (KPI) في الأعلى: إجمالي الفئات، الفئات النشطة، غير النشطة، إجمالي المنتجات المرتبطة.
+شريط أدوات أعلى الجدول يحتوي على: بحث فوري بالاسم/الوصف، فلتر حسب الحالة (الكل/نشط/غير نشط)، فرز (الاسم، تاريخ الإنشاء، عدد المنتجات، الترتيب اليدوي)، وزر للتبديل بين عرض جدول وعرض بطاقات.
+لكل فئة يظهر لونها المخصص وأيقونتها بشكل واضح، بالإضافة إلى شارة بعدد المنتجات المرتبطة بها.
+يمكن تحديد عدة فئات وتنفيذ إجراءات جماعية (تفعيل/تعطيل/حذف) عبر شريط الإجراءات الموحّد المستخدم في باقي الصفحات.
+يمكن تصدير قائمة الفئات إلى Excel/CSV.
+نموذج إضافة/تعديل الفئة محسّن: حقول الاسم، الوصف، الحالة، اللون (Color Picker)، الأيقونة (اختيار من قائمة أيقونات شائعة)، وترتيب العرض (رقمي).
+إعادة ترتيب الفئات يدوياً عبر سحب وإفلات (Drag & Drop) في عرض البطاقات أو زرّي تحريك لأعلى/أسفل في عرض الجدول، ويُحفظ الترتيب في قاعدة البيانات.
+حذف فئة مرتبطة بمنتجات يعرض رسالة خطأ واضحة باللغة العربية بدلاً من فشل صامت، وحوار التأكيد يستخدم UnifiedModal بدل window.confirm.
+حالة فارغة (Empty State) جذابة عند عدم وجود فئات أو عدم وجود نتائج بحث، مع زر إضافة مباشرة.
+جميع التغييرات تعمل من اليمين لليسار (RTL) بشكل سليم وتتبع نفس نظام الألوان والمسافات الموجود في باقي الصفحات.
+Out of scope
+إضافة فئات فرعية متداخلة (Subcategories / شجرة هرمية).
+ربط الفئات بصلاحيات مستخدمين أو فروع.
+تعديل صفحة المنتجات أو التقارير (سيتم فقط استخدام عدد المنتجات لكل فئة، أي قراءة فقط).
+استيراد الفئات من ملف Excel/CSV.
+Steps
+توسيع نموذج الفئة في الباك-إند — إضافة الأعمدة الجديدة إلى جدول categories:
+
+color (String, nullable, افتراضي #1976d2)
+icon (String, nullable, اسم أيقونة من Material Icons)
+display_order (Integer, افتراضي 0, مفهرس) تحديث models.py، schemas.py (Base/Create/Update/Response)، وإنشاء مهاجرة Alembic جديدة تضيف الأعمدة مع قيم افتراضية للسجلات الموجودة.
+توسيع طبقة CRUD ونقاط الـ API — تحديث crud.py لدعم:
+
+فرز الفئات بـ display_order افتراضياً ثم name.
+فلترة بـ is_active والبحث بـ q على الاسم/الوصف.
+حساب عدد المنتجات لكل فئة (إرجاع product_count ضمن الاستجابة).
+رفض حذف فئة مرتبطة بمنتجات مع رسالة خطأ عربية واضحة.
+نقطة جديدة PUT /categories/reorder تستقبل قائمة [{id, display_order}] وتحدثها في معاملة واحدة.
+نقطة جديدة POST /categories/bulk-action تستقبل {ids, action} حيث action ∈ {activate, deactivate, delete}.
+تحديث خدمة الفئات في الفرونت-إند — تعديل categoryService.ts لإضافة الحقول الجديدة في Category/Create/Update، وإضافة دوال reorder, bulkAction, ودعم بارامترات البحث/الفلترة/الفرز في getAll.
+
+إعادة تصميم صفحة Categories.tsx — استبدال الجدول البسيط الحالي بتصميم احترافي مطابق لنمط Products.tsx وReports.tsx:
+
+شريط إحصائيات (KPI Cards) في الأعلى.
+شريط أدوات: SearchInput للبحث، CustomSelect لفلتر الحالة، CustomSelect للفرز، أزرار للتبديل بين عرض الجدول والبطاقات، وزر تصدير Excel/CSV.
+عرض الجدول باستخدام DataGrid من @mui/x-data-grid مع: عمود تحديد، شارة لون+أيقونة، الاسم، الوصف، عدد المنتجات (Chip)، الحالة (Switch)، الترتيب (مع زرّي ↑/↓)، إجراءات (تعديل/حذف).
+عرض البطاقات: شبكة بطاقات (Grid) قابلة لإعادة الترتيب بالسحب والإفلات، كل بطاقة تعرض اللون كخلفية/شريط جانبي والأيقونة وعدد المنتجات.
+استخدام BulkActionsBar الموجود لتنفيذ الإجراءات الجماعية.
+استبدال window.confirm بـ UnifiedModal للتأكيد، واستخدام useNotification لرسائل النجاح/الفشل.
+مكوّن Empty State مع رسالة وزر "إضافة فئة جديدة".
+تحسين نموذج إضافة/تعديل الفئة — توسيع النموذج داخل Categories.tsx (أو نقله إلى مكوّن منفصل تحت components/Categories/) ليشمل:
+
+حقل اللون عبر Color Picker.
+منتقي أيقونة بسيط (شبكة من ~20-30 أيقونة شائعة من @mui/icons-material مثل: Category, ShoppingCart, LocalCafe, Restaurant, Checkroom, Devices, ...إلخ).
+حقل ترتيب العرض (رقمي).
+معاينة حية لشكل الفئة (بطاقة صغيرة باللون والأيقونة والاسم) أعلى/أسفل النموذج.
+تحقق من تكرار الاسم وعرض رسالة خطأ مناسبة. حذف الملف القديم غير المستخدم components/Categories/CategoryDialog.tsx إذا تأكد عدم استخدامه في أي مكان آخر.
+توافق مع الصفحات الأخرى — التأكد من أن الحقول الجديدة (اللون/الأيقونة) تظهر في أي مكان آخر يعرض اسم الفئة (مثل عمود الفئة في صفحة المنتجات وتقرير المبيعات حسب الفئة) بشكل بصري بسيط (نقطة لون أو شارة)، دون تغيير منطق تلك الصفحات. إذا كان التعديل يتطلب أكثر من تعديل تجميلي صغير، يُترك للصفحة المعنية في مهمة لاحقة.
+
+Relevant files
+frontend/src/pages/Categories.tsx
+frontend/src/components/Categories/CategoryDialog.tsx
+frontend/src/services/categoryService.ts
+frontend/src/services/productService.ts:1-15
+frontend/src/services/reportsService.ts:30-55
+frontend/src/components/Common/index.ts
+frontend/src/components/Common/BulkActionsBar.tsx
+frontend/src/components/Common/SearchInput.tsx
+frontend/src/components/Common/UnifiedModal.tsx
+frontend/src/components/Common/PageHeader.tsx
+frontend/src/components/Common/CustomSelect.tsx
+frontend/src/pages/Products.tsx:1-200
+frontend/src/contexts/NotificationContext.tsx
+backend/routers/categories.py
+backend/models.py:17-28
+backend/schemas.py
+backend/crud.py
+backend/alembic/versions/

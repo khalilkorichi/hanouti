@@ -21,9 +21,16 @@ class Category(Base):
     name = Column(String, unique=True, index=True)
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    color = Column(String, nullable=True, default="#1976d2")
+    icon = Column(String, nullable=True, default="Category")
+    display_order = Column(Integer, nullable=False, default=0, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     products = relationship("Product", back_populates="category")
+
+    __table_args__ = (
+        Index("ix_categories_order_name", "display_order", "name"),
+    )
 
 class Product(Base):
     __tablename__ = "products"

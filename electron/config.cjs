@@ -4,7 +4,22 @@ const DEFAULT_UPDATER_CONFIG = Object.freeze({
   repoOwner: 'khalilkorichi',
   repoName: 'hanouti',
   includePrerelease: false,
+  // null  → use the OS-default updates dir at <userData>/updates/
+  // string → user-chosen absolute path (validated server-side every time
+  //          a download starts; renderer-supplied paths are NEVER trusted
+  //          without re-validation).
+  downloadDir: null,
+  // Filled by main.cjs on every successful launch with app.getVersion().
+  // The updater compares against app.getVersion() on the NEXT launch to
+  // detect "first run after a successful upgrade" and surfaces a one-shot
+  // success Snackbar to the user.
+  lastKnownVersion: null,
 });
+
+// Minimum free space we require on the chosen download dir's drive
+// before accepting it (200 MB — installer is ~110 MB but we leave room
+// for the .partial + the rename + Defender's transient copy).
+const MIN_DOWNLOAD_DIR_FREE_BYTES = 200 * 1024 * 1024;
 
 const BACKEND_PORT = 51730;
 const BACKEND_HOST = '127.0.0.1';
@@ -34,6 +49,7 @@ const MAX_RETAINED_CHANNELS = 3;
 
 module.exports = {
   DEFAULT_UPDATER_CONFIG,
+  MIN_DOWNLOAD_DIR_FREE_BYTES,
   BACKEND_PORT,
   BACKEND_HOST,
   FRONTEND_DEV_URL,

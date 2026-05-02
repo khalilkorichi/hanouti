@@ -25,6 +25,27 @@ export interface UpdaterConfig {
     repoOwner: string;
     repoName: string;
     includePrerelease: boolean;
+    /** Custom path for installer downloads. null → OS default at <userData>/updates/. */
+    downloadDir: string | null;
+    /** Last app version this user successfully launched. Written by main.cjs. */
+    lastKnownVersion: string | null;
+}
+
+export interface DownloadDirInfo {
+    path: string;
+    isDefault: boolean;
+    defaultPath: string;
+    /** Free space on the volume in bytes; null if statfs unavailable. */
+    freeBytes: number | null;
+    minRequiredBytes: number;
+}
+
+export interface PickDownloadDirResult {
+    ok: boolean;
+    path?: string;
+    freeBytes?: number;
+    canceled?: boolean;
+    reason?: string;
 }
 
 export interface ReleaseAsset {
@@ -134,13 +155,26 @@ export type HotUpdatePhase = 'check' | 'download' | 'extract' | 'verify' | 'inst
 export type UpdaterStatus =
     | { state: 'idle' }
     | { state: 'checking' }
-    | { state: 'downloading'; current: number; total: number; percent: number }
-    | { state: 'downloaded'; path: string; size: number }
+    | {
+          state: 'downloading';
+          current: number;
+          total: number;
+          percent: number;
+          /** Bytes/sec computed over a 5-second sliding window. May be 0 right after resume. */
+          speed?: number;
+          /** Estimated seconds remaining; null when speed is 0 or total is unknown. */
+          eta?: number | null;
+          name?: string;
+      }
+    | { state: 'paused'; current: number; total: number; name?: string }
+    | { state: 'downloaded'; path: string; size: number; reused?: boolean; name?: string }
     | { state: 'installing' }
     | { state: 'error'; message: string }
     | { state: 'updates-available-bg'; latestVersion: string; currentVersion: string }
     | { state: 'hot-updating'; phase: HotUpdatePhase; percent: number; received?: number; total?: number }
-    | { state: 'hot-updated'; version: string; channelName: string };
+    | { state: 'hot-updated'; version: string; channelName: string }
+    /** Fired once on the first launch after a successful upgrade. */
+    | { state: 'upgrade-success'; from: string; to: string; releaseUrl: string };
 
 declare global {
     interface Window {
@@ -162,9 +196,44 @@ declare global {
              * Takes no arguments: the main process re-fetches the release
              * metadata from GitHub and validates the asset itself, so the
              * renderer cannot inject an arbitrary download URL.
+             *
+             * `reused: true` indicates an existing installer with a
+             * matching SHA-512 was already on disk and was returned
+             * instead of re-downloading.
              */
-            downloadInstaller: () => Promise<{ path: string; size: number; name: string }>;
+            downloadInstaller: () => Promise<{ path: string; size: number; name: string; reused?: boolean }>;
             installAndRelaunch: (installerPath: string) => Promise<{ launched: true }>;
+            /** Pause the current download. Partial file is preserved on disk. */
+            pauseDownload: () => Promise<{ ok: boolean; alreadyPaused?: boolean; reason?: string }>;
+            /** Resume a paused download via HTTP Range from the saved offset. */
+            resumeDownload: () => Promise<{ ok: boolean; notPaused?: boolean; reason?: string }>;
+            /** Hard-cancel and delete the .partial file. */
+            cancelDownload: () => Promise<{ ok: boolean; reason?: string }>;
+            /** Get current download dir + free space + whether it's the OS default. */
+            getDownloadDirInfo: () => Promise<DownloadDirInfo>;
+            /** Open an OS folder picker; the main process validates + persists. */
+            pickDownloadDir: () => Promise<PickDownloadDirResult>;
+            /** Reset to the OS default <userData>/updates/. */
+            resetDownloadDir: () => Promise<DownloadDirInfo>;
+            /**
+             * Reveal the download dir in the OS file manager. If a path is
+             * given AND it's inside the dir, that file is highlighted.
+             */
+            openDownloadFolder: (filePath?: string) => Promise<{ ok: boolean; path?: string; reason?: string }>;
+            /**
+             * Wipe `.exe`, `.exe.partial` and `latest.yml` from the
+             * configured download dir. Use to recover from a stuck
+             * partial that keeps failing SHA-512 verification (e.g.
+             * after a release was yanked and republished). Never
+             * touches updater-config.json or unrelated files.
+             */
+            clearDownloadCache: () => Promise<{
+                ok: boolean;
+                removed: number;
+                dir?: string;
+                reason?: string;
+                errors?: { name: string; message: string }[];
+            }>;
             /**
              * Hot-update API — applies frontend-only updates LIVE without UAC
              * or restart. The main process validates every extracted file's
