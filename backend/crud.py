@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import Optional, List
 from datetime import datetime
 import models, schemas, security
@@ -17,39 +17,258 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 # ============ Category CRUD ============
-def get_categories(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Category).offset(skip).limit(limit).all()
+def _attach_product_count(db: Session, categories: List[models.Category]) -> List[dict]:
+    """Attach product_count to each category and return as serialisable dicts."""
+    if not categories:
+        return []
+    ids = [c.id for c in categories]
+    counts = dict(
+        db.query(models.Product.category_id, func.count(models.Product.id))
+        .filter(models.Product.category_id.in_(ids))
+        .group_by(models.Product.category_id)
+        .all()
+    )
+    result = []
+    for c in categories:
+        d = {
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "is_active": bool(c.is_active),
+            "color": c.color or "#1976d2",
+            "icon": c.icon or "Category",
+            "display_order": c.display_order or 0,
+            "created_at": c.created_at,
+            "product_count": int(counts.get(c.id, 0)),
+        }
+        result.append(d)
+    return result
+
+
+def get_categories(
+    db: Session,
+    skip: int = 0,
+    limit: int = 1000,
+    q: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    sort: str = "display_order",
+):
+    # Subquery: product count per category — used for both attach + ordering
+    pc_subq = (
+        db.query(
+            models.Product.category_id.label("cid"),
+            func.count(models.Product.id).label("cnt"),
+        )
+        .group_by(models.Product.category_id)
+        .subquery()
+    )
+    pc_count = func.coalesce(pc_subq.c.cnt, 0)
+
+    db_query = db.query(models.Category, pc_count.label("product_count")).outerjoin(
+        pc_subq, pc_subq.c.cid == models.Category.id
+    )
+
+    if q:
+        search = f"%{q}%"
+        db_query = db_query.filter(
+            or_(
+                models.Category.name.ilike(search),
+                models.Category.description.ilike(search),
+            )
+        )
+
+    if is_active is not None:
+        db_query = db_query.filter(models.Category.is_active == is_active)
+
+    if sort == "name":
+        db_query = db_query.order_by(models.Category.name)
+    elif sort == "name_desc":
+        db_query = db_query.order_by(models.Category.name.desc())
+    elif sort == "created_at":
+        db_query = db_query.order_by(models.Category.created_at.desc())
+    elif sort == "product_count":
+        # SQL-level ordering so pagination works correctly with large datasets
+        db_query = db_query.order_by(pc_count.desc(), models.Category.name)
+    else:  # display_order (default)
+        db_query = db_query.order_by(
+            models.Category.display_order, models.Category.name
+        )
+
+    rows = db_query.offset(skip).limit(limit).all()
+
+    result = []
+    for cat, count in rows:
+        result.append({
+            "id": cat.id,
+            "name": cat.name,
+            "description": cat.description,
+            "is_active": bool(cat.is_active),
+            "color": cat.color or "#1976d2",
+            "icon": cat.icon or "Category",
+            "display_order": cat.display_order or 0,
+            "created_at": cat.created_at,
+            "product_count": int(count or 0),
+        })
+    return result
+
 
 def get_category(db: Session, category_id: int):
-    return db.query(models.Category).filter(models.Category.id == category_id).first()
+    cat = (
+        db.query(models.Category)
+        .filter(models.Category.id == category_id)
+        .first()
+    )
+    if not cat:
+        return None
+    enriched = _attach_product_count(db, [cat])
+    return enriched[0] if enriched else None
+
+
+def get_category_raw(db: Session, category_id: int):
+    return (
+        db.query(models.Category)
+        .filter(models.Category.id == category_id)
+        .first()
+    )
+
+
+def get_category_by_name(db: Session, name: str):
+    return (
+        db.query(models.Category)
+        .filter(models.Category.name == name)
+        .first()
+    )
+
 
 def create_category(db: Session, category: schemas.CategoryCreate):
-    db_category = models.Category(**category.model_dump())
+    # Duplicate name guard
+    existing = get_category_by_name(db, category.name)
+    if existing:
+        raise ValueError("اسم الفئة مستخدم بالفعل")
+
+    # If display_order == 0, push to end
+    data = category.model_dump()
+    if not data.get("display_order"):
+        max_order = (
+            db.query(func.coalesce(func.max(models.Category.display_order), 0))
+            .scalar() or 0
+        )
+        data["display_order"] = int(max_order) + 1
+
+    db_category = models.Category(**data)
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
-    return db_category
+    enriched = _attach_product_count(db, [db_category])
+    return enriched[0]
+
 
 def update_category(db: Session, category_id: int, category: schemas.CategoryUpdate):
-    db_category = get_category(db, category_id)
+    db_category = get_category_raw(db, category_id)
     if not db_category:
         return None
-    
+
     update_data = category.model_dump(exclude_unset=True)
+
+    # Duplicate name guard (when changing name)
+    if "name" in update_data and update_data["name"] != db_category.name:
+        existing = get_category_by_name(db, update_data["name"])
+        if existing and existing.id != category_id:
+            raise ValueError("اسم الفئة مستخدم بالفعل")
+
     for field, value in update_data.items():
         setattr(db_category, field, value)
-    
+
     db.commit()
     db.refresh(db_category)
-    return db_category
+    enriched = _attach_product_count(db, [db_category])
+    return enriched[0]
+
 
 def delete_category(db: Session, category_id: int):
-    db_category = get_category(db, category_id)
-    if db_category:
-        db.delete(db_category)
+    db_category = get_category_raw(db, category_id)
+    if not db_category:
+        return False, "الفئة غير موجودة"
+
+    # Reject if linked products exist
+    linked = (
+        db.query(func.count(models.Product.id))
+        .filter(models.Product.category_id == category_id)
+        .scalar() or 0
+    )
+    if linked > 0:
+        return False, f"لا يمكن حذف هذه الفئة لأنها مرتبطة بـ {linked} منتج"
+
+    db.delete(db_category)
+    db.commit()
+    return True, None
+
+
+def reorder_categories(db: Session, items: List[schemas.CategoryReorderItem]):
+    """Update display_order for many categories in a single transaction."""
+    if not items:
+        return 0
+    updated = 0
+    try:
+        for item in items:
+            cat = get_category_raw(db, item.id)
+            if cat:
+                cat.display_order = item.display_order
+                updated += 1
         db.commit()
-        return True
-    return False
+    except Exception:
+        db.rollback()
+        raise
+    return updated
+
+
+def bulk_action_categories(
+    db: Session, ids: List[int], action: str
+) -> dict:
+    """Apply an action to many categories. Returns counts and errors."""
+    success = 0
+    errors: List[dict] = []
+
+    if action not in {"activate", "deactivate", "delete"}:
+        return {"success_count": 0, "failed_count": len(ids),
+                "errors": [{"id": None, "error": "إجراء غير صالح"}]}
+
+    for cid in ids:
+        cat = get_category_raw(db, cid)
+        if not cat:
+            errors.append({"id": cid, "error": "الفئة غير موجودة"})
+            continue
+        try:
+            if action == "activate":
+                cat.is_active = True
+                success += 1
+            elif action == "deactivate":
+                cat.is_active = False
+                success += 1
+            elif action == "delete":
+                linked = (
+                    db.query(func.count(models.Product.id))
+                    .filter(models.Product.category_id == cid)
+                    .scalar() or 0
+                )
+                if linked > 0:
+                    errors.append({
+                        "id": cid,
+                        "name": cat.name,
+                        "error": f"مرتبطة بـ {linked} منتج",
+                    })
+                    continue
+                db.delete(cat)
+                success += 1
+        except Exception as e:
+            errors.append({"id": cid, "error": str(e)})
+
+    db.commit()
+    return {
+        "success_count": success,
+        "failed_count": len(errors),
+        "errors": errors,
+    }
 
 # ============ Product CRUD ============
 def get_products(

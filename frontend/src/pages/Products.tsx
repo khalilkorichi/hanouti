@@ -188,8 +188,25 @@ export default function Products() {
         {
             field: 'category',
             headerName: 'الفئة',
-            width: 120,
-            valueGetter: (_value, row) => row.category?.name || '-'
+            width: 150,
+            valueGetter: (_value, row) => row.category?.name || '-',
+            renderCell: (params: GridRenderCellParams) => {
+                const cat = (params.row as Product).category;
+                if (!cat) return <Typography color="text.disabled">—</Typography>;
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: '100%' }}>
+                        <Box
+                            sx={{
+                                width: 10, height: 10, borderRadius: '50%',
+                                bgcolor: cat.color || '#1976d2',
+                                boxShadow: `0 0 0 2px ${cat.color || '#1976d2'}22`,
+                                flexShrink: 0,
+                            }}
+                        />
+                        <Typography variant="body2" noWrap>{cat.name}</Typography>
+                    </Box>
+                );
+            }
         },
         {
             field: 'sale_price',

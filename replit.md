@@ -99,6 +99,14 @@ switches axios baseURL from the Vite `/api` proxy to `http://127.0.0.1:51730`.
       Dashboard.tsx  - KPI cards + Quick actions + Top products (real API data)
       Products.tsx, Categories.tsx, Sales.tsx, SalesList.tsx
       Inventory.tsx, Settings.tsx
+      Categories.tsx — Pro redesign (Task #3): 4 KPI cards (total/active/inactive/total-products),
+                       toolbar (search + status filter + sort + view-toggle + Excel export),
+                       DataGrid table view + Cards view with @dnd-kit drag-drop reorder,
+                       BulkActionsBar (activate/deactivate/delete), color picker (24 swatches) +
+                       icon picker (28 Material icons in CATEGORY_ICONS registry), live preview,
+                       duplicate-name guard. Reorder controls (drag + up/down arrows) are auto-
+                       disabled with an info banner + tooltip when sort != 'display_order' or any
+                       filter is active — prevents corrupting global order from a partial subset.
       Reports.tsx    - Hero header, 4 KPI cards with growth chips (% vs previous period),
                        insights strip (top category/peakday/peakhour), 9 chart sections:
                        gradient area chart, donut(stock+center number), top-products with progress bars,
