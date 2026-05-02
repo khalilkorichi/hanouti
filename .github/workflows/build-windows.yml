@@ -1,0 +1,96 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional release tag (e.g. v1.0.1). Leave empty to skip release upload.'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-build.txt
+
+      - name: Build backend.exe (PyInstaller)
+        run: python backend/build_exe.py
+
+      - name: Install root Electron deps
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      - name: Install frontend deps
+        run: npm install --prefix frontend --no-audit --no-fund --legacy-peer-deps
+
+      - name: Build frontend (Vite)
+        run: npm --prefix frontend run build
+
+      - name: Stage app-files for electron-builder
+        run: node scripts/stage-app-files.cjs
+
+      - name: Build NSIS installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hanouti-windows-installer
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+          retention-days: 14
+
+      - name: Stage release artifacts on release-windows branch
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.email "actions@github.com"
+          git config --global user.name "Hanouti Release Bot"
+          git fetch origin release-windows:release-windows 2>/dev/null || git checkout --orphan release-windows
+          git checkout release-windows 2>/dev/null || git checkout --orphan release-windows
+          # wipe everything and copy fresh artifacts
+          git rm -rf . 2>/dev/null || true
+          mkdir -p frontend-dist backend-dist
+          cp -r app-files/frontend-dist/* frontend-dist/
+          cp -r app-files/backend-dist/* backend-dist/
+          echo "Hanouti release artifacts (auto-published)" > README.md
+          git add -A
+          git commit -m "release: ${{ github.ref_name }}"
+          git push -f origin release-windows
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/*.exe.blockmap
+          draft: false
+          prerelease: false

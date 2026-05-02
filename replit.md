@@ -11,6 +11,44 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
 - **Code splitting + preload**: Pages are lazy-loaded via `React.lazy + Suspense`. After login, all routes are preloaded in background via `requestIdleCallback` for instant navigation.
 - **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer
 
+## Desktop Edition (Windows .exe)
+
+The project also ships as a **professional Windows desktop application** built
+with Electron 33 + electron-builder (NSIS installer).
+
+```
+electron/
+  main.cjs              - Main process, BrowserWindow, lifecycle
+  preload.cjs           - contextBridge → exposes window.electronAPI / electronUpdater
+  backend-launcher.cjs  - Spawns bundled backend.exe and health-checks it
+  updater.cjs           - GitHub SHA-diff atomic auto-updater (miftah-style)
+  config.cjs            - Constants (ports, repo defaults, paths)
+backend/
+  run_exe.py            - PyInstaller entry-point (uses HANOUTI_DB_PATH env var)
+  build_exe.py          - Builds backend.exe via PyInstaller
+  requirements-build.txt - Build-time pip deps (incl. PyInstaller)
+electron-builder.yml    - NSIS installer config (perUser, multi-language, RTL Arabic)
+build/installer.nsh     - NSIS hooks (per-user data dir at %APPDATA%\Hanouti)
+.github/workflows/build-windows.yml - CI: builds .exe on windows-latest, tags = release
+frontend/src/
+  services/electronUpdater.ts        - Typed wrapper for window.electronUpdater
+  components/Settings/UpdaterPanel.tsx - Updater UI (in Settings → التحديثات tab)
+```
+
+**Auto-updater** (Settings → التحديثات): connects to a configurable GitHub repo
+(default `khalilkorichi/hanouti`, branch `release-windows`), computes git-blob
+SHA1 of every local file under `app-files/`, downloads only changed files into
+a TEMP staging dir with SHA verification + 3 retries (exp. backoff), then
+atomically copies into the live app dir. Path-traversal-safe, contextBridge-isolated.
+
+**Build instructions**: see `README-WINDOWS.md`. Trigger via GitHub Actions
+(`Build Windows Installer` workflow) or locally via `npm run dist:win` on Windows.
+
+**Backend in production**: `electron/main.cjs` spawns `backend.exe` on a fixed
+port (51730) with `HANOUTI_DB_PATH` pointing at `%APPDATA%\Hanouti\data\hanouti.db`.
+The frontend `services/api.ts` auto-detects Electron via `window.electronAPI` and
+switches axios baseURL from the Vite `/api` proxy to `http://127.0.0.1:51730`.
+
 ## Project Structure
 ```
 /backend

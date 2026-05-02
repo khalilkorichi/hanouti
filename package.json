@@ -1,12 +1,33 @@
 {
-  "name": "workspace",
+  "name": "hanouti-desktop",
   "version": "1.0.0",
-  "description": "## Overview Hanouti is a modern, AI-powered inventory management and Point of Sale (POS) system designed for retail businesses.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Hanouti — Smart Inventory & POS desktop application (Electron + FastAPI)",
+  "main": "electron/main.cjs",
+  "author": {
+    "name": "Khalil Korichi",
+    "email": "khalil@hanouti.app"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "license": "Proprietary",
+  "private": true,
+  "scripts": {
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload",
+    "backend:build": "python backend/build_exe.py",
+    "electron:dev": "cross-env HANOUTI_DEV=1 electron .",
+    "electron:start": "electron .",
+    "build:all": "npm run frontend:build && npm run backend:build",
+    "stage:app-files": "node scripts/stage-app-files.cjs",
+    "dist:win": "npm run build:all && npm run stage:app-files && electron-builder --win --x64 --publish never",
+    "dist:dir": "npm run build:all && npm run stage:app-files && electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps || true"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "electron-log": "^5.2.0"
+  }
 }

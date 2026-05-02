@@ -1,10 +1,31 @@
+# Env / IDE
 .env
+.env.*
 .idea/
 .vscode/
+
+# Logs
 *.log
+
+# Backend
 hanouti.db
+hanouti.db-shm
+hanouti.db-wal
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Frontend
 node_modules/
-dist/
-.env.*
+frontend/dist/
+
+# Electron / Build pipeline
+backend-dist/
+app-files/
+release/
+build/pyinstaller/
+build/pyinstaller-spec/
+
+# OS
+.DS_Store
+Thumbs.db

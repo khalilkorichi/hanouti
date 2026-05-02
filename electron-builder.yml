@@ -1,0 +1,46 @@
+appId: com.khalilkorichi.hanouti
+productName: Hanouti
+copyright: Copyright © ${author}
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - electron/**/*
+  - package.json
+  - "!**/*.md"
+
+extraResources:
+  - from: app-files
+    to: app-files
+    filter:
+      - "**/*"
+
+asar: true
+compression: maximum
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: "Hanouti-Setup-${version}-${arch}.${ext}"
+  publisherName: Khalil Korichi
+  rfc3161TimeStampServer: http://timestamp.digicert.com
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Hanouti
+  uninstallDisplayName: Hanouti — حانوتي
+  artifactName: "Hanouti-Setup-${version}-${arch}.${ext}"
+  language: 1025
+  multiLanguageInstaller: true
+  include: build/installer.nsh
+  warningsAsErrors: false
+  # If you want a custom icon, drop one at build/icon.ico and uncomment:
+  # installerHeaderIcon: build/icon.ico

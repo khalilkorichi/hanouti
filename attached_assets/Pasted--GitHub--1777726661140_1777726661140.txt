@@ -1,0 +1,232 @@
+🎯 الفكرة الأساسية
+النظام يستخدم GitHub كمصدر للتحديثات بدلاً من سيرفر خاص. البرنامج يقارن ملفاته المحلية مع ملفات المستودع على GitHub باستخدام SHA hash (نفس الخوارزمية التي يستخدمها Git داخلياً)، ويحمّل فقط الملفات المختلفة.
+
+المميزات:
+
+✅ مجاني تماماً (لا يحتاج سيرفر)
+✅ آمن (يتحقق من سلامة كل ملف بـ SHA1)
+✅ ذكي (ينزّل الملفات المتغيرة فقط)
+✅ قابل للاستعادة (نسخة احتياطية قبل أي تحديث)
+✅ ذرّي / Atomic (إما ينجح كل شيء أو يُلغى التحديث كاملاً)
+🏗️ المعمارية (3 طبقات)
+┌─────────────────────────────────────────────────┐
+│  الواجهة (React) — SettingsPage.jsx             │
+│  • أزرار "فحص"، "نسخة احتياطية"، "تطبيق"        │
+│  • شريط تقدّم + عرض الملفات المتغيرة            │
+└────────────────┬────────────────────────────────┘
+                 │ window.electronUpdater.*
+                 ▼
+┌─────────────────────────────────────────────────┐
+│  جسر الأمان (Preload) — preload.cjs             │
+│  • يكشف API محدودة للواجهة عبر contextBridge   │
+└────────────────┬────────────────────────────────┘
+                 │ ipcRenderer.invoke
+                 ▼
+┌─────────────────────────────────────────────────┐
+│  العمليات الحساسة (Main Process) — main.cjs     │
+│  • يتصل بـ GitHub API                           │
+│  • يحسب SHA ويقارن الملفات                     │
+│  • يحمّل ويكتب على القرص                        │
+└─────────────────────────────────────────────────┘
+
+لماذا 3 طبقات؟
+لأن Electron يفصل بين عملية الواجهة (renderer) وعملية النظام (main) لأسباب أمنية. الواجهة لا يمكنها قراءة/كتابة ملفات مباشرة — يجب أن تطلب من الـ main عبر IPC.
+
+🔄 خطوات التحديث (الـ Flow الكامل)
+الخطوة 1: فحص التحديثات (scan-changes)
+عندما يضغط المستخدم زر "فحص التحديثات":
+
+1. جلب معلومات المستودع من GitHub API
+   GET /repos/{owner}/{repo}
+   ← يستخرج اسم الفرع الافتراضي (main / master)
+2. جلب آخر 5 commits
+   GET /repos/{owner}/{repo}/commits?per_page=5
+   ← لعرض "آخر تحديث: تاريخ + رسالة الـ commit"
+3. جلب شجرة الملفات الكاملة
+   GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1
+   ← يرجع قائمة بكل ملفات المستودع مع SHA لكل ملف
+4. فحص الملفات المحلية (recursive)
+   ← يقرأ كل ملف في المجلدات المسموحة
+   ← يحسب SHA لكل ملف باستخدام نفس صيغة Git:
+     sha1("blob {size}\0{content}")
+5. المقارنة
+   ← لكل ملف على GitHub:
+     • إذا غير موجود محلياً → "added"
+     • إذا SHA مختلف → "modified"
+     • إذا متطابق → تجاهل
+
+فلتر الملفات المتتبَّعة:
+
+TRACKED_PREFIXES = ['dist/', 'electron/', 'src/', 'public/', 'scripts/']
+TRACKED_FILES = ['index.html', 'package.json', 'vite.config.js']
+EXCLUDED = ['node_modules/', '.git/', '.local/', '.cache/', ...]
+
+النتيجة تُعرض على المستخدم مصنّفة حسب الفئة (نواة Electron، الكود المصدري، ملفات البناء، الأصول، الإعدادات).
+
+الخطوة 2: النسخ الاحتياطي (create-backup)
+قبل التحديث، يُنصح المستخدم بإنشاء نسخة احتياطية:
+
+1. يفتح حوار اختيار مجلد (dialog.showOpenDialog)
+2. ينشئ مجلد: miftah-backup-2026-05-02_14-30
+3. ينسخ المجلدات: dist, electron, src, public
+4. ينسخ ملفات: index.html, package.json, vite.config.js
+5. يرجع مسار النسخة + عدد الملفات
+
+الخطوة 3: تطبيق التحديث (apply-update)
+هذه أهم خطوة — مصممة لتكون آمنة وذرّية:
+
+المرحلة (أ) — التحميل إلى مجلد مؤقت:
+─────────────────────────────────────
+1. ينشئ مجلد staging في temp:
+   /tmp/miftah-update-{timestamp}/
+2. لكل ملف من الـ scan result:
+   
+   a) فحص الأمان:
+      • هل المسار آمن؟ (لا يخرج عن مجلد التطبيق)
+      • هل يبدأ بـ TRACKED_PREFIXES؟
+      • هل يحتوي على "../" ؟ (path traversal)
+   
+   b) التحميل من raw.githubusercontent.com:
+      مع cache-busting: ?t={Date.now()}
+   
+   c) التحقق من SHA:
+      • يحسب SHA للملف المحمَّل
+      • يقارنه مع SHA المتوقع من GitHub
+      • إذا اختلف → يعيد المحاولة (3 محاولات بـ exponential backoff)
+   
+   d) إذا نجح → يكتب في staging
+      إذا فشل → يضيف للأخطاء
+3. التحقق النهائي:
+   • إذا فشل أي ملف واحد → يحذف staging كاملاً ويُلغي التحديث
+   • هذا يضمن أن التطبيق لا يعلق في حالة "نصف محدّث"
+المرحلة (ب) — النقل إلى التطبيق:
+─────────────────────────────────
+4. فقط إذا نجحت كل التحميلات:
+   • ينسخ من staging إلى مجلد التطبيق الفعلي
+   • يحذف مجلد staging
+   • يرسل status: 'complete'
+5. المستخدم يضغط "إعادة تشغيل" → app.relaunch()
+
+🛡️ آليات الأمان المتعددة
+1. التحقق من المسار (Path Safety)
+function isPathSafe(filePath) {
+  const normalized = path.normalize(filePath).replace(/\\/g, '/');
+  if (normalized.startsWith('/')) return false;       // مسار مطلق
+  if (normalized.startsWith('..')) return false;      // خروج للأعلى
+  if (normalized.includes('/../')) return false;      // path traversal
+  if (!isTrackedFile(normalized)) return false;       // ملف غير مسموح
+  return true;
+}
+
+2. تأكيد المسار النهائي
+const destPath = path.resolve(basePath, file.path);
+if (!destPath.startsWith(path.resolve(basePath))) {
+  // المسار خرج عن مجلد التطبيق → رفض
+}
+
+3. التحقق من SHA
+كل ملف يُتحقق منه بنفس الخوارزمية التي يستخدمها Git:
+
+function gitBlobSha(buffer) {
+  const header = `blob ${buffer.length}\0`;
+  return crypto.createHash('sha1')
+    .update(Buffer.from(header))
+    .update(buffer)
+    .digest('hex');
+}
+
+هذا يضمن أن الملف وصل سليماً 100% من GitHub.
+
+4. ContextBridge في Preload
+الواجهة لا تستطيع تنفيذ أي شيء على القرص مباشرة — فقط استدعاء الـ APIs المكشوفة بأسماء محددة.
+
+5. التحديث الذرّي (Atomic)
+إما يُحمَّل كل شيء بنجاح، أو يُلغى كل شيء. لا توجد حالة وسطى.
+
+📡 نظام التواصل المباشر (Status Updates)
+أثناء التحديث، الـ main process يرسل تحديثات حية للواجهة:
+
+// في main.cjs
+function sendStatus(data) {
+  mainWindow.webContents.send('updater:status', data);
+}
+// الحالات الممكنة:
+{ state: 'checking' }
+{ state: 'changes-found', modified, added, ... }
+{ state: 'up-to-date' }
+{ state: 'downloading', current: 5, total: 23, percent: 21, currentFile: '...' }
+{ state: 'applying', total: 23 }
+{ state: 'complete', downloaded: 23, failed: 0 }
+{ state: 'error', message: '...' }
+
+في الواجهة:
+
+const cleanup = window.electronUpdater.onUpdateStatus(setUpdateStatus);
+return cleanup; // مهم للتنظيف عند unmount
+
+📤 سكربت النشر (scripts/deploy-to-github.js)
+هذا السكربت بالاتجاه المعاكس — يرفع التحديثات من جهازك إلى GitHub:
+
+1. يبني المشروع: npm run build
+2. يجمع كل الملفات المحلية + يحسب SHA لكل واحد
+3. لكل مستودع في القائمة:
+   • يجلب شجرة الملفات الحالية
+   • يقارن SHAs
+   • يرفع الملفات الجديدة/المعدّلة عبر GitHub API
+   • يحذف الملفات المحذوفة محلياً
+4. يستخدم GITHUB_TOKEN من environment variables
+
+ميزة جميلة: يدعم رفع لعدة مستودعات في نفس الوقت (للنشر بأسماء مختلفة).
+
+🔑 الخلاصة لتطبيق النظام في برنامج آخر
+إذا أردت طلب هذا النظام في برنامج آخر، أعطِ Replit المتطلبات التالية:
+
+المكونات المطلوبة:
+Electron كحاوي للتطبيق
+3 ملفات أساسية:
+electron/main.cjs — منطق الـ IPC والتحديث
+electron/preload.cjs — جسر الأمان
+src/components/UpdaterUI.jsx — الواجهة
+المتطلبات الوظيفية:
+نظام تحديث من GitHub باستخدام SHA hashes
+فحص → نسخة احتياطية → تحميل لـ staging → تحقق ذرّي → نقل → إعادة تشغيل
+تحديثات حية للواجهة عبر IPC
+حماية من path traversal وملفات غير مسموحة
+إعادة محاولات مع exponential backoff عند فشل التحميل
+الإعدادات القابلة للتخصيص:
+TRACKED_PREFIXES — المجلدات المسموح تحديثها
+EXCLUDED — المستثنيات
+اسم المستودع (يُدخله المستخدم في الإعدادات)
+🪟 بناء النسخة Windows (.exe)
+البرنامج مُعدّ بالفعل لذلك. الإعداد موجود في package.json:
+
+"build": {
+  "appId": "com.miftah.store",
+  "productName": "مفتاح - إدارة المتجر",
+  "win": {
+    "target": "nsis",
+    "icon": "electron/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
+
+ولديك السكربت جاهز:
+
+"electron:build": "vite build && electron-builder"
+
+⚠️ مشكلة مهمة يجب أن تعرفها:
+Replit يعمل على Linux، وبناء ملفات .exe يحتاج إلى Windows أو إلى Wine + إعدادات معقدة.
+
+electron-builder يستطيع نظرياً البناء عبر الأنظمة (cross-build) من Linux إلى Windows، لكن:
+
+يحتاج تحميل أدوات Windows (~200MB) عند البناء
+لا يمكن توقيع التطبيق رقمياً (code signing) من Linux بسهولة
+النسخة الناتجة قد تُظهر تحذيرات SmartScreen في Windows
+الخيارات المتاحة:
+الخيار	الإيجابيات	السلبيات
+بناء على Replit	سريع، لا يحتاج جهاز Windows	قد يفشل، لا توقيع رقمي
+GitHub Actions	يبني على Windows فعلياً، مجاني	يحتاج إعداد workflow
+بناء على جهازك	الأفضل والأكثر استقراراً	تحتاج جهاز Windows
