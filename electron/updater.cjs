@@ -724,29 +724,42 @@ async function checkForUpdates() {
     fileDiff = { available: false, reason: `تعذّر التحليل الشامل: ${e.message}` };
   }
 
-  // Update is offered when EITHER the version is newer OR the file
-  // diff shows real differences. The latter handles same-version
-  // hot-fixes; the former preserves the classic semver contract.
+  // ─── decision rule ───────────────────────────────────────────────
+  // The INSTALLED VERSION is the single source of truth for whether an
+  // update exists. We only show "تحديث جديد" when the GitHub release
+  // tag is strictly newer than `app.getVersion()`.
+  //
+  // File-level differences (filesDiffer) are kept as PURELY INFORMATIONAL
+  // metadata exposed to the UI — they do NOT trigger "update available".
+  //
+  // Why: the local manifest hashes EVERY file under `app-files/`, but at
+  // runtime the backend writes legitimate files there (sqlite DBs, logs,
+  // generated PDFs/exports), and users who upgraded from < v1.0.9 may
+  // never have had a manifest baseline at all. Treating any byte
+  // mismatch as "new release" produced perpetual false-positive update
+  // banners — exactly what this fix removes. If a same-version hot-fix
+  // republish ever needs to be applied, the user can re-run the
+  // installer manually from the "إصلاح الملفّات" link.
   const filesDiffer = fileDiff.available && !fileDiff.inSync;
-  const updateAvailable = versionIsNewer || filesDiffer;
+  const updateAvailable = versionIsNewer;
 
   // Decide HOW the update should be applied:
-  //   'none'       → already in sync, nothing to do
-  //   'hot'        → only frontend files differ → can be applied live
+  //   'none'       → no newer version published (file diff is informational)
+  //   'hot'        → newer version + only frontend files differ → live update
   //                  via hotUpdater (no UAC, no restart, no installer)
-  //   'installer'  → backend.exe / electron / native files differ → must
-  //                  go through the NSIS installer flow
+  //   'installer'  → newer version + backend.exe/electron/native files
+  //                  differ → must go through the NSIS installer flow
   //   'unknown'    → manifest unavailable → fall back to installer
   const hotArchive = pickHotArchiveAsset(release);
-  let updateMode = 'unknown';
-  if (fileDiff.available) {
-    if (fileDiff.inSync) updateMode = 'none';
-    else if (fileDiff.frontendOnly && hotArchive) updateMode = 'hot';
-    else updateMode = 'installer';
-  } else if (updateAvailable) {
+  let updateMode;
+  if (!updateAvailable) {
+    updateMode = 'none';
+  } else if (fileDiff.available && fileDiff.frontendOnly && hotArchive) {
+    updateMode = 'hot';
+  } else if (fileDiff.available) {
     updateMode = 'installer';
   } else {
-    updateMode = 'none';
+    updateMode = 'unknown';
   }
 
   return {
