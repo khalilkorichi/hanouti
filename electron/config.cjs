@@ -3,10 +3,7 @@
 const DEFAULT_UPDATER_CONFIG = Object.freeze({
   repoOwner: 'khalilkorichi',
   repoName: 'hanouti',
-  branch: 'release-windows',
-  trackedPrefixes: ['frontend-dist/', 'backend-dist/'],
-  trackedFiles: [],
-  excluded: ['node_modules/', '.git/', '.cache/', '.local/', 'dist/', 'release/', 'attached_assets/'],
+  includePrerelease: false,
 });
 
 const BACKEND_PORT = 51730;

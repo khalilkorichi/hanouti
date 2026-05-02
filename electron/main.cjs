@@ -9,6 +9,9 @@ const {
   startBackend, stopBackend, BACKEND_HOST, BACKEND_PORT,
 } = require('./backend-launcher.cjs');
 const updater = require('./updater.cjs');
+// Note: the updater module no longer exposes file-by-file diffing or
+// "live app-files" patching; it now downloads a full GitHub Release .exe
+// and lets NSIS handle the upgrade. See electron/updater.cjs header.
 const { APP_NAME, APP_FILES_DIR, APP_FILES_LAYOUT, FRONTEND_DEV_URL } = require('./config.cjs');
 
 log.transports.file.level = 'info';
@@ -215,7 +218,6 @@ ipcMain.handle('app:get-info', () => ({
   isPackaged: app.isPackaged,
   userData: app.getPath('userData'),
   appPath: app.getAppPath(),
-  liveDir: updater.getLiveAppFilesDir(),
 }));
 
 ipcMain.handle('backend:get-url', () => backendUrl || `http://${BACKEND_HOST}:${BACKEND_PORT}`);
@@ -231,52 +233,44 @@ ipcMain.handle('shell:open-external', (_e, url) => {
 
 ipcMain.handle('updater:get-config', () => updater.loadConfig());
 ipcMain.handle('updater:set-config', (_e, partial) => updater.saveConfig(partial || {}));
-ipcMain.handle('updater:scan-changes', async () => {
+
+ipcMain.handle('updater:check', async () => {
   try {
-    return await updater.scanChanges(sendStatus);
+    sendStatus({ state: 'checking' });
+    const result = await updater.checkForUpdates();
+    sendStatus({ state: 'idle' });
+    return result;
   } catch (e) {
-    log.error('[updater] scan failed', e);
+    log.error('[updater] check failed:', e.message);
     sendStatus({ state: 'error', message: e.message });
     throw e;
   }
 });
-ipcMain.handle('updater:create-backup', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'اختر مجلد النسخة الاحتياطية',
-    properties: ['openDirectory', 'createDirectory'],
-  });
-  if (result.canceled || !result.filePaths[0]) return { canceled: true };
-  return await updater.createBackup(result.filePaths[0]);
-});
-ipcMain.handle('updater:apply-update', async (_e, scanResult) => {
-  // Stop the backend BEFORE we apply, otherwise renaming the live dir on
-  // Windows fails because backend.exe is locked. We restart it after the swap.
-  let backendWasRunning = false;
+
+ipcMain.handle('updater:download', async (_e, asset) => {
   try {
-    backendWasRunning = true;
-    log.info('[updater] stopping backend before apply');
-    stopBackend();
-    await new Promise((r) => setTimeout(r, 800));
-    const result = await updater.applyUpdate(scanResult, sendStatus);
-    return result;
+    return await updater.downloadInstaller(asset, sendStatus);
   } catch (e) {
-    log.error('[updater] apply failed', e);
-    sendStatus({ state: 'error', message: e.message, details: e.details });
+    log.error('[updater] download failed:', e.message);
+    sendStatus({ state: 'error', message: e.message });
     throw e;
-  } finally {
-    if (backendWasRunning && !isDev) {
-      try {
-        log.info('[updater] restarting backend after apply');
-        const r = await startBackend(
-          app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirname, '..'),
-          app.getPath('userData'),
-          isDev,
-        );
-        backendUrl = r.url;
-      } catch (re) {
-        log.error('[updater] backend restart failed; user must restart app', re.message);
-      }
-    }
+  }
+});
+
+ipcMain.handle('updater:install', async (_e, installerPath) => {
+  try {
+    // Stop the backend so its sqlite file isn't locked while NSIS replaces
+    // %ProgramFiles%\Hanouti\. The OS will of course also kill it when we
+    // app.quit(), but stopping early keeps the data file consistent.
+    log.info('[updater] stopping backend before installer launch');
+    stopBackend();
+    await new Promise((r) => setTimeout(r, 400));
+    sendStatus({ state: 'installing' });
+    return await updater.installAndRelaunch(installerPath);
+  } catch (e) {
+    log.error('[updater] install launch failed:', e.message);
+    sendStatus({ state: 'error', message: e.message });
+    throw e;
   }
 });
 
@@ -293,16 +287,20 @@ const UPDATE_CHECK_INITIAL_DELAY_MS = 30 * 1000;
 async function backgroundUpdateCheck() {
   if (isDev) return;
   try {
-    const result = await updater.scanChanges();
-    if (result && result.totalChanges > 0) {
-      log.info(`[main] background check: ${result.totalChanges} updates available`);
+    const result = await updater.checkForUpdates();
+    if (result && result.state === 'update-available') {
+      log.info(`[main] background check: v${result.latestVersion} available (current v${result.currentVersion})`);
       // Tell the renderer so it can badge the Settings tab.
-      sendStatus({ state: 'updates-available-bg', totalChanges: result.totalChanges, branch: result.branch });
-      // OS notification (Windows 10/11 toast).
+      sendStatus({
+        state: 'updates-available-bg',
+        latestVersion: result.latestVersion,
+        currentVersion: result.currentVersion,
+      });
+      // Windows 10/11 toast notification.
       if (Notification.isSupported()) {
         const n = new Notification({
           title: 'تحديث جديد متاح — Hanouti',
-          body: `يوجد ${result.totalChanges} ملف(ات) جديد(ة). افتح الإعدادات → التحديثات لتطبيق التحديث.`,
+          body: `الإصدار v${result.latestVersion} جاهز للتحميل. افتح الإعدادات → التحديثات.`,
           silent: false,
         });
         n.on('click', () => {
@@ -314,7 +312,7 @@ async function backgroundUpdateCheck() {
         });
         n.show();
       }
-    } else {
+    } else if (result && result.state === 'up-to-date') {
       log.info('[main] background check: up to date');
     }
   } catch (e) {
@@ -323,8 +321,8 @@ async function backgroundUpdateCheck() {
 }
 
 app.whenReady().then(async () => {
-  // Clean any leftover staging/old dirs from a previously-interrupted update.
-  await updater.cleanupOrphans().catch((e) => log.warn('[main] cleanupOrphans', e.message));
+  // Best-effort cleanup of stale partial downloads / week-old installers.
+  await updater.cleanupOldDownloads();
 
   // STEP 1 — Show splash window IMMEDIATELY so the user always sees the
   // app launch within ~1s of clicking the icon, regardless of how long

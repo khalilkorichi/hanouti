@@ -1,6 +1,6 @@
 {
   "name": "hanouti-desktop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Hanouti — Smart Inventory & POS desktop application (Electron + FastAPI)",
   "main": "electron/main.cjs",
   "homepage": "https://github.com/khalilkorichi/hanouti",
