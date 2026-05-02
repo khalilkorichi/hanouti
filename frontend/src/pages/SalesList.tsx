@@ -431,14 +431,20 @@ export default function SalesList() {
                                     <Box
                                         className="icon-wrapper"
                                         sx={{
-                                            display: 'inline-flex',
-                                            p: 1.5,
+                                            width: 48,
+                                            height: 48,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             borderRadius: 2,
                                             background: alpha(theme.palette.primary.main, 0.1),
                                             mb: 2,
                                             transition: 'all 0.3s'
                                         }}
                                     >
+                                        {/* MUI's AttachMoney "$" glyph reads visually thinner
+                                            than the other three icons inside the same box, so
+                                            it gets a slightly larger fontSize for optical parity. */}
                                         <MoneyIcon sx={{ fontSize: 28, color: 'primary.main' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom>
@@ -480,15 +486,20 @@ export default function SalesList() {
                                     <Box
                                         className="icon-wrapper"
                                         sx={{
-                                            display: 'inline-flex',
-                                            p: 1.5,
+                                            width: 48,
+                                            height: 48,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             borderRadius: 2,
                                             background: alpha(theme.palette.secondary.main, 0.1),
                                             mb: 2,
                                             transition: 'all 0.3s'
                                         }}
                                     >
-                                        <ReceiptIcon sx={{ fontSize: 28, color: 'secondary.main' }} />
+                                        {/* Receipt glyph is the heaviest of the four;
+                                            kept at 24 so it doesn't dominate. */}
+                                        <ReceiptIcon sx={{ fontSize: 24, color: 'secondary.main' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="secondary.main" gutterBottom>
                                         {kpis.total_orders}
@@ -526,15 +537,19 @@ export default function SalesList() {
                                     <Box
                                         className="icon-wrapper"
                                         sx={{
-                                            display: 'inline-flex',
-                                            p: 1.5,
+                                            width: 48,
+                                            height: 48,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             borderRadius: 2,
                                             background: alpha('#FFAB00', 0.1),
                                             mb: 2,
                                             transition: 'all 0.3s'
                                         }}
                                     >
-                                        <TrendingUpIcon sx={{ fontSize: 28, color: '#FFAB00' }} />
+                                        {/* Diagonal trending-up arrow fills the box well at 26. */}
+                                        <TrendingUpIcon sx={{ fontSize: 26, color: '#FFAB00' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" sx={{ color: '#FFAB00' }} gutterBottom>
                                         {kpis.avg_order_value.toFixed(2)}
@@ -575,15 +590,20 @@ export default function SalesList() {
                                     <Box
                                         className="icon-wrapper"
                                         sx={{
-                                            display: 'inline-flex',
-                                            p: 1.5,
+                                            width: 48,
+                                            height: 48,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
                                             borderRadius: 2,
                                             background: alpha(theme.palette.success.main, 0.1),
                                             mb: 2,
                                             transition: 'all 0.3s'
                                         }}
                                     >
-                                        <CheckCircleIcon sx={{ fontSize: 28, color: 'success.main' }} />
+                                        {/* Filled check-circle reads as one solid disc; 26 keeps
+                                            it visually equal to the trending-up arrow. */}
+                                        <CheckCircleIcon sx={{ fontSize: 26, color: 'success.main' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="success.main" gutterBottom>
                                         {kpis.completed_sales}
