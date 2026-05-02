@@ -35,7 +35,12 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
       Login.tsx      - Modern login with gradient background, show/hide password
       Dashboard.tsx  - KPI cards + Quick actions + Top products (real API data)
       Products.tsx, Categories.tsx, Sales.tsx, SalesList.tsx
-      Inventory.tsx, Reports.tsx, Settings.tsx
+      Inventory.tsx, Settings.tsx
+      Reports.tsx    - Hero header, 4 KPI cards with growth chips (% vs previous period),
+                       insights strip (top category/peakday/peakhour), 9 chart sections:
+                       gradient area chart, donut(stock+center number), top-products with progress bars,
+                       category donut, weekday bar, payment-methods bars, hour line,
+                       radial profit margin, inventory value stats. Error state + retry.
     services/
       api.ts         - Axios instance with baseURL '/api' (proxied to backend)
       reportsService.ts, productService.ts, salesService.ts, etc.
@@ -49,6 +54,16 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
 ## API Proxy
 Frontend routes `/api/*` through Vite proxy → backend `localhost:8000`.
 All fetch calls use relative `/api/...` paths — never hardcoded localhost URLs.
+
+## Reports Endpoints (10 total)
+- `/reports/kpis?period=...` — current + `previous{}` + `growth{}` (% change vs equivalent prev period)
+- `/reports/sales-over-time`, `/reports/top-products?limit=N`, `/reports/stock-status`
+- `/reports/profit-margin` (revenue/cost/profit/margin%)
+- `/reports/sales-by-category` (uses `.select_from(Category)` to disambiguate joins)
+- `/reports/payment-methods`, `/reports/sales-by-weekday`, `/reports/sales-by-hour`
+- `/reports/inventory-value` (cost_value/retail_value/potential_profit/total_units/total_skus)
+- **SQLAlchemy gotcha**: aggregate queries that mix columns from multiple unrelated tables MUST
+  use `.select_from(<central_table>)` before `.join(...)` chains, else InvalidRequestError.
 
 ## RTL & UI Consistency Rules (IMPORTANT)
 The app uses MUI + emotion `@mui/stylis-plugin-rtl` for bidi behavior. To avoid breaking RTL:
