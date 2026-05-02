@@ -1,7 +1,11 @@
 /**
  * Type-safe wrapper around the `window.electronAPI` and `window.electronUpdater`
- * bridges exposed by `electron/preload.cjs`. Safe to import in a regular browser
- * build — the wrapper simply reports `isAvailable=false` and rejects calls.
+ * bridges exposed by `electron/preload.cjs`.
+ *
+ * The updater now uses the **GitHub Releases API** (the standard Electron
+ * pattern): it compares the current app version to the latest published
+ * release tag, downloads the .exe asset on demand, and lets NSIS handle
+ * the upgrade. See electron/updater.cjs for the implementation.
  */
 
 export interface AppInfo {
@@ -15,65 +19,53 @@ export interface AppInfo {
     isPackaged: boolean;
     userData: string;
     appPath: string;
-    liveDir: string;
 }
 
 export interface UpdaterConfig {
     repoOwner: string;
     repoName: string;
-    branch: string;
-    trackedPrefixes: string[];
-    trackedFiles: string[];
-    excluded: string[];
+    includePrerelease: boolean;
 }
 
-export interface ChangedFile {
-    path: string;
-    sha: string;
+export interface ReleaseAsset {
+    name: string;
     size: number;
+    downloadUrl: string;
 }
 
-export interface RecentCommit {
-    sha: string;
-    message: string;
-    author: string;
-    date: string;
-    url: string;
-}
+export type UpdateCheckResult =
+    | {
+          state: 'up-to-date';
+          currentVersion: string;
+          latestVersion: string;
+          releaseName: string;
+          releaseNotes: string;
+          releaseDate: string;
+          releaseUrl: string;
+          repoUrl: string;
+          asset: ReleaseAsset | null;
+      }
+    | {
+          state: 'update-available';
+          currentVersion: string;
+          latestVersion: string;
+          releaseName: string;
+          releaseNotes: string;
+          releaseDate: string;
+          releaseUrl: string;
+          repoUrl: string;
+          asset: ReleaseAsset | null;
+      }
+    | { state: 'no-releases'; repoUrl: string };
 
 export type UpdaterStatus =
     | { state: 'idle' }
-    | { state: 'checking'; message?: string }
-    | {
-          state: 'changes-found';
-          branch: string;
-          repo: string;
-          repoUrl: string;
-          modified: ChangedFile[];
-          added: ChangedFile[];
-          removed: string[];
-          unchangedCount: number;
-          totalChanges: number;
-          recentCommits: RecentCommit[];
-      }
-    | {
-          state: 'up-to-date';
-          branch: string;
-          repo: string;
-          repoUrl: string;
-          modified: ChangedFile[];
-          added: ChangedFile[];
-          removed: string[];
-          unchangedCount: number;
-          totalChanges: number;
-          recentCommits: RecentCommit[];
-      }
-    | { state: 'downloading'; current: number; total: number; percent: number; currentFile?: string }
-    | { state: 'applying'; total: number }
-    | { state: 'complete'; downloaded: number; failed: number; removed: number }
-    | { state: 'error'; message: string; details?: unknown };
-
-export type ScanResult = Extract<UpdaterStatus, { state: 'changes-found' | 'up-to-date' }>;
+    | { state: 'checking' }
+    | { state: 'downloading'; current: number; total: number; percent: number }
+    | { state: 'downloaded'; path: string; size: number }
+    | { state: 'installing' }
+    | { state: 'error'; message: string }
+    | { state: 'updates-available-bg'; latestVersion: string; currentVersion: string };
 
 declare global {
     interface Window {
@@ -89,11 +81,9 @@ declare global {
             isAvailable: true;
             getConfig: () => Promise<UpdaterConfig>;
             setConfig: (partial: Partial<UpdaterConfig>) => Promise<UpdaterConfig>;
-            scanChanges: () => Promise<ScanResult>;
-            createBackup: () => Promise<{ canceled?: boolean; path?: string; count?: number }>;
-            applyUpdate: (
-                scanResult: ScanResult,
-            ) => Promise<{ state: 'complete'; downloaded: number; failed: number; removed: number }>;
+            checkForUpdates: () => Promise<UpdateCheckResult>;
+            downloadInstaller: (asset: ReleaseAsset) => Promise<{ path: string; size: number }>;
+            installAndRelaunch: (installerPath: string) => Promise<{ launched: true }>;
             onStatus: (cb: (status: UpdaterStatus) => void) => () => void;
         };
     }

@@ -15,9 +15,9 @@ contextBridge.exposeInMainWorld('electronUpdater', {
   isAvailable: true,
   getConfig: () => ipcRenderer.invoke('updater:get-config'),
   setConfig: (partial) => ipcRenderer.invoke('updater:set-config', partial),
-  scanChanges: () => ipcRenderer.invoke('updater:scan-changes'),
-  createBackup: () => ipcRenderer.invoke('updater:create-backup'),
-  applyUpdate: (scanResult) => ipcRenderer.invoke('updater:apply-update', scanResult),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadInstaller: (asset) => ipcRenderer.invoke('updater:download', asset),
+  installAndRelaunch: (installerPath) => ipcRenderer.invoke('updater:install', installerPath),
   onStatus: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('updater:status', listener);
