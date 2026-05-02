@@ -42,6 +42,86 @@ function sendStatus(payload) {
   }
 }
 
+function buildSplashHtml(message = 'جاري تشغيل الخادم الداخلي...') {
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+<title>Hanouti</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+         color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .container { text-align: center; max-width: 520px; padding: 40px; }
+  .logo { font-size: 64px; font-weight: 800; letter-spacing: -2px; margin-bottom: 8px;
+          background: linear-gradient(135deg, #38BDF8, #818CF8); -webkit-background-clip: text;
+          background-clip: text; color: transparent; }
+  .tagline { font-size: 18px; color: #94A3B8; margin-bottom: 40px; }
+  .spinner { width: 56px; height: 56px; border: 4px solid rgba(56, 189, 248, 0.15);
+             border-top-color: #38BDF8; border-radius: 50%; margin: 0 auto 24px;
+             animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { font-size: 16px; color: #CBD5E1; min-height: 24px; }
+  .hint { font-size: 13px; color: #64748B; margin-top: 32px; line-height: 1.6; }
+  .version { position: fixed; bottom: 16px; left: 0; right: 0; text-align: center;
+             font-size: 12px; color: #475569; }
+</style></head><body>
+<div class="container">
+  <div class="logo">حانوتي</div>
+  <div class="tagline">نقطة بيع ذكية</div>
+  <div class="spinner"></div>
+  <div class="status">${message}</div>
+  <div class="hint">قد يستغرق التشغيل الأوّل حتى دقيقة واحدة بينما يفكّ Windows ضغط الملفات.<br>الرجاء الانتظار...</div>
+</div>
+<div class="version">Hanouti v${app.getVersion()}</div>
+</body></html>`;
+}
+
+function buildErrorHtml(errorMessage, logPath) {
+  const safeMsg = String(errorMessage).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+  const safeLog = String(logPath || '').replace(/\\/g, '\\\\');
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+<title>Hanouti — خطأ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0F172A; color: #fff;
+         min-height: 100vh; padding: 40px; line-height: 1.6; }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { color: #F87171; font-size: 28px; margin-bottom: 8px; }
+  .subtitle { color: #94A3B8; font-size: 16px; margin-bottom: 32px; }
+  .error-box { background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.3);
+               border-radius: 8px; padding: 20px; margin-bottom: 24px; font-family: monospace;
+               font-size: 13px; color: #FCA5A5; word-break: break-word; white-space: pre-wrap; }
+  h2 { color: #38BDF8; font-size: 18px; margin: 24px 0 12px; }
+  ol { margin-right: 20px; color: #CBD5E1; }
+  ol li { margin-bottom: 10px; }
+  code { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2);
+         padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #7DD3FC; direction: ltr;
+         display: inline-block; }
+  .btn-row { display: flex; gap: 12px; margin-top: 32px; }
+  button { background: #38BDF8; color: #0F172A; border: none; padding: 12px 24px;
+           border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+           font-family: inherit; }
+  button:hover { background: #0EA5E9; }
+  button.secondary { background: transparent; color: #94A3B8; border: 1px solid #334155; }
+  button.secondary:hover { background: #1E293B; color: #fff; }
+</style></head><body>
+<div class="container">
+  <h1>تعذّر تشغيل البرنامج</h1>
+  <div class="subtitle">حدث خطأ أثناء بدء الخادم الداخلي.</div>
+  <div class="error-box">${safeMsg}</div>
+  <h2>خطوات الحلّ</h2>
+  <ol>
+    <li>أغلق البرنامج تماماً وأعد فتحه (انقر بزر الفأرة الأيمن على رمز Hanouti في شريط المهام إن وُجد → إغلاق النافذة).</li>
+    <li>إن استمرّت المشكلة، أضف Windows Defender استثناءً للمجلّد:<br><code>C:\\Program Files\\Hanouti\\</code></li>
+    <li>شغّل البرنامج بصلاحيات المدير: انقر بزر الفأرة الأيمن على اختصار Hanouti → <strong>Run as administrator</strong></li>
+    <li>أرسل لنا ملفّ السجلّ التشخيصي:<br><code>${safeLog}</code></li>
+  </ol>
+  <div class="btn-row">
+    <button onclick="window.location.reload()">إعادة المحاولة</button>
+    <button class="secondary" onclick="window.close()">إغلاق</button>
+  </div>
+</div>
+</body></html>`;
+}
+
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -63,32 +143,40 @@ async function createMainWindow() {
 
   Menu.setApplicationMenu(null);
 
-  if (isDev) {
-    log.info('[main] loading dev URL', FRONTEND_DEV_URL);
-    await mainWindow.loadURL(FRONTEND_DEV_URL).catch((e) => {
-      log.error('[main] dev URL failed', e.message);
-      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-        `<h1 style="font-family:sans-serif;color:#fff;background:#0f172a;padding:40px">Vite dev server not reachable at ${FRONTEND_DEV_URL}<br>Run: npm run frontend:dev</h1>`
-      )}`);
-    });
-  } else {
-    const indexPath = getFrontendIndexPath();
-    if (!fs.existsSync(indexPath)) {
-      log.error('[main] frontend index missing at', indexPath);
-      await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
-        `<h1 style="font-family:sans-serif;color:#fff;background:#0f172a;padding:40px">Frontend not built. Missing: ${indexPath}</h1>`
-      )}`);
-    } else {
-      await mainWindow.loadFile(indexPath);
-    }
-  }
-
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  // STEP 1: Show splash IMMEDIATELY so the user sees the app is running.
+  // Without this the window only appears after backend is healthy (up to
+  // 90s on cold starts) and users assume the app failed to launch.
+  await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildSplashHtml())}`);
+  mainWindow.show();
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+}
+
+async function loadFrontendOrError(errorMessage) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (errorMessage) {
+    const logPath = log.transports.file.getFile().path;
+    await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildErrorHtml(errorMessage, logPath))}`);
+    return;
+  }
+  if (isDev) {
+    log.info('[main] loading dev URL', FRONTEND_DEV_URL);
+    await mainWindow.loadURL(FRONTEND_DEV_URL).catch(async (e) => {
+      log.error('[main] dev URL failed', e.message);
+      await loadFrontendOrError(`Vite dev server not reachable at ${FRONTEND_DEV_URL}\nRun: npm run frontend:dev`);
+    });
+  } else {
+    const indexPath = getFrontendIndexPath();
+    if (!fs.existsSync(indexPath)) {
+      log.error('[main] frontend index missing at', indexPath);
+      await loadFrontendOrError(`Frontend not built. Missing: ${indexPath}`);
+    } else {
+      await mainWindow.loadFile(indexPath);
+    }
+  }
 }
 
 // ─── IPC ───────────────────────────────────────────────────────────────
@@ -215,6 +303,12 @@ app.whenReady().then(async () => {
   // Clean any leftover staging/old dirs from a previously-interrupted update.
   await updater.cleanupOrphans().catch((e) => log.warn('[main] cleanupOrphans', e.message));
 
+  // STEP 1 — Show splash window IMMEDIATELY so the user always sees the
+  // app launch within ~1s of clicking the icon, regardless of how long
+  // backend startup takes.
+  await createMainWindow();
+
+  // STEP 2 — Start the backend in parallel; meanwhile the splash shows.
   try {
     const result = await startBackend(
       app.isPackaged ? path.dirname(app.getAppPath()) : path.join(__dirname, '..'),
@@ -223,11 +317,13 @@ app.whenReady().then(async () => {
     );
     backendUrl = result.url;
     log.info('[main] backend ready at', backendUrl);
+    // STEP 3 — Backend is healthy: load the real frontend.
+    await loadFrontendOrError(null);
   } catch (e) {
     log.error('[main] backend startup failed', e);
-    dialog.showErrorBox('فشل تشغيل الخادم الداخلي', e.message);
+    // Show a helpful, in-window error screen with diagnostic steps.
+    await loadFrontendOrError(e.message || String(e));
   }
-  await createMainWindow();
 
   // Schedule background update checks.
   setTimeout(backgroundUpdateCheck, UPDATE_CHECK_INITIAL_DELAY_MS);
