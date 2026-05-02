@@ -1,0 +1,54 @@
+Error: src/components/Products/ProductForm.tsx(51,9): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<unknown, Error, unknown, string[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<unknown, Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<unknown, string[]>'.
+      Types of parameters 'params' and 'context' are incompatible.
+        Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 3 of 3, '(options: UseQueryOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<Category[], Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+Error: src/components/Products/ProductForm.tsx(208,61): error TS2339: Property 'map' does not exist on type '{}'.
+Error: src/components/Products/ProductForm.tsx(208,65): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: src/components/Sales/ProductExplorer.tsx(107,9): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<unknown, Error, unknown, string[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<unknown, Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<unknown, string[]>'.
+      Types of parameters 'params' and 'context' are incompatible.
+        Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 3 of 3, '(options: UseQueryOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<Category[], Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+Error: src/components/Sales/ProductExplorer.tsx(164,34): error TS2339: Property 'map' does not exist on type '{}'.
+Error: src/components/Sales/ProductExplorer.tsx(164,38): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+Error: src/pages/Dashboard.tsx(671,9): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(options: DefinedInitialDataOptions<unknown, Error, unknown, string[]>, queryClient?: QueryClient | undefined): DefinedUseQueryResult<unknown, Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<unknown, string[]>'.
+      Types of parameters 'params' and 'context' are incompatible.
+        Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 2 of 3, '(options: UndefinedInitialDataOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+  Overload 3 of 3, '(options: UseQueryOptions<Category[], Error, Category[], string[]>, queryClient?: QueryClient | undefined): UseQueryResult<Category[], Error>', gave the following error.
+    Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'unique symbol | QueryFunction<Category[], string[], never> | undefined'.
+      Type '(params?: CategoryListParams) => Promise<Category[]>' is not assignable to type 'QueryFunction<Category[], string[], never>'.
+        Types of parameters 'params' and 'context' are incompatible.
+          Type '{ client: QueryClient; queryKey: string[]; signal: AbortSignal; meta: Record<string, unknown> | undefined; pageParam?: unknown; direction?: unknown; }' has no properties in common with type 'CategoryListParams'.
+Error: src/pages/Dashboard.tsx(743,50): error TS2339: Property 'length' does not exist on type '{}'.
+Error: src/pages/Dashboard.tsx(749,38): error TS2339: Property 'map' does not exist on type '{}'.
+Error: src/pages/Dashboard.tsx(749,42): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+Error: src/pages/Dashboard.tsx(763,38): error TS2339: Property 'length' does not exist on type '{}'.
+Error: Process completed with exit code 1.
