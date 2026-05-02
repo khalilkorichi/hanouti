@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('electronUpdater', {
   pickDownloadDir: () => ipcRenderer.invoke('updater:pick-download-dir'),
   resetDownloadDir: () => ipcRenderer.invoke('updater:reset-download-dir'),
   openDownloadFolder: (filePath) => ipcRenderer.invoke('updater:open-download-folder', filePath),
+  // Wipe all installer artefacts (.exe, .exe.partial, latest.yml) from
+  // the configured download dir. Recovery path when a stuck partial
+  // keeps failing SHA-512 verification.
+  clearDownloadCache: () => ipcRenderer.invoke('updater:clear-cache'),
   // Hot-update API — applies frontend-only updates LIVE without UAC or
   // restart. SECURITY: also takes no URL/path arguments; the main process
   // re-fetches the release, downloads the archive, and validates every

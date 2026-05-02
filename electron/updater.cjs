@@ -1232,6 +1232,70 @@ async function installAndRelaunch(installerPath) {
 }
 
 /**
+ * User-initiated wipe of the download cache. Removes every `*.exe`,
+ * `*.exe.partial` and `latest.yml` from the configured download dir
+ * so the next update check re-downloads from scratch.
+ *
+ * Use case: a stuck partial that keeps failing SHA-512 verification
+ * after a release was yanked + republished under the same version.
+ *
+ * Safety:
+ *   - Refuses while a download is active (would race the writer).
+ *   - Only touches a strict allow-list of extensions/names. Anything
+ *     else in the folder (notably the user's own files if they pointed
+ *     downloadDir at e.g. ~/Downloads, and our own `config.json` /
+ *     `updater-config.json`) is left untouched.
+ *   - Per-file errors are collected and reported; one stuck file does
+ *     not abort the rest of the wipe.
+ */
+async function clearDownloadCache() {
+  if (activeDownload && !activeDownload.canceled) {
+    return {
+      ok: false,
+      reason: 'يوجد تحميل نشط — أوقفه أوّلاً قبل مسح الملفّات المؤقّتة',
+      removed: 0,
+    };
+  }
+  const dir = await getUpdatesDir();
+  if (!fs.existsSync(dir)) {
+    return { ok: true, removed: 0, dir, errors: [] };
+  }
+  let entries;
+  try {
+    entries = await fsp.readdir(dir);
+  } catch (e) {
+    return { ok: false, reason: `تعذّر قراءة المجلّد: ${e.message}`, removed: 0 };
+  }
+  const errors = [];
+  let removed = 0;
+  // Strict allow-list — only Hanouti installer artefacts. Critically,
+  // the user may point downloadDir at a shared location like
+  // ~/Downloads, so we MUST NOT delete arbitrary `.exe` files there.
+  // electron-builder.yml sets artifactName to "Hanouti-Setup-${version}
+  // -${arch}.${ext}", so every installer (and its `.partial` mid-
+  // download counterpart) starts with "Hanouti-Setup-" and ends in
+  // ".exe" or ".exe.partial". `latest.yml` is fixed by electron-builder.
+  const HANOUTI_INSTALLER_RE = /^Hanouti-Setup-.+\.exe(\.partial)?$/i;
+  for (const name of entries) {
+    const isHanoutiInstaller = HANOUTI_INSTALLER_RE.test(name);
+    const isYml = name.toLowerCase() === 'latest.yml';
+    if (!isHanoutiInstaller && !isYml) continue;
+    const full = path.join(dir, name);
+    try {
+      const st = await fsp.stat(full);
+      if (!st.isFile()) continue;
+      await fsp.rm(full, { force: true });
+      removed++;
+    } catch (e) {
+      errors.push({ name, message: e.message });
+    }
+  }
+  log.info(`[updater] clearDownloadCache: removed ${removed} file(s) from ${dir}` +
+           (errors.length ? `, ${errors.length} error(s)` : ''));
+  return { ok: errors.length === 0, removed, dir, errors };
+}
+
+/**
  * Best-effort cleanup of stale partials and old downloaded installers
  * (older than 7 days). Runs on app start; never throws.
  */
@@ -1289,6 +1353,7 @@ module.exports = {
   validateDownloadDir,
   getDownloadDirInfo,
   openDownloadFolder,
+  clearDownloadCache,
   // Used by hotUpdater (main process only).
   _fetchLatestReleaseForHotUpdate,
   _fetchRemoteManifest: fetchRemoteManifest,

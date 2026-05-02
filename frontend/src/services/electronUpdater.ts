@@ -221,6 +221,20 @@ declare global {
              */
             openDownloadFolder: (filePath?: string) => Promise<{ ok: boolean; path?: string; reason?: string }>;
             /**
+             * Wipe `.exe`, `.exe.partial` and `latest.yml` from the
+             * configured download dir. Use to recover from a stuck
+             * partial that keeps failing SHA-512 verification (e.g.
+             * after a release was yanked and republished). Never
+             * touches updater-config.json or unrelated files.
+             */
+            clearDownloadCache: () => Promise<{
+                ok: boolean;
+                removed: number;
+                dir?: string;
+                reason?: string;
+                errors?: { name: string; message: string }[];
+            }>;
+            /**
              * Hot-update API — applies frontend-only updates LIVE without UAC
              * or restart. The main process validates every extracted file's
              * SHA-256 against the manifest before activating.

@@ -330,6 +330,13 @@ ipcMain.handle('updater:reset-download-dir', async () => {
 ipcMain.handle('updater:open-download-folder', async (_e, filePath) => {
   return await updater.openDownloadFolder(filePath);
 });
+ipcMain.handle('updater:clear-cache', async () => {
+  // Wipes the configured download dir's installer artefacts (.exe,
+  // .exe.partial, latest.yml). Never touches updater-config.json or
+  // any unrelated files. Recovery path for stuck partials that keep
+  // failing SHA-512 verification (e.g. yanked-and-republished release).
+  return await updater.clearDownloadCache();
+});
 
 // ─── hot-update IPC ───────────────────────────────────────────────────
 // Live frontend-only updates that don't require the NSIS installer.

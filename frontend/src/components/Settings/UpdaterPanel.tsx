@@ -3,6 +3,7 @@ import {
     Box, Stack, Typography, Paper, Button, Chip, LinearProgress, Collapse,
     TextField, Switch, FormControlLabel, useTheme, alpha, Avatar, Link,
     List, ListItem, ListItemIcon, ListItemText, Tooltip, IconButton,
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import {
     SystemUpdateAlt as UpdateIcon,
@@ -35,6 +36,7 @@ import {
     RestartAlt as ResetIcon,
     Storage as StorageIcon,
     CachedOutlined as CachedIcon,
+    DeleteSweep as DeleteSweepIcon,
 } from '@mui/icons-material';
 import {
     isElectron, getElectronUpdater, getElectronAPI,
@@ -336,6 +338,8 @@ export default function UpdaterPanel() {
     const [channel, setChannel] = useState<ChannelInfo | null>(null);
     const [hotApplied, setHotApplied] = useState(false);
     const [downloadDirInfo, setDownloadDirInfo] = useState<DownloadDirInfo | null>(null);
+    const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+    const [clearingCache, setClearingCache] = useState(false);
     const cleanupRef = useRef<(() => void) | null>(null);
 
     const refreshDownloadInfo = async () => {
@@ -511,6 +515,43 @@ export default function UpdaterPanel() {
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             showNotification(msg, 'error', { title: 'فشل الاسترجاع' });
+        }
+    };
+
+    const handleClearDownloadCache = async () => {
+        if (!updater) return;
+        setClearingCache(true);
+        try {
+            const r = await updater.clearDownloadCache();
+            if (!r.ok) {
+                showNotification(
+                    r.reason || (r.errors && r.errors.length
+                        ? `تعذّر حذف ${r.errors.length} ملفّ`
+                        : 'تعذّر مسح الملفّات المؤقّتة'),
+                    'error',
+                    { title: 'فشل المسح' },
+                );
+            } else if (r.removed === 0) {
+                showNotification('لا توجد ملفّات تحميل مؤقّتة لمسحها.', 'info');
+            } else {
+                showNotification(
+                    `تمّ حذف ${r.removed} ملفّ. سيُعاد التحميل من الصفر عند التحقّق التالي.`,
+                    'success',
+                    { title: 'تمّ المسح' },
+                );
+                // A successful cache wipe also invalidates any "downloaded
+                // installer ready" state we were holding in the renderer.
+                setDownloadedPath(null);
+                setDownloadReused(false);
+            }
+            // Free-space chip refresh — wiping a 100+ MB partial should be visible.
+            await refreshDownloadInfo();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل المسح' });
+        } finally {
+            setClearingCache(false);
+            setClearCacheConfirmOpen(false);
         }
     };
 
@@ -965,6 +1006,16 @@ export default function UpdaterPanel() {
                                     >
                                         فتح المجلّد
                                     </Button>
+                                    <Tooltip title="حذف ملفّات التثبيت المؤقّتة (.exe و latest.yml) من هذا المجلّد لإعادة التحميل من الصفر. مفيد إذا فشل التحقّق من سلامة الملفّ عدّة مرّات.">
+                                        <Button
+                                            size="small" variant="text" color="error"
+                                            startIcon={<DeleteSweepIcon />}
+                                            disabled={clearingCache}
+                                            onClick={() => setClearCacheConfirmOpen(true)}
+                                        >
+                                            مسح ملفّات التحميل المؤقّتة
+                                        </Button>
+                                    </Tooltip>
                                     <Box sx={{ flex: 1 }} />
                                     {downloadDirInfo?.freeBytes != null && (
                                         <Tooltip title={`الحدّ الأدنى المطلوب: ${formatBytes(downloadDirInfo.minRequiredBytes)}`}>
@@ -1284,6 +1335,56 @@ export default function UpdaterPanel() {
                     </Stack>
                 </Paper>
             )}
+
+            {/* Confirm wipe of partial download cache (.exe + latest.yml). */}
+            <Dialog
+                open={clearCacheConfirmOpen}
+                onClose={() => !clearingCache && setClearCacheConfirmOpen(false)}
+                dir="rtl"
+                aria-labelledby="clear-cache-title"
+                aria-describedby="clear-cache-desc"
+            >
+                <DialogTitle id="clear-cache-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <DeleteSweepIcon color="error" />
+                    تأكيد مسح ملفّات التحميل المؤقّتة
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="clear-cache-desc" sx={{ mb: 1 }}>
+                        سيتمّ حذف ملفّات تثبيت Hanouti المؤقّتة فقط (<code>Hanouti-Setup-*.exe</code>، <code>Hanouti-Setup-*.exe.partial</code>، <code>latest.yml</code>) من المجلّد التالي:
+                    </DialogContentText>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            display: 'block', mb: 1.5,
+                            p: 1, borderRadius: 1,
+                            bgcolor: alpha(theme.palette.background.default, 0.6),
+                            fontFamily: 'monospace', wordBreak: 'break-all',
+                            direction: 'ltr', textAlign: 'left',
+                        }}
+                    >
+                        {downloadDirInfo?.path || '...'}
+                    </Typography>
+                    <DialogContentText>
+                        لن تُحذف إعدادات التحديث ولا أيّ ملفّات أخرى في هذا المجلّد. سيُعاد تحميل ملفّ التثبيت من الصفر عند التحقّق التالي عن التحديثات.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setClearCacheConfirmOpen(false)}
+                        disabled={clearingCache}
+                    >
+                        إلغاء
+                    </Button>
+                    <Button
+                        onClick={handleClearDownloadCache}
+                        color="error" variant="contained"
+                        startIcon={<DeleteSweepIcon />}
+                        disabled={clearingCache}
+                    >
+                        {clearingCache ? 'جارٍ المسح...' : 'نعم، احذف الملفّات'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <style>{`
                 .spin { animation: hanouti-spin 1.2s linear infinite; }
