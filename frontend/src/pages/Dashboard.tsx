@@ -42,7 +42,8 @@ import api from '../services/api';
 import { productService, type Product } from '../services/productService';
 import { categoryService, type CategoryCreate } from '../services/categoryService';
 import { salesService } from '../services/salesService';
-import { UnifiedModal, CustomButton, CustomInput } from '../components/Common';
+import { UnifiedModal, CustomButton, CustomInput, PageHeader } from '../components/Common';
+import { Storefront as StorefrontIcon } from '@mui/icons-material';
 import ProductForm from '../components/Products/ProductForm';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -197,9 +198,7 @@ function QuickActionCard({
 export default function Dashboard() {
     const navigate = useNavigate();
     const theme = useTheme();
-    const isLight = theme.palette.mode === 'light';
-    const { showNotification } = useNotification();
-    const queryClient = useQueryClient();
+    const { showNotification: _showNotification } = useNotification();
 
     const [kpi, setKpi] = useState<KPIData | null>(null);
     const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
@@ -297,46 +296,27 @@ export default function Dashboard() {
 
     return (
         <Box>
-            {/* Welcome Banner */}
-            <Box
-                sx={{
-                    mb: 4, p: { xs: 3, md: 4 }, borderRadius: 4,
-                    background: isLight
-                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`
-                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    flexWrap: 'wrap', gap: 2,
-                }}
-            >
-                <Box>
-                    <Typography
-                        variant="h4" fontWeight={800} gutterBottom
+            <PageHeader
+                title="مرحباً بك في حانوتي"
+                titleEmoji="👋"
+                subtitle="هذا ملخص أداء متجرك اليوم"
+                icon={<StorefrontIcon />}
+                actions={
+                    <Button
+                        variant="contained"
+                        startIcon={<ReceiptIcon />}
+                        onClick={() => setActiveDialog('quickSale')}
                         sx={{
-                            fontSize: { xs: '1.5rem', md: '2rem' },
+                            borderRadius: 2.5, px: 3, py: 1.1,
                             background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                            boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.35)}`,
+                            '&:hover': { boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.45)}` },
                         }}
                     >
-                        مرحباً بك في حانوتي 👋
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" fontWeight={500}>
-                        هذا ملخص أداء متجرك اليوم
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<ReceiptIcon />}
-                    onClick={() => setActiveDialog('quickSale')}
-                    sx={{
-                        borderRadius: 2.5, px: 3, py: 1.2,
-                        boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.35)}`,
-                        '&:hover': { boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}` },
-                    }}
-                >
-                    بيع جديد
-                </Button>
-            </Box>
+                        بيع جديد
+                    </Button>
+                }
+            />
 
             {/* KPI Error Banner */}
             {kpiError && !loading && (

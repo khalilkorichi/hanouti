@@ -9,11 +9,8 @@ import {
     Stack,
     Typography,
     Chip,
-    IconButton,
-    Tooltip,
     alpha,
     useTheme,
-    Fade,
     Slide,
     Button,
 } from '@mui/material';
@@ -29,9 +26,10 @@ import {
     CancelOutlined as BulkCancelIcon,
     DeleteOutlineOutlined as DeleteIcon,
     DeleteForeverOutlined as HardDeleteIcon,
+    ReceiptLongOutlined as SalesListIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput } from '../components/Common';
+import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
@@ -398,26 +396,11 @@ export default function SalesList() {
 
     return (
         <Box sx={{ p: 3 }}>
-            {/* Header */}
-            <Fade in timeout={500}>
-                <Box sx={{ mb: 4 }}>
-                    <Typography
-                        variant="h4"
-                        fontWeight="bold"
-                        sx={{
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            mb: 1
-                        }}
-                    >
-                        سجل المبيعات
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        إدارة ومتابعة جميع عمليات البيع
-                    </Typography>
-                </Box>
-            </Fade>
+            <PageHeader
+                title="سجل المبيعات"
+                subtitle="إدارة ومتابعة جميع عمليات البيع"
+                icon={<SalesListIcon />}
+            />
 
             {/* KPIs */}
             {kpis && (

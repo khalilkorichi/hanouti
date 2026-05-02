@@ -23,7 +23,7 @@ import {
     ViewCompact as DensityIcon,
     Animation as AnimationIcon,
 } from '@mui/icons-material';
-import { CustomButton } from '../components/Common';
+import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -143,33 +143,20 @@ export default function Settings() {
 
             {/* ── Main content ── */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-                {/* Section header */}
-                <Box sx={{
-                    display: 'flex', alignItems: 'center', gap: 2, mb: 3,
-                    p: 2.5, borderRadius: 3,
-                    background: isLight
-                        ? `linear-gradient(135deg, ${alpha(activeNav.color, 0.07)}, ${alpha(activeNav.color, 0.03)})`
-                        : `linear-gradient(135deg, ${alpha(activeNav.color, 0.14)}, ${alpha(activeNav.color, 0.06)})`,
-                    border: `1px solid ${alpha(activeNav.color, 0.2)}`,
-                }}>
-                    <Box sx={{
-                        width: 44, height: 44, borderRadius: 2.5,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        bgcolor: alpha(activeNav.color, 0.15), color: activeNav.color,
-                    }}>
-                        {activeNav.icon}
-                    </Box>
-                    <Box>
-                        <Typography variant="h6" fontWeight={800}>{activeNav.label}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {activeSection === 'profile' && 'إدارة بياناتك الشخصية'}
-                            {activeSection === 'appearance' && 'تخصيص مظهر التطبيق'}
-                            {activeSection === 'data' && 'نسخ احتياطي واستعادة البيانات'}
-                            {activeSection === 'security' && 'حماية حسابك'}
-                            {activeSection === 'about' && 'معلومات عن حانوتي'}
-                        </Typography>
-                    </Box>
-                </Box>
+                {/* Section header (unified PageHeader, accent color follows the active nav) */}
+                <PageHeader
+                    compact
+                    title={activeNav.label}
+                    subtitle={
+                        activeSection === 'profile' ? 'إدارة بياناتك الشخصية' :
+                        activeSection === 'appearance' ? 'تخصيص مظهر التطبيق' :
+                        activeSection === 'data' ? 'نسخ احتياطي واستعادة البيانات' :
+                        activeSection === 'security' ? 'حماية حسابك' :
+                        'معلومات عن حانوتي'
+                    }
+                    icon={activeNav.icon}
+                    accent={activeNav.color}
+                />
 
                 {/* ── Profile ── */}
                 {activeSection === 'profile' && (

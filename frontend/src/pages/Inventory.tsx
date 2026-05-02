@@ -10,11 +10,9 @@ import {
     Stack,
     Typography,
     Chip,
-    IconButton,
     Tooltip,
     alpha,
     useTheme,
-    Fade,
     Divider,
     LinearProgress,
     Button,
@@ -37,7 +35,7 @@ import {
     TuneOutlined as SetMinQtyIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
-import { CustomButton, UnifiedModal, BulkActionsBar, SearchInput } from '../components/Common';
+import { CustomButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -606,20 +604,11 @@ export default function Inventory() {
 
     return (
         <Box>
-            {/* Header */}
-            <Fade in timeout={500}>
-                <Box sx={{ mb: 3 }}>
-                    <Typography variant="h4" fontWeight="bold" sx={{
-                        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', mb: 0.5
-                    }}>
-                        إدارة المخزون
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        متابعة المخزون وتعديل الكميات والأسعار
-                    </Typography>
-                </Box>
-            </Fade>
+            <PageHeader
+                title="إدارة المخزون"
+                subtitle="متابعة المخزون وتعديل الكميات والأسعار"
+                icon={<InventoryIcon />}
+            />
 
             {/* ── Stats cards ── */}
             <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>

@@ -27,6 +27,15 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
     contexts/
       ThemeContext.tsx  - SINGLE SOURCE OF TRUTH for theming. Persisted tokens (localStorage): mode (light/dark), primaryColor (6 presets + custom hex), fontSize (small/medium/large), radius (sharp/medium/rounded), density (compact/comfortable/spacious), animSpeed (off/fast/normal). Drives MUI theme.shape.borderRadius + per-component overrides for Button/Card/TextField/Chip/Tooltip/Dialog padding & radius. Components must NOT hardcode `fontFamily: 'Cairo'` or `borderRadius: N` — theme handles both globally.
       NotificationContext.tsx  - Multi-notification queue system: up to 5 simultaneous toasts, progress bar, hover-to-pause, slide animation, action buttons
+    components/Common/
+      PageHeader.tsx  - UNIFIED page-top hero used by ALL pages.
+                        Props: title, subtitle, icon, titleEmoji, actions, accent, compact, sx, disableGlow.
+                        Renders: gradient avatar circle + gradient title + subtitle + actions slot + corner glow.
+                        Dark mode: alpha 0.22 (vs 0.07 light), brighter title gradient via primary.light/secondary.light,
+                        inner highlight box-shadow, stronger border. RTL-safe (insetInlineEnd).
+                        Replaces ad-hoc page headers in Dashboard/Products/Categories/SalesList/Inventory/Reports/Settings.
+      CustomCard, CustomButton, CustomIconButton, CustomInput, CustomSelect, SearchInput,
+      BulkActionsBar, UnifiedModal — other shared primitives.
     components/Layout/
       MainLayout.tsx  - Persistent sidebar (desktop) + temporary drawer (mobile)
       Header.tsx      - Glassmorphism header with page title, theme toggle, user avatar
@@ -78,6 +87,7 @@ The app uses MUI + emotion `@mui/stylis-plugin-rtl` for bidi behavior. To avoid 
 4. **Never hardcode `fontFamily: 'Cairo'` in components** — `ThemeContext.tsx` typography sets it globally on every MUI component. Hardcoding it overrides font-size scaling from Settings.
 5. **Use `theme.palette.*` for colors** — only category-style accent colors may be inlined (e.g. sidebar menu badges). Never duplicate `theme.palette.primary.main` as a hex.
 6. **Use the `api` service (axios) for all backend calls** — never `fetch('/api/...')`. The api service handles baseURL, headers, and credentials uniformly.
+7. **Use the `PageHeader` common component for every page top header** — never reinvent gradient-title + subtitle + actions markup inline. Pass `actions={<>...</>}` for the right-side cluster. For sub-section headers (Settings), use `compact` + `accent={color}`.
 
 ## UI Design System
 - **Font**: Cairo (Arabic), Tajawal fallback

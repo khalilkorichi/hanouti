@@ -22,7 +22,8 @@ import {
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import { productService, type Product } from '../services/productService';
-import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar, SearchInput } from '../components/Common';
+import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
+import { Inventory2 as Inventory2Icon } from '@mui/icons-material';
 import { useNotification } from '../contexts/NotificationContext';
 import ProductForm from '../components/Products/ProductForm';
 import ImportProductsModal from '../components/Products/ImportProductsModal';
@@ -261,32 +262,24 @@ export default function Products() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h4" fontWeight="bold">المنتجات</Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <CustomButton
-                        variant="outlined"
-                        startIcon={<ImportIcon />}
-                        onClick={() => setIsImportModalOpen(true)}
-                    >
-                        استيراد
-                    </CustomButton>
-                    <CustomButton
-                        variant="outlined"
-                        startIcon={<ExportIcon />}
-                        onClick={handleExport}
-                    >
-                        تصدير
-                    </CustomButton>
-                    <CustomButton
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenModal()}
-                    >
-                        إضافة منتج
-                    </CustomButton>
-                </Box>
-            </Box>
+            <PageHeader
+                title="المنتجات"
+                subtitle="إدارة كتالوج المنتجات والباركود والأسعار"
+                icon={<Inventory2Icon />}
+                actions={
+                    <>
+                        <CustomButton variant="outlined" startIcon={<ImportIcon />} onClick={() => setIsImportModalOpen(true)}>
+                            استيراد
+                        </CustomButton>
+                        <CustomButton variant="outlined" startIcon={<ExportIcon />} onClick={handleExport}>
+                            تصدير
+                        </CustomButton>
+                        <CustomButton variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>
+                            إضافة منتج
+                        </CustomButton>
+                    </>
+                }
+            />
 
             <Box sx={{ mb: 3 }}>
                 <SearchInput

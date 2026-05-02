@@ -16,6 +16,7 @@ import {
     PieChart, Pie, Cell, RadialBarChart, RadialBar,
 } from 'recharts';
 import { reportsService } from '../services/reportsService';
+import { PageHeader } from '../components/Common';
 
 const PERIODS = [
     { value: 'today',   label: 'اليوم' },
@@ -146,7 +147,6 @@ function useChartTooltip() {
 export default function Reports() {
     const [period, setPeriod] = useState('last_30');
     const theme = useTheme();
-    const isLight = theme.palette.mode === 'light';
     const tooltipStyle = useChartTooltip();
 
     const kpisQ      = useQuery({ queryKey: ['reports-kpis', period],     queryFn: () => reportsService.getKPIs(period) });
@@ -245,50 +245,12 @@ export default function Reports() {
     return (
         <Box sx={{ p: { xs: 2, md: 3 } }}>
             {/* ═══ HERO HEADER ═══ */}
-            <Paper
-                elevation={0}
-                sx={{
-                    p: 3, mb: 3, position: 'relative', overflow: 'hidden',
-                    background: isLight
-                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`
-                        : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)} 0%, ${alpha(theme.palette.secondary.main, 0.10)} 100%)`,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-                }}
-            >
-                <Box sx={{
-                    position: 'absolute', top: -50, insetInlineEnd: -50, width: 200, height: 200,
-                    borderRadius: '50%', background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.15)} 0%, transparent 70%)`,
-                }} />
-                <Stack
-                    direction={{ xs: 'column', md: 'row' }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', md: 'center' }}
-                    spacing={2}
-                    sx={{ position: 'relative', zIndex: 1 }}
-                >
-                    <Stack direction="row" alignItems="center" gap={2}>
-                        <Avatar sx={{
-                            width: 56, height: 56,
-                            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`,
-                        }}>
-                            <Insights sx={{ fontSize: 28 }} />
-                        </Avatar>
-                        <Box>
-                            <Typography variant="h4" fontWeight={800} sx={{
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                lineHeight: 1.1,
-                            }}>
-                                التقارير والتحليلات
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" mt={0.3}>
-                                نظرة شاملة على أداء متجرك مع مقارنة بالفترة السابقة
-                            </Typography>
-                        </Box>
-                    </Stack>
-
-                    <Stack direction="row" gap={1.5} alignItems="center" flexWrap="wrap">
+            <PageHeader
+                title="التقارير والتحليلات"
+                subtitle="نظرة شاملة على أداء متجرك مع مقارنة بالفترة السابقة"
+                icon={<Insights />}
+                actions={
+                    <>
                         <TextField
                             select size="small"
                             value={period}
@@ -320,9 +282,9 @@ export default function Reports() {
                         >
                             تصدير PDF
                         </Button>
-                    </Stack>
-                </Stack>
-            </Paper>
+                    </>
+                }
+            />
 
             {/* ═══ KPI ROW ═══ */}
             <Grid container spacing={2.5} mb={3}>
