@@ -85,10 +85,14 @@ async function startBackend(appDir, userDataDir, isDev) {
     child = null;
   });
 
-  const healthy = await waitForBackend(BACKEND_HOST, BACKEND_PORT, 30000);
+  // PyInstaller --onefile mode unpacks to %TEMP% on every launch which can
+  // take 30-60s on slow HDDs / when antivirus inspects the bundle. Wait up
+  // to 90s before declaring failure to avoid false negatives on real shop
+  // machines (often Windows 10 on spinning rust).
+  const healthy = await waitForBackend(BACKEND_HOST, BACKEND_PORT, 90000);
   if (!healthy) {
-    log.error('[backend] failed to become healthy within 30s');
-    throw new Error('Backend failed to start');
+    log.error('[backend] failed to become healthy within 90s');
+    throw new Error('Backend failed to start within 90 seconds. The PyInstaller bundle may be blocked by antivirus or extracting slowly. Check Windows Defender and try adding an exclusion for the Hanouti install folder.');
   }
   log.info('[backend] healthy on', BACKEND_PORT);
   return { url: `http://${BACKEND_HOST}:${BACKEND_PORT}`, alreadyRunning: false };
