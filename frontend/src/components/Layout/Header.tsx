@@ -68,12 +68,11 @@ export default function Header({
             <AppBar
                 position="fixed"
                 elevation={0}
-                dir="rtl"
                 style={{
-                    right: appBarRight,
-                    left: 0,
+                    insetInlineStart: appBarRight,
+                    insetInlineEnd: 0,
                     width: `calc(100% - ${appBarRight}px)`,
-                    transition: 'right 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s cubic-bezier(0.4,0,0.2,1)',
+                    transition: 'inset-inline-start 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s cubic-bezier(0.4,0,0.2,1)',
                 }}
                 sx={{
                     backgroundColor: isLight ? alpha('#FFFFFF', 0.88) : alpha('#151F32', 0.88),
@@ -140,7 +139,7 @@ export default function Header({
 
                         {/* User */}
                         <Box sx={{
-                            display: 'flex', alignItems: 'center', gap: 1, ml: 0.5, px: 1.5, py: 0.5,
+                            display: 'flex', alignItems: 'center', gap: 1, marginInlineStart: 0.5, px: 1.5, py: 0.5,
                             borderRadius: 2, cursor: 'pointer', transition: 'all 0.2s',
                             '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) },
                         }}>

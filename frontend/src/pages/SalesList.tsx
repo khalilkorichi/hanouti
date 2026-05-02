@@ -397,7 +397,7 @@ export default function SalesList() {
     ];
 
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
+        <Box sx={{ p: 3 }}>
             {/* Header */}
             <Fade in timeout={500}>
                 <Box sx={{ mb: 4 }}>

@@ -282,7 +282,7 @@ export default function Reports() {
     ] : [];
 
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
+        <Box sx={{ p: 3 }}>
             {/* Header */}
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} spacing={2}>
                 <Box>

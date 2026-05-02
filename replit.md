@@ -24,7 +24,7 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
   index.html       - HTML entry with Cairo/Tajawal fonts
   src/
     contexts/
-      ThemeContext.tsx  - MUI theme: modern color system, Cairo font, rich shadows
+      ThemeContext.tsx  - SINGLE SOURCE OF TRUTH for theming. MUI theme: primary #4F46E5 (customizable), secondary #06B6D4, Cairo font, modern shadows. Components must NOT hardcode `fontFamily: 'Cairo'` — theme typography handles it globally.
       NotificationContext.tsx  - Multi-notification queue system: up to 5 simultaneous toasts, progress bar, hover-to-pause, slide animation, action buttons
     components/Layout/
       MainLayout.tsx  - Persistent sidebar (desktop) + temporary drawer (mobile)
@@ -48,6 +48,20 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
 ## API Proxy
 Frontend routes `/api/*` through Vite proxy → backend `localhost:8000`.
 All fetch calls use relative `/api/...` paths — never hardcoded localhost URLs.
+
+## RTL & UI Consistency Rules (IMPORTANT)
+The app uses MUI + emotion `@mui/stylis-plugin-rtl` for bidi behavior. To avoid breaking RTL:
+
+1. **NEVER use `direction: 'rtl'` inside `sx`** — use the `dir="rtl"` HTML attribute instead.
+2. **Single root `dir="rtl"`** lives in `MainLayout.tsx`. Page roots must NOT add their own `dir="rtl"` (it cascades). EXCEPTION: content rendered inside MUI `Dialog`/`Popover` portals needs its own `dir="rtl"` because portals escape the React tree.
+3. **Use logical CSS properties** for any directional spacing/positioning:
+   - `marginInlineStart` / `marginInlineEnd` (NOT `ml`/`mr`/`marginLeft`/`marginRight`)
+   - `insetInlineStart` / `insetInlineEnd` (NOT `left`/`right`)
+   - `paddingInlineStart` / `paddingInlineEnd`
+   - `borderInlineStart` / `borderInlineEnd`
+4. **Never hardcode `fontFamily: 'Cairo'` in components** — `ThemeContext.tsx` typography sets it globally on every MUI component. Hardcoding it overrides font-size scaling from Settings.
+5. **Use `theme.palette.*` for colors** — only category-style accent colors may be inlined (e.g. sidebar menu badges). Never duplicate `theme.palette.primary.main` as a hex.
+6. **Use the `api` service (axios) for all backend calls** — never `fetch('/api/...')`. The api service handles baseURL, headers, and credentials uniformly.
 
 ## UI Design System
 - **Font**: Cairo (Arabic), Tajawal fallback

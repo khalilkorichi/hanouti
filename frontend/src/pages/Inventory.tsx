@@ -605,7 +605,7 @@ export default function Inventory() {
     ];
 
     return (
-        <Box dir="rtl">
+        <Box>
             {/* Header */}
             <Fade in timeout={500}>
                 <Box sx={{ mb: 3 }}>

@@ -59,7 +59,7 @@ export default function Sales() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <Box sx={{ height: 'calc(100vh - 100px)', p: 2 }} dir="rtl">
+            <Box sx={{ height: 'calc(100vh - 100px)', p: 2 }}>
                 <Grid container spacing={2} sx={{ height: '100%' }}>
                     {/* Product Explorer (Left/Right depending on RTL) */}
                     <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>

@@ -21,6 +21,8 @@ import {
     VisibilityOutlined,
     VisibilityOffOutlined,
 } from '@mui/icons-material';
+import api from '../services/api';
+import axios from 'axios';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -37,22 +39,15 @@ export default function Login() {
         setError('');
 
         try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('token', data.access_token);
-                navigate('/');
+            const { data } = await api.post('/login', { password });
+            localStorage.setItem('token', data.access_token);
+            navigate('/');
+        } catch (err) {
+            if (axios.isAxiosError(err) && err.response) {
+                setError(err.response.data?.detail || 'خطأ في تسجيل الدخول');
             } else {
-                const errorData = await response.json();
-                setError(errorData.detail || 'خطأ في تسجيل الدخول');
+                setError('فشل الاتصال بالخادم، تأكد من تشغيل النظام');
             }
-        } catch {
-            setError('فشل الاتصال بالخادم، تأكد من تشغيل النظام');
         } finally {
             setLoading(false);
         }

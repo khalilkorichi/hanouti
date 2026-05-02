@@ -101,7 +101,6 @@ export default function SearchInput({
                     '& input': {
                         p: 0,
                         color: 'text.primary',
-                        fontFamily: 'Cairo, sans-serif',
                         '&::placeholder': { color: 'text.disabled', opacity: 1 },
                     },
                 }}

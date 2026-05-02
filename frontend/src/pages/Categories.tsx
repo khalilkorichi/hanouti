@@ -96,7 +96,7 @@ export default function Categories() {
     if (error) return <Alert severity="error">حدث خطأ أثناء تحميل البيانات</Alert>;
 
     return (
-        <Box sx={{ p: 3 }} dir="rtl">
+        <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4" fontWeight="bold">الفئات</Typography>
                 <CustomButton
