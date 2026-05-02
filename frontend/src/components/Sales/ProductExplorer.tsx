@@ -17,7 +17,7 @@ import {
     useTheme,
 } from '@mui/material';
 import { productService, type Product } from '../../services/productService';
-import { categoryService } from '../../services/categoryService';
+import { categoryService, type Category } from '../../services/categoryService';
 import { useCartStore } from '../../store/cartStore';
 import { useDraggable } from '@dnd-kit/core';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -102,9 +102,9 @@ export default function ProductExplorer() {
         setPage(1);
     }, [debouncedSearch, selectedCategory]);
 
-    const { data: categories } = useQuery({
+    const { data: categories } = useQuery<Category[]>({
         queryKey: ['categories'],
-        queryFn: categoryService.getAll
+        queryFn: () => categoryService.getAll()
     });
 
     const filterParams = {

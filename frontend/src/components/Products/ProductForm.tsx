@@ -46,9 +46,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const queryClient = useQueryClient();
     const theme = useTheme();
 
-    const { data: categories } = useQuery({
+    const { data: categories } = useQuery<Category[]>({
         queryKey: ['categories'],
-        queryFn: categoryService.getAll
+        queryFn: () => categoryService.getAll()
     });
 
     const createCategoryMutation = useMutation({
