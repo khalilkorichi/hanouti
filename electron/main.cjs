@@ -137,8 +137,31 @@ async function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // webSecurity:false allows file:// pages to make XHR/fetch calls to
+      // http://127.0.0.1:51730 (the bundled backend) without CORS preflight
+      // headaches. The window only ever loads our bundled HTML, so this
+      // does not expose external attack surface.
+      webSecurity: false,
+      // Allow chunks loaded via lazy import() under file:// to work despite
+      // strict CORS rules around module scripts.
+      allowRunningInsecureContent: true,
       additionalArguments: [`--hanouti-backend=http://${BACKEND_HOST}:${BACKEND_PORT}`],
     },
+  });
+
+  // Surface renderer crashes / console errors in the main-process log so we
+  // can diagnose blank-screen issues from the user's main.log file.
+  mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+    const lvl = ['VERBOSE','INFO','WARN','ERROR'][level] || 'INFO';
+    if (lvl === 'ERROR' || lvl === 'WARN') {
+      log.warn(`[renderer ${lvl}] ${message} (${source}:${line})`);
+    }
+  });
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    log.error('[renderer] process gone:', details);
+  });
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    log.error(`[renderer] did-fail-load code=${code} desc=${desc} url=${url}`);
   });
 
   Menu.setApplicationMenu(null);
