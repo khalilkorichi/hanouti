@@ -92,12 +92,18 @@ jobs:
           # a code-signing certificate. Builds run unsigned without them.
         run: npx electron-builder --win --x64 --publish never
 
+      - name: Build app-files SHA-256 manifest
+        # Used by the in-app updater for file-level (not just version-level)
+        # diffing. Uploaded as a release asset alongside the .exe so the
+        # client can compare its installed files to the canonical release.
+        run: node scripts/build-manifest.cjs
+
       - name: Show build artifacts
         shell: bash
         run: |
           ls -lah release/ || echo "(no release dir)"
           echo "--- artifacts ---"
-          find release -maxdepth 2 -type f -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" 2>/dev/null
+          find release -maxdepth 2 -type f -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" -o -name "*.json" 2>/dev/null
 
       - name: Upload installer as workflow artifact
         uses: actions/upload-artifact@v4
@@ -107,6 +113,7 @@ jobs:
             release/*.exe
             release/*.exe.blockmap
             release/latest.yml
+            release/manifest.json
           retention-days: 30
           if-no-files-found: error
 
@@ -143,6 +150,7 @@ jobs:
             release/*.exe
             release/*.exe.blockmap
             release/latest.yml
+            release/manifest.json
           draft: false
           prerelease: false
           generate_release_notes: true

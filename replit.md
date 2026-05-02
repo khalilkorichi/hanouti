@@ -35,12 +35,34 @@ frontend/src/
   components/Settings/UpdaterPanel.tsx - Updater UI (in Settings → التحديثات tab)
 ```
 
-**Auto-updater** (Settings → التحديثات) — rewritten in v1.0.5/v1.0.6:
+**Auto-updater** (Settings → التحديثات) — rewritten in v1.0.5/v1.0.6,
+extended in v1.0.7 with **comprehensive file-level (SHA-256) comparison**:
 uses the standard **GitHub Releases API** (default repo `khalilkorichi/hanouti`).
+
+**File-level diff (manifest.json)** — at build time `scripts/build-manifest.cjs`
+walks the staged `app-files/` (frontend-dist + backend-dist), SHA-256 hashes
+every file, and writes a sorted manifest:
+```
+{ schemaVersion:1, version, generatedAt, fileCount, totalSize,
+  files: [ { path, size, sha256 }, ... ] }
+```
+The CI workflow uploads `manifest.json` as a release asset alongside the
+`.exe`. The updater downloads it, computes the local manifest of the
+installed `app-files/` (resolved via `path.dirname(app.getAppPath())` when
+packaged), and diffs them — returning `{counts:{changed,added,removed,
+unchanged,total}, downloadSize, changed[], added[], removed[], truncated}`
+(per-category cap of 200 entries to keep IPC payload sane). The manifest
+fetch reuses the same HTTPS + GitHub host allow-list and re-validates the
+host post-CDN redirect.
+
 Flow:
 1. `checkForUpdates()` → `GET /repos/<owner>/<repo>/releases/latest`, parses
    `tag_name`, runs strict semver compare (incl. proper §11 prerelease ordering
-   so `rc10` > `rc2`), returns release notes + `.exe` asset metadata.
+   so `rc10` > `rc2`). **In parallel**: fetches `manifest.json` and computes
+   the local SHA-256 manifest, then diffs them. `updateAvailable = versionIsNewer
+   OR (fileDiff.available && !fileDiff.inSync)` — this catches hot-fix
+   re-publishes that share the same tag but ship different files. Returns
+   release notes + `.exe` asset metadata + `fileDiff` payload.
 2. `downloadInstaller()` (no renderer args; main process re-fetches the release
    and picks the asset itself) streams the `.exe` to
    `%APPDATA%/Hanouti/updates/<name>.partial`, validates HTTPS + GitHub host
@@ -51,6 +73,13 @@ Flow:
 3. `installAndRelaunch(path)` stops the backend, `spawn(detached:true,
    stdio:'ignore')` + `unref()` the installer, then `app.quit()` after 1.2s
    so NSIS can take over (UAC + auto-relaunch).
+
+The NSIS installer is still used for the actual replacement step because
+`electron.exe` and `backend.exe` are file-locked at runtime — only the
+installer can atomically swap them after killing the running process.
+The file-level diff exists to **detect** drift and **show** the user a
+precise breakdown (changed/added/removed file lists in `UpdaterPanel`),
+not to replace files in-place.
 
 IPC contract is intentionally minimal so the renderer cannot inject arbitrary
 download URLs. Path-traversal-safe (filename whitelist + updates-dir confinement),

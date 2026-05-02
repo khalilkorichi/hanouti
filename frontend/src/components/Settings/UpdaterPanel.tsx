@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box, Stack, Typography, Paper, Button, Chip, LinearProgress, Collapse,
     TextField, Switch, FormControlLabel, useTheme, alpha, Avatar, Link,
+    List, ListItem, ListItemIcon, ListItemText, Tooltip, IconButton,
 } from '@mui/material';
 import {
     SystemUpdateAlt as UpdateIcon,
@@ -15,10 +16,18 @@ import {
     RocketLaunch as InstallIcon,
     NewReleases as NewIcon,
     InfoOutlined as InfoIcon,
+    Difference as DiffIcon,
+    AddCircleOutline as AddIcon,
+    RemoveCircleOutline as RemoveIcon,
+    SwapHoriz as ChangedIcon,
+    ExpandMore as ExpandMoreIcon,
+    ExpandLess as ExpandLessIcon,
+    InsertDriveFile as FileIcon,
 } from '@mui/icons-material';
 import {
     isElectron, getElectronUpdater, getElectronAPI,
-    type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult, type AppInfo,
+    type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult,
+    type AppInfo, type FileDiff, type FileDiffEntry,
 } from '../../services/electronUpdater';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -35,6 +44,243 @@ function formatDate(iso?: string): string {
     try {
         return new Date(iso).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
     } catch { return iso; }
+}
+
+// ─── File-level diff card ────────────────────────────────────────────
+// Renders the SHA-256 manifest comparison between the local install and
+// the latest release. Uses MUI primitives — no extra deps.
+
+interface FileDiffSectionProps {
+    diff: FileDiff;
+    isLight: boolean;
+}
+
+function FileDiffList({
+    title, files, truncated, color, icon, totalCount,
+}: {
+    title: string;
+    files: FileDiffEntry[];
+    truncated: boolean;
+    color: 'warning' | 'success' | 'error';
+    icon: React.ReactNode;
+    totalCount: number;
+}) {
+    const [open, setOpen] = useState(false);
+    const theme = useTheme();
+    if (totalCount === 0) return null;
+    return (
+        <Box sx={{
+            mt: 1.5, borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette[color].main, 0.3)}`,
+            bgcolor: alpha(theme.palette[color].main, 0.04),
+        }}>
+            <Stack
+                direction="row" alignItems="center" spacing={1}
+                sx={{ px: 1.5, py: 1, cursor: 'pointer' }}
+                onClick={() => setOpen((o) => !o)}
+            >
+                <Avatar sx={{
+                    bgcolor: alpha(theme.palette[color].main, 0.15),
+                    color: `${color}.main`, width: 32, height: 32,
+                }}>
+                    {icon}
+                </Avatar>
+                <Typography variant="body2" fontWeight={700} sx={{ flex: 1 }}>
+                    {title}
+                </Typography>
+                <Chip
+                    size="small" color={color} variant="outlined"
+                    label={totalCount.toLocaleString('ar')}
+                />
+                <IconButton size="small">
+                    {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
+            </Stack>
+            <Collapse in={open}>
+                <List dense sx={{ pt: 0, pb: 1, maxHeight: 280, overflow: 'auto' }}>
+                    {files.map((f) => (
+                        <ListItem key={f.path} sx={{ py: 0.25 }}>
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                                <FileIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            </ListItemIcon>
+                            <ListItemText
+                                primary={
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}
+                                    >
+                                        {f.path}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <Typography variant="caption" color="text.secondary">
+                                        {formatBytes(f.size)}
+                                        {typeof f.oldSize === 'number' && f.oldSize !== f.size && (
+                                            <> · سابقاً {formatBytes(f.oldSize)}</>
+                                        )}
+                                    </Typography>
+                                }
+                            />
+                        </ListItem>
+                    ))}
+                    {truncated && (
+                        <ListItem sx={{ py: 0.25 }}>
+                            <ListItemText
+                                primary={
+                                    <Typography variant="caption" color="text.secondary" fontStyle="italic">
+                                        ... وملفّات إضافيّة (تمّ اقتطاع القائمة للعرض)
+                                    </Typography>
+                                }
+                            />
+                        </ListItem>
+                    )}
+                </List>
+            </Collapse>
+        </Box>
+    );
+}
+
+function FileDiffSection({ diff, isLight }: FileDiffSectionProps) {
+    const theme = useTheme();
+
+    if (!diff.available) {
+        return (
+            <Paper elevation={0} sx={{
+                p: 2.5, borderRadius: 3,
+                border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+                bgcolor: alpha(theme.palette.background.paper, isLight ? 0.7 : 0.4),
+            }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Avatar sx={{
+                        bgcolor: alpha(theme.palette.text.secondary, 0.12),
+                        color: 'text.secondary', width: 36, height: 36,
+                    }}>
+                        <DiffIcon fontSize="small" />
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={700}>
+                            تحليل شامل للملفّات غير متاح
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {diff.reason}
+                        </Typography>
+                    </Box>
+                </Stack>
+            </Paper>
+        );
+    }
+
+    const { counts, downloadSize, inSync, manifestVersion, manifestGeneratedAt } = diff;
+    const headerColor: 'success' | 'warning' = inSync ? 'success' : 'warning';
+
+    return (
+        <Paper elevation={0} sx={{
+            p: 2.5, borderRadius: 3,
+            border: `1px solid ${alpha(theme.palette[headerColor].main, 0.35)}`,
+            bgcolor: alpha(theme.palette[headerColor].main, isLight ? 0.04 : 0.10),
+        }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
+                <Avatar sx={{
+                    bgcolor: alpha(theme.palette[headerColor].main, 0.18),
+                    color: `${headerColor}.main`, width: 40, height: 40,
+                }}>
+                    <DiffIcon />
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={800}>
+                        تحليل شامل للملفّات (SHA-256)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {inSync
+                            ? `جميع الملفّات (${counts.unchanged.toLocaleString('ar')}) متطابقة تماماً مع الإصدار المنشور.`
+                            : `يحتاج التحديث إلى مزامنة ${(counts.changed + counts.added).toLocaleString('ar')} ملفّ — حجم التنزيل المتوقّع ${formatBytes(downloadSize)}.`
+                        }
+                    </Typography>
+                </Box>
+            </Stack>
+
+            {/* Counts row */}
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={1}>
+                <Tooltip title="إجمالي الملفّات في الإصدار البعيد">
+                    <Chip
+                        size="small" variant="outlined"
+                        icon={<FileIcon sx={{ fontSize: 14 }} />}
+                        label={`الإجمالي: ${counts.total.toLocaleString('ar')}`}
+                    />
+                </Tooltip>
+                <Tooltip title="ملفّات على جهازك مطابقة تماماً للإصدار البعيد">
+                    <Chip
+                        size="small" color="success" variant="outlined"
+                        icon={<CheckIcon sx={{ fontSize: 14 }} />}
+                        label={`متطابقة: ${counts.unchanged.toLocaleString('ar')}`}
+                    />
+                </Tooltip>
+                {counts.changed > 0 && (
+                    <Tooltip title="ملفّات موجودة على الجانبين لكنّ المحتوى تغيّر">
+                        <Chip
+                            size="small" color="warning" variant="filled"
+                            icon={<ChangedIcon sx={{ fontSize: 14, color: 'inherit' }} />}
+                            label={`متغيّرة: ${counts.changed.toLocaleString('ar')}`}
+                            sx={{ color: '#fff' }}
+                        />
+                    </Tooltip>
+                )}
+                {counts.added > 0 && (
+                    <Tooltip title="ملفّات جديدة في الإصدار البعيد سيتمّ تنزيلها">
+                        <Chip
+                            size="small" color="success" variant="filled"
+                            icon={<AddIcon sx={{ fontSize: 14, color: 'inherit' }} />}
+                            label={`مُضافة: ${counts.added.toLocaleString('ar')}`}
+                            sx={{ color: '#fff' }}
+                        />
+                    </Tooltip>
+                )}
+                {counts.removed > 0 && (
+                    <Tooltip title="ملفّات على جهازك لم تعد موجودة في الإصدار البعيد">
+                        <Chip
+                            size="small" color="error" variant="outlined"
+                            icon={<RemoveIcon sx={{ fontSize: 14 }} />}
+                            label={`ملغاة: ${counts.removed.toLocaleString('ar')}`}
+                        />
+                    </Tooltip>
+                )}
+            </Stack>
+
+            <FileDiffList
+                title="ملفّات تغيّر محتواها"
+                files={diff.changed}
+                truncated={diff.truncated.changed}
+                totalCount={counts.changed}
+                color="warning"
+                icon={<ChangedIcon sx={{ fontSize: 18 }} />}
+            />
+            <FileDiffList
+                title="ملفّات جديدة"
+                files={diff.added}
+                truncated={diff.truncated.added}
+                totalCount={counts.added}
+                color="success"
+                icon={<AddIcon sx={{ fontSize: 18 }} />}
+            />
+            <FileDiffList
+                title="ملفّات لم تعد موجودة في الإصدار البعيد"
+                files={diff.removed}
+                truncated={diff.truncated.removed}
+                totalCount={counts.removed}
+                color="error"
+                icon={<RemoveIcon sx={{ fontSize: 18 }} />}
+            />
+
+            {(manifestVersion || manifestGeneratedAt) && (
+                <Typography
+                    variant="caption" color="text.secondary"
+                    sx={{ display: 'block', mt: 1.5, opacity: 0.75 }}
+                >
+                    بصمة المرجع: v{manifestVersion}{manifestGeneratedAt && ` · ${formatDate(manifestGeneratedAt)}`}
+                </Typography>
+            )}
+        </Paper>
+    );
 }
 
 export default function UpdaterPanel() {
@@ -350,26 +596,32 @@ export default function UpdaterPanel() {
 
             {/* ── Up-to-date card ──────────────────────────────── */}
             {check && check.state === 'up-to-date' && (
-                <Paper elevation={0} sx={{
-                    p: 3, borderRadius: 3,
-                    border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
-                    bgcolor: alpha(theme.palette.success.main, isLight ? 0.05 : 0.12),
-                }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Avatar sx={{ bgcolor: 'success.main', color: '#fff', width: 48, height: 48 }}>
-                            <CheckIcon />
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle1" fontWeight={700}>
-                                أنت تستخدم آخر إصدار
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                النسخة <b>v{check.currentVersion}</b> هي الأحدث المتوفّرة.
-                                {check.releaseDate && ` نُشرت في ${formatDate(check.releaseDate)}.`}
-                            </Typography>
-                        </Box>
-                    </Stack>
-                </Paper>
+                <>
+                    <Paper elevation={0} sx={{
+                        p: 3, borderRadius: 3,
+                        border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                        bgcolor: alpha(theme.palette.success.main, isLight ? 0.05 : 0.12),
+                    }}>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar sx={{ bgcolor: 'success.main', color: '#fff', width: 48, height: 48 }}>
+                                <CheckIcon />
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle1" fontWeight={700}>
+                                    أنت تستخدم آخر إصدار
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    النسخة <b>v{check.currentVersion}</b> هي الأحدث المتوفّرة.
+                                    {check.releaseDate && ` نُشرت في ${formatDate(check.releaseDate)}.`}
+                                    {check.fileDiff.available && check.fileDiff.inSync && (
+                                        <> · جميع الملفّات سليمة (تحقّق SHA-256).</>
+                                    )}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <FileDiffSection diff={check.fileDiff} isLight={isLight} />
+                </>
             )}
 
             {/* ── Update-available card ────────────────────────── */}
@@ -447,6 +699,23 @@ export default function UpdaterPanel() {
                         </Box>
                     )}
 
+                    {/* Special banner: same version but files differ (hot-fix re-publish) */}
+                    {!check.versionIsNewer && check.filesDiffer && (
+                        <Box sx={{
+                            mt: 2, p: 1.5, borderRadius: 2,
+                            border: `1px dashed ${alpha(theme.palette.warning.main, 0.5)}`,
+                            bgcolor: alpha(theme.palette.warning.main, 0.08),
+                        }}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <InfoIcon color="warning" fontSize="small" />
+                                <Typography variant="caption" color="warning.main" fontWeight={700}>
+                                    الإصدار v{check.currentVersion} نفسه لكنّ بعض الملفّات على جهازك
+                                    تختلف عن الإصدار المنشور — يُنصح بإعادة التثبيت لاستعادة سلامة الملفّات.
+                                </Typography>
+                            </Stack>
+                        </Box>
+                    )}
+
                     <Box sx={{ mt: 2 }}>
                         <Link
                             component="button"
@@ -458,6 +727,11 @@ export default function UpdaterPanel() {
                         </Link>
                     </Box>
                 </Paper>
+            )}
+
+            {/* ── File-level diff (always shown when an update is available) ── */}
+            {check && check.state === 'update-available' && (
+                <FileDiffSection diff={check.fileDiff} isLight={isLight} />
             )}
 
             {/* ── No releases card ─────────────────────────────── */}

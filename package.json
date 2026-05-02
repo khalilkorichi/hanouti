@@ -28,8 +28,9 @@
     "electron:start": "electron .",
     "build:all": "npm run frontend:build && npm run backend:build",
     "stage:app-files": "node scripts/stage-app-files.cjs",
-    "dist:win": "npm run build:all && npm run stage:app-files && electron-builder --win --x64 --publish never",
-    "dist:dir": "npm run build:all && npm run stage:app-files && electron-builder --dir",
+    "build:manifest": "node scripts/build-manifest.cjs",
+    "dist:win": "npm run build:all && npm run stage:app-files && electron-builder --win --x64 --publish never && npm run build:manifest",
+    "dist:dir": "npm run build:all && npm run stage:app-files && electron-builder --dir && npm run build:manifest",
     "postinstall": "electron-builder install-app-deps || true"
   },
   "devDependencies": {

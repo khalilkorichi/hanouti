@@ -30,13 +30,29 @@
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
+const crypto = require('crypto');
 const { app, shell } = require('electron');
 const { spawn } = require('child_process');
 const log = require('electron-log');
-const { DEFAULT_UPDATER_CONFIG } = require('./config.cjs');
+const { DEFAULT_UPDATER_CONFIG, APP_FILES_DIR } = require('./config.cjs');
 
 const CONFIG_FILE = 'updater-config.json';
 const UPDATES_SUBDIR = 'updates';
+const MANIFEST_ASSET_NAME = 'manifest.json';
+// Cap how many file entries we ship back to the renderer per category to
+// keep the IPC payload + UI render reasonable (a full release manifest can
+// have hundreds of files). The full counts/totals are always returned.
+const MAX_DIFF_ENTRIES_PER_CATEGORY = 200;
+
+// Defense-in-depth: even though we re-fetch URLs from GitHub inside the
+// main process, also enforce that the host belongs to GitHub. Used by
+// both the manifest fetch and the installer download.
+const ALLOWED_DOWNLOAD_HOSTS = new Set([
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+  'codeload.github.com',
+]);
 
 // ─── config ──────────────────────────────────────────────────────────
 function getConfigPath() {
@@ -154,6 +170,235 @@ async function fetchLatestRelease(cfg) {
   return ghJson(`https://api.github.com/repos/${cfg.repoOwner}/${cfg.repoName}/releases/latest`);
 }
 
+// ─── file-level (SHA-256) manifest comparison ─────────────────────────
+// In addition to the version-number check, the updater fetches a manifest
+// of the canonical app-files (frontend-dist + backend-dist) for the latest
+// release and compares it against the locally installed copy. This
+// surfaces hot-fix re-publishes (same version, different files) and gives
+// the user a precise breakdown of what will actually change.
+
+function getInstalledAppFilesDir() {
+    // Mirror the path layout used by main.cjs / config.cjs.
+    const base = app.isPackaged
+        ? path.dirname(app.getAppPath())
+        : path.join(__dirname, '..');
+    return path.join(base, APP_FILES_DIR);
+}
+
+function sha256File(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('sha256');
+        const stream = fs.createReadStream(filePath);
+        stream.on('data', (chunk) => hash.update(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(hash.digest('hex')));
+    });
+}
+
+async function walkRelativeFiles(dir, base = dir) {
+    const out = [];
+    let entries;
+    try {
+        entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+        return out;
+    }
+    for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+            const child = await walkRelativeFiles(full, base);
+            out.push(...child);
+        } else if (e.isFile()) {
+            out.push(path.relative(base, full).split(path.sep).join('/'));
+        }
+    }
+    return out;
+}
+
+// Bounded concurrent map — runs `worker(item)` over `items` with at most
+// `concurrency` in flight at once. Used to parallelise SHA-256 hashing of
+// the local app-files (typically ~400 files); a serial loop adds noticeable
+// latency on first update check.
+async function mapWithConcurrency(items, concurrency, worker) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+        while (true) {
+            const i = cursor++;
+            if (i >= items.length) return;
+            try {
+                results[i] = await worker(items[i], i);
+            } catch (e) {
+                results[i] = { __error: e };
+            }
+        }
+    });
+    await Promise.all(runners);
+    return results;
+}
+
+async function computeLocalManifest() {
+    const dir = getInstalledAppFilesDir();
+    if (!fs.existsSync(dir)) {
+        return {
+            available: false,
+            reason: 'app-files directory not present (development mode or non-installed run)',
+            dir,
+            fileCount: 0,
+            totalSize: 0,
+            files: [],
+        };
+    }
+    const rels = await walkRelativeFiles(dir);
+    rels.sort((a, b) => a.localeCompare(b));
+
+    // 8-way parallel hashing — safe for typical SSD/HDD I/O; well below
+    // libuv's default thread pool (4) saturating limit because crypto
+    // streams use the kernel's async fs read path, not the threadpool.
+    const HASH_CONCURRENCY = 8;
+    const computed = await mapWithConcurrency(rels, HASH_CONCURRENCY, async (rel) => {
+        const full = path.join(dir, rel);
+        const stat = await fsp.stat(full);
+        const sha256 = await sha256File(full);
+        return { path: rel, size: stat.size, sha256 };
+    });
+
+    const files = [];
+    let totalSize = 0;
+    for (let i = 0; i < computed.length; i++) {
+        const c = computed[i];
+        if (!c || c.__error) {
+            log.warn(`[updater] hash failed for ${rels[i]}: ${c?.__error?.message || 'unknown'}`);
+            continue;
+        }
+        files.push(c);
+        totalSize += c.size;
+    }
+    return {
+        available: true,
+        dir,
+        fileCount: files.length,
+        totalSize,
+        files,
+    };
+}
+
+function pickManifestAsset(release) {
+    if (!release || !Array.isArray(release.assets)) return null;
+    return release.assets.find((a) => a.name === MANIFEST_ASSET_NAME) || null;
+}
+
+async function fetchRemoteManifest(release) {
+    const asset = pickManifestAsset(release);
+    if (!asset || !asset.browser_download_url) return null;
+    // Validate URL host (defence-in-depth).
+    let parsed;
+    try { parsed = new URL(asset.browser_download_url); }
+    catch { return null; }
+    if (parsed.protocol !== 'https:' || !ALLOWED_DOWNLOAD_HOSTS.has(parsed.hostname)) {
+        log.warn(`[updater] refusing manifest from untrusted host: ${parsed.hostname}`);
+        return null;
+    }
+    try {
+        const res = await fetch(asset.browser_download_url, {
+            headers: { 'Accept': 'application/octet-stream', 'User-Agent': 'hanouti-updater' },
+            redirect: 'follow',
+        });
+        if (!res.ok) {
+            log.warn(`[updater] manifest fetch HTTP ${res.status}`);
+            return null;
+        }
+        // Re-validate post-redirect host (CDN). Fail-closed: any failure
+        // to parse or any non-allow-listed/empty host rejects the response.
+        let finalHost = '';
+        try { finalHost = new URL(res.url).hostname; } catch { finalHost = ''; }
+        if (!finalHost || !ALLOWED_DOWNLOAD_HOSTS.has(finalHost)) {
+            log.warn(`[updater] manifest redirected to untrusted/unknown host: "${finalHost}"`);
+            return null;
+        }
+        const json = await res.json();
+        if (!json || !Array.isArray(json.files)) {
+            log.warn('[updater] manifest payload malformed (missing files[])');
+            return null;
+        }
+        return json;
+    } catch (e) {
+        log.warn('[updater] manifest fetch/parse failed:', e.message);
+        return null;
+    }
+}
+
+function compareManifests(local, remote) {
+    if (!remote || !Array.isArray(remote.files)) {
+        return {
+            available: false,
+            reason: 'لم يُرفق manifest.json بهذا الإصدار — يستحيل المقارنة الشاملة بالملفّات.',
+        };
+    }
+    if (!local.available) {
+        return {
+            available: false,
+            reason: local.reason || 'تعذّر حساب بصمات الملفّات المحلّية',
+            remoteFileCount: remote.files.length,
+            remoteTotalSize: remote.totalSize || 0,
+        };
+    }
+    const localMap = new Map(local.files.map((f) => [f.path, f]));
+    const remoteMap = new Map(remote.files.map((f) => [f.path, f]));
+    const changed = [];
+    const added = [];
+    const removed = [];
+    let unchangedCount = 0;
+    for (const r of remote.files) {
+        const l = localMap.get(r.path);
+        if (!l) {
+            added.push({ path: r.path, size: r.size });
+        } else if (l.sha256 !== r.sha256 || l.size !== r.size) {
+            changed.push({ path: r.path, size: r.size, oldSize: l.size });
+        } else {
+            unchangedCount++;
+        }
+    }
+    for (const l of local.files) {
+        if (!remoteMap.has(l.path)) {
+            removed.push({ path: l.path, size: l.size });
+        }
+    }
+    const downloadSize = changed.reduce((s, f) => s + f.size, 0)
+        + added.reduce((s, f) => s + f.size, 0);
+    const inSync = changed.length === 0 && added.length === 0 && removed.length === 0;
+    const truncate = (arr) => arr.length > MAX_DIFF_ENTRIES_PER_CATEGORY
+        ? { sample: arr.slice(0, MAX_DIFF_ENTRIES_PER_CATEGORY), truncated: true }
+        : { sample: arr, truncated: false };
+    const c = truncate(changed);
+    const a = truncate(added);
+    const r = truncate(removed);
+    return {
+        available: true,
+        inSync,
+        counts: {
+            changed: changed.length,
+            added: added.length,
+            removed: removed.length,
+            unchanged: unchangedCount,
+            total: remote.files.length,
+        },
+        downloadSize,
+        localTotalSize: local.totalSize,
+        remoteTotalSize: remote.totalSize || 0,
+        changed: c.sample,
+        added: a.sample,
+        removed: r.sample,
+        truncated: {
+            changed: c.truncated,
+            added: a.truncated,
+            removed: r.truncated,
+        },
+        manifestVersion: remote.version || null,
+        manifestGeneratedAt: remote.generatedAt || null,
+    };
+}
+
 function pickWindowsAsset(release) {
   if (!release || !Array.isArray(release.assets)) return null;
   // Real Setup-*.exe installers (exclude blockmaps and yml metadata).
@@ -188,12 +433,37 @@ async function checkForUpdates() {
   const currentVersion = app.getVersion();
   const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
   const asset = pickWindowsAsset(release);
-  const updateAvailable = isNewer(latestVersion, currentVersion);
+  const versionIsNewer = isNewer(latestVersion, currentVersion);
+
+  // ─── file-level (SHA-256) comparison ─────────────────────────────
+  // Even when the version matches, we hash every locally-installed
+  // file and compare against the release's manifest.json. This catches
+  // hot-fix re-publishes (same tag, different files) and gives the
+  // user a precise "what will actually change" breakdown.
+  let fileDiff = { available: false, reason: 'لم يبدأ التحليل بعد' };
+  try {
+    const [localManifest, remoteManifest] = await Promise.all([
+      computeLocalManifest(),
+      fetchRemoteManifest(release),
+    ]);
+    fileDiff = compareManifests(localManifest, remoteManifest);
+  } catch (e) {
+    log.warn('[updater] file diff failed:', e.message);
+    fileDiff = { available: false, reason: `تعذّر التحليل الشامل: ${e.message}` };
+  }
+
+  // Update is offered when EITHER the version is newer OR the file
+  // diff shows real differences. The latter handles same-version
+  // hot-fixes; the former preserves the classic semver contract.
+  const filesDiffer = fileDiff.available && !fileDiff.inSync;
+  const updateAvailable = versionIsNewer || filesDiffer;
 
   return {
     state: updateAvailable ? 'update-available' : 'up-to-date',
     currentVersion,
     latestVersion,
+    versionIsNewer,
+    filesDiffer,
     releaseName: release.name || release.tag_name,
     releaseNotes: release.body || '',
     releaseDate: release.published_at,
@@ -202,21 +472,11 @@ async function checkForUpdates() {
     asset: asset
       ? { name: asset.name, size: asset.size, downloadUrl: asset.browser_download_url }
       : null,
+    fileDiff,
   };
 }
 
 let activeDownload = null;
-
-// Defense-in-depth: even though we re-fetch the asset URL from GitHub
-// inside the main process, also enforce that the host belongs to GitHub.
-// Prevents a renderer-side compromise + a hypothetical man-in-the-middle
-// in our cached release JSON from redirecting downloads to a hostile host.
-const ALLOWED_DOWNLOAD_HOSTS = new Set([
-  'github.com',
-  'objects.githubusercontent.com',
-  'release-assets.githubusercontent.com',
-  'codeload.github.com',
-]);
 
 /**
  * Download the latest GitHub release installer.
@@ -428,4 +688,7 @@ module.exports = {
   // Exported for tests / debugging only.
   _isNewer: isNewer,
   _pickWindowsAsset: pickWindowsAsset,
+  _computeLocalManifest: computeLocalManifest,
+  _compareManifests: compareManifests,
+  _fetchRemoteManifest: fetchRemoteManifest,
 };

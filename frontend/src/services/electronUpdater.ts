@@ -33,29 +33,57 @@ export interface ReleaseAsset {
     downloadUrl: string;
 }
 
+export interface FileDiffEntry {
+    path: string;
+    size: number;
+    oldSize?: number;
+}
+
+export type FileDiff =
+    | {
+          available: true;
+          inSync: boolean;
+          counts: {
+              changed: number;
+              added: number;
+              removed: number;
+              unchanged: number;
+              total: number;
+          };
+          downloadSize: number;
+          localTotalSize: number;
+          remoteTotalSize: number;
+          changed: FileDiffEntry[];
+          added: FileDiffEntry[];
+          removed: FileDiffEntry[];
+          truncated: { changed: boolean; added: boolean; removed: boolean };
+          manifestVersion: string | null;
+          manifestGeneratedAt: string | null;
+      }
+    | {
+          available: false;
+          reason: string;
+          remoteFileCount?: number;
+          remoteTotalSize?: number;
+      };
+
+export interface UpdateCheckBase {
+    currentVersion: string;
+    latestVersion: string;
+    versionIsNewer: boolean;
+    filesDiffer: boolean;
+    releaseName: string;
+    releaseNotes: string;
+    releaseDate: string;
+    releaseUrl: string;
+    repoUrl: string;
+    asset: ReleaseAsset | null;
+    fileDiff: FileDiff;
+}
+
 export type UpdateCheckResult =
-    | {
-          state: 'up-to-date';
-          currentVersion: string;
-          latestVersion: string;
-          releaseName: string;
-          releaseNotes: string;
-          releaseDate: string;
-          releaseUrl: string;
-          repoUrl: string;
-          asset: ReleaseAsset | null;
-      }
-    | {
-          state: 'update-available';
-          currentVersion: string;
-          latestVersion: string;
-          releaseName: string;
-          releaseNotes: string;
-          releaseDate: string;
-          releaseUrl: string;
-          repoUrl: string;
-          asset: ReleaseAsset | null;
-      }
+    | (UpdateCheckBase & { state: 'up-to-date' })
+    | (UpdateCheckBase & { state: 'update-available' })
     | { state: 'no-releases'; repoUrl: string };
 
 export type UpdaterStatus =
