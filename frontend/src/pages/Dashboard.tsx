@@ -150,7 +150,7 @@ function QuickActionCard({
 }: {
     title: string; description: string; icon: React.ReactNode; color: string; onClick: () => void;
 }) {
-    const theme = useTheme();
+    useTheme();
 
     return (
         <Card

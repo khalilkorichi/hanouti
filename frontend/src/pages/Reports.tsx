@@ -527,7 +527,7 @@ export default function Reports() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={categories} dataKey="revenue" nameKey="name"
+                                            data={categories as unknown as Array<Record<string, unknown>>} dataKey="revenue" nameKey="name"
                                             cx="50%" cy="50%" outerRadius={100} innerRadius={50}
                                             stroke={theme.palette.background.paper} strokeWidth={2}
                                             label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}

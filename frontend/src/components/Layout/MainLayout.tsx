@@ -23,7 +23,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-    const sidebarWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
+    void (collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH);
 
     useEffect(() => {
         const checkUserStatus = async () => {

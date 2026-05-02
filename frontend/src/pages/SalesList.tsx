@@ -69,7 +69,7 @@ export default function SalesList() {
                 <td>${item.product?.name || 'منتج #' + item.product_id}</td>
                 <td class="center">${item.qty}</td>
                 <td class="num">${(item.unit_price ?? 0).toFixed(2)} دج</td>
-                <td class="num">${(item.line_total ?? item.unit_price * item.qty ?? 0).toFixed(2)} دج</td>
+                <td class="num">${(item.line_total ?? (item.unit_price * item.qty)).toFixed(2)} دج</td>
             </tr>`).join('');
 
         const html = `<!DOCTYPE html>
@@ -242,6 +242,7 @@ export default function SalesList() {
     const isAllSelected = allAvailableIds.length > 0 && selectedIds.length === allAvailableIds.length;
 
     const handleSelectAll = () => {
+        if (!apiRef.current) return;
         if (isAllSelected) {
             apiRef.current.setRowSelectionModel({ type: 'include', ids: new Set() });
         } else {
