@@ -59,7 +59,13 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  perMachine: false
+  # perMachine: true → installer always requests admin via UAC and installs
+  # to C:\Program Files\Hanouti\ for ALL users on the machine. This matches
+  # what shop owners expect (single multi-cashier install) and avoids the
+  # "cannot write to Program Files" error users hit when they manually
+  # change the install path.
+  perMachine: true
+  allowElevation: true
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: Hanouti
