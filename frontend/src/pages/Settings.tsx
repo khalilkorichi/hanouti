@@ -22,14 +22,16 @@ import {
     RoundedCorner as RadiusIcon,
     ViewCompact as DensityIcon,
     Animation as AnimationIcon,
+    SystemUpdateAlt as UpdatesIcon,
 } from '@mui/icons-material';
 import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
+import UpdaterPanel from '../components/Settings/UpdaterPanel';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
 /* ── Section type ── */
-type SectionKey = 'profile' | 'appearance' | 'data' | 'security' | 'about';
+type SectionKey = 'profile' | 'appearance' | 'data' | 'updates' | 'security' | 'about';
 
 interface NavItem {
     key: SectionKey;
@@ -42,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
     { key: 'profile', label: 'الملف الشخصي', icon: <PersonIcon />, color: '#4F46E5' },
     { key: 'appearance', label: 'المظهر', icon: <PaletteIcon />, color: '#8B5CF6' },
     { key: 'data', label: 'البيانات', icon: <StorageIcon />, color: '#10B981' },
+    { key: 'updates', label: 'التحديثات', icon: <UpdatesIcon />, color: '#0EA5E9' },
     { key: 'security', label: 'الأمان', icon: <SecurityIcon />, color: '#EF4444' },
     { key: 'about', label: 'حول البرنامج', icon: <InfoIcon />, color: '#F59E0B' },
 ];
@@ -151,6 +154,7 @@ export default function Settings() {
                         activeSection === 'profile' ? 'إدارة بياناتك الشخصية' :
                         activeSection === 'appearance' ? 'تخصيص مظهر التطبيق' :
                         activeSection === 'data' ? 'نسخ احتياطي واستعادة البيانات' :
+                        activeSection === 'updates' ? 'تحديث البرنامج تلقائياً من GitHub' :
                         activeSection === 'security' ? 'حماية حسابك' :
                         'معلومات عن حانوتي'
                     }
@@ -464,6 +468,11 @@ export default function Settings() {
                             </SettingsCard>
                         </Box>
                     </Stack>
+                )}
+
+                {/* ── Updates ── */}
+                {activeSection === 'updates' && (
+                    <UpdaterPanel />
                 )}
 
                 {/* ── Security ── */}

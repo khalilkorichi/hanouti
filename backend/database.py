@@ -4,7 +4,26 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hanouti.db")
+def _resolve_db_url() -> str:
+    """
+    Resolve DB URL with the following priority:
+      1. DATABASE_URL env var (full SQLAlchemy URL)
+      2. HANOUTI_DB_PATH env var (raw path; we wrap it as sqlite:///<path>)
+      3. Default: ./hanouti.db beside the backend code
+    The HANOUTI_DB_PATH variant is used by the Electron desktop launcher to
+    point the bundled backend at the user-data directory on Windows.
+    """
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        return env_url
+    raw_path = os.getenv("HANOUTI_DB_PATH")
+    if raw_path:
+        normalized = raw_path.replace("\\", "/")
+        return f"sqlite:///{normalized}"
+    return "sqlite:///./hanouti.db"
+
+
+DATABASE_URL = _resolve_db_url()
 IS_SQLITE = "sqlite" in DATABASE_URL
 
 if IS_SQLITE:
