@@ -1068,6 +1068,41 @@ export default function UpdaterPanel() {
                                 </Typography>
                             </Box>
                         </Stack>
+
+                        {/* Informational only: same version installed, but some
+                            local files differ from the published manifest.
+                            This is NOT an "update available" — it's typically
+                            caused by runtime files (DB/logs/exports) written
+                            inside app-files/, or an upgrade from a pre-manifest
+                            version. We let the user re-run the installer
+                            manually if they want a byte-perfect repair. */}
+                        {check.filesDiffer && (
+                            <Box sx={{
+                                mt: 2, p: 1.5, borderRadius: 2,
+                                border: `1px dashed ${alpha(theme.palette.info.main, 0.5)}`,
+                                bgcolor: alpha(theme.palette.info.main, 0.06),
+                            }}>
+                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                    <InfoIcon color="info" fontSize="small" sx={{ mt: 0.25 }} />
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography variant="caption" color="info.main" fontWeight={700} sx={{ display: 'block' }}>
+                                            معلومة: بعض الملفّات على جهازك تختلف عن منشور الإصدار v{check.currentVersion}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                            هذا أمر طبيعيّ — قاعدة البيانات والسجلّات والتقارير تُكتب أثناء التشغيل. لا يوجد تحديث جديد. إن أردت استعادة سلامة الملفّات بالضبط كما نُشرت، يمكنك تنزيل المثبّت من{' '}
+                                            <Link
+                                                component="button"
+                                                onClick={() => electronAPI?.openExternal(check.releaseUrl)}
+                                                sx={{ verticalAlign: 'baseline' }}
+                                            >
+                                                صفحة الإصدار
+                                            </Link>
+                                            .
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </Box>
+                        )}
                     </Paper>
                     <FileDiffSection diff={check.fileDiff} isLight={isLight} />
                 </>
@@ -1205,23 +1240,6 @@ export default function UpdaterPanel() {
                             >
                                 {check.releaseNotes}
                             </Typography>
-                        </Box>
-                    )}
-
-                    {/* Special banner: same version but files differ (hot-fix re-publish) */}
-                    {!check.versionIsNewer && check.filesDiffer && (
-                        <Box sx={{
-                            mt: 2, p: 1.5, borderRadius: 2,
-                            border: `1px dashed ${alpha(theme.palette.warning.main, 0.5)}`,
-                            bgcolor: alpha(theme.palette.warning.main, 0.08),
-                        }}>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <InfoIcon color="warning" fontSize="small" />
-                                <Typography variant="caption" color="warning.main" fontWeight={700}>
-                                    الإصدار v{check.currentVersion} نفسه لكنّ بعض الملفّات على جهازك
-                                    تختلف عن الإصدار المنشور — يُنصح بإعادة التثبيت لاستعادة سلامة الملفّات.
-                                </Typography>
-                            </Stack>
                         </Box>
                     )}
 
