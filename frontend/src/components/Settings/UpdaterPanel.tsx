@@ -828,10 +828,20 @@ export default function UpdaterPanel() {
                                 </Button>
                             )}
                             {check.updateMode !== 'hot' && !check.asset && (
-                                <Chip
-                                    label="لا يوجد ملفّ مثبّت في هذا الإصدار"
-                                    color="error" variant="outlined"
-                                />
+                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                    <Chip
+                                        size="small"
+                                        label="ملفّ المثبّت قيد التجهيز على GitHub"
+                                        color="warning" variant="outlined"
+                                    />
+                                    <Button
+                                        variant="outlined" color="warning" size="small"
+                                        startIcon={<OpenIcon />}
+                                        onClick={() => electronAPI?.openExternal(check.releaseUrl)}
+                                    >
+                                        افتح صفحة الإصدار للتنزيل
+                                    </Button>
+                                </Stack>
                             )}
                         </Stack>
                     </Stack>

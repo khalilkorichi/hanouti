@@ -125,31 +125,19 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Stage release artifacts on release-windows branch
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          git config --global user.email "actions@github.com"
-          git config --global user.name "Hanouti Release Bot"
-          git fetch origin release-windows:release-windows 2>/dev/null || git checkout --orphan release-windows
-          git checkout release-windows 2>/dev/null || git checkout --orphan release-windows
-          git rm -rf . 2>/dev/null || true
-          mkdir -p frontend-dist backend-dist
-          cp -r app-files/frontend-dist/* frontend-dist/
-          cp -r app-files/backend-dist/* backend-dist/
-          echo "# Hanouti — Release Artifacts" > README.md
-          echo "" >> README.md
-          echo "Auto-published from tag \`${{ github.ref_name }}\`." >> README.md
-          echo "Used by the in-app updater to fetch fresh frontend & backend files." >> README.md
-          git add -A
-          git commit -m "release: ${{ github.ref_name }}"
-          git push -f origin release-windows
+      # NOTE: We deliberately do NOT publish the unpacked app-files to a
+      # release-windows branch anymore. The new file-level updater fetches
+      # SHA-256 manifests + the hot-update tarball directly from release
+      # assets, so the branch was redundant and its `git push -f` step was
+      # the single point of failure that blocked every prior release from
+      # publishing the .exe automatically.
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        # MUST run for every tag push — even if an earlier optional step
+        # failed — otherwise the .exe never reaches users. We still gate on
+        # the upload-artifact step succeeding (so we know the .exe exists),
+        # but we no longer require any branch-staging plumbing.
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
