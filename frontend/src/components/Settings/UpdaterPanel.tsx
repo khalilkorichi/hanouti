@@ -23,11 +23,15 @@ import {
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
     InsertDriveFile as FileIcon,
+    FlashOn as HotIcon,
+    Restore as RollbackIcon,
+    Replay as ReloadIcon,
+    Layers as ChannelIcon,
 } from '@mui/icons-material';
 import {
     isElectron, getElectronUpdater, getElectronAPI,
     type UpdaterConfig, type UpdaterStatus, type UpdateCheckResult,
-    type AppInfo, type FileDiff, type FileDiffEntry,
+    type AppInfo, type FileDiff, type FileDiffEntry, type ChannelInfo,
 } from '../../services/electronUpdater';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -300,7 +304,19 @@ export default function UpdaterPanel() {
     const [downloadedPath, setDownloadedPath] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [channel, setChannel] = useState<ChannelInfo | null>(null);
+    const [hotApplied, setHotApplied] = useState(false);
     const cleanupRef = useRef<(() => void) | null>(null);
+
+    const refreshChannel = async () => {
+        if (!updater?.hotUpdate) return;
+        try {
+            const c = await updater.hotUpdate.getChannel();
+            setChannel(c);
+        } catch (e) {
+            console.error('[hotupdate] getChannel failed', e);
+        }
+    };
 
     useEffect(() => {
         if (!electronAvailable || !updater || !electronAPI) return;
@@ -315,6 +331,10 @@ export default function UpdaterPanel() {
                 setAppInfo(info);
                 setConfig(cfg);
                 setDraftConfig(cfg);
+                if (updater.hotUpdate) {
+                    const c = await updater.hotUpdate.getChannel();
+                    if (alive) setChannel(c);
+                }
             } catch (e) {
                 console.error('[updater] init failed', e);
             }
@@ -322,6 +342,7 @@ export default function UpdaterPanel() {
         cleanupRef.current = updater.onStatus((s) => {
             setStatus(s);
             if (s.state === 'downloaded') setDownloadedPath(s.path);
+            if (s.state === 'hot-updated') setHotApplied(true);
         });
         return () => {
             alive = false;
@@ -391,6 +412,63 @@ export default function UpdaterPanel() {
         }
     };
 
+    const handleHotApply = async () => {
+        if (!updater?.hotUpdate) return;
+        setBusy(true);
+        setHotApplied(false);
+        try {
+            const r = await updater.hotUpdate.apply();
+            await refreshChannel();
+            setHotApplied(true);
+            showNotification(
+                `تمّ تطبيق التحديث السريع (v${r.version}). اضغط "إعادة تحميل التطبيق" لتفعيله الآن.`,
+                'success',
+                { title: 'التحديث جاهز' },
+            );
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل التحديث السريع' });
+            setStatus({ state: 'error', message: msg });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleHotReload = async () => {
+        if (!updater?.hotUpdate) return;
+        try {
+            await updater.hotUpdate.reload();
+            // The window itself reloads — this code rarely runs to completion.
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل إعادة التحميل' });
+        }
+    };
+
+    const handleHotRollback = async () => {
+        if (!updater?.hotUpdate) return;
+        setBusy(true);
+        try {
+            const r = await updater.hotUpdate.rollback();
+            await refreshChannel();
+            if (r.rolledBack) {
+                showNotification(
+                    'تمّ الرجوع إلى النسخة الأصليّة المثبَّتة. أعد تحميل التطبيق لتفعيلها.',
+                    'success',
+                    { title: 'استعادة النسخة الأصليّة' },
+                );
+                setHotApplied(true);
+            } else {
+                showNotification(r.reason || 'لا توجد قناة نشطة للرجوع منها', 'info');
+            }
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            showNotification(msg, 'error', { title: 'فشل الرجوع' });
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleSaveConfig = async () => {
         if (!updater || !draftConfig) return;
         try {
@@ -410,14 +488,34 @@ export default function UpdaterPanel() {
             case 'downloading': return { label: 'جارٍ التحميل', color: 'info' as const };
             case 'downloaded': return { label: 'جاهز للتثبيت', color: 'success' as const };
             case 'installing': return { label: 'جارٍ التثبيت', color: 'info' as const };
+            case 'hot-updating': return { label: 'تحديث سريع جارٍ...', color: 'info' as const };
+            case 'hot-updated': return { label: 'جاهز لإعادة التحميل', color: 'success' as const };
             case 'error': return { label: 'خطأ', color: 'error' as const };
             default:
-                if (check?.state === 'update-available') return { label: 'تحديث متوفّر', color: 'warning' as const };
+                if (check?.state === 'update-available') {
+                    if (check.updateMode === 'hot') return { label: 'تحديث سريع متوفّر', color: 'info' as const };
+                    return { label: 'تحديث متوفّر', color: 'warning' as const };
+                }
                 if (check?.state === 'up-to-date') return { label: 'آخر إصدار', color: 'success' as const };
                 if (check?.state === 'no-releases') return { label: 'لا توجد إصدارات', color: 'default' as const };
                 return { label: 'جاهز', color: 'default' as const };
         }
-    }, [status.state, check?.state]);
+    }, [status.state, check?.state, check]);
+
+    // Hot-update progress derivation — kept separate from installer
+    // download progress so the two never collide on screen.
+    const hotUpdating = status.state === 'hot-updating';
+    const hotPhaseLabel = (() => {
+        if (!hotUpdating) return '';
+        switch (status.phase) {
+            case 'check': return 'التحقّق من الإصدار...';
+            case 'download': return 'تنزيل أرشيف الواجهة...';
+            case 'extract': return 'فكّ الأرشيف...';
+            case 'verify': return 'التحقّق من بصمات SHA-256...';
+            case 'install': return 'تفعيل القناة الجديدة...';
+            default: return 'جارٍ المعالجة...';
+        }
+    })();
 
     if (!electronAvailable) {
         return (
@@ -525,6 +623,55 @@ export default function UpdaterPanel() {
                             value={downloadProgress}
                             sx={{ height: 8, borderRadius: 4 }}
                         />
+                    </Box>
+                )}
+
+                {hotUpdating && (
+                    <Box sx={{ mt: 2.5 }}>
+                        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <HotIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                                <Typography variant="caption" color="text.secondary">
+                                    {hotPhaseLabel}
+                                    {status.phase === 'download' && status.received != null && status.total != null && (
+                                        <> · {formatBytes(status.received)} / {formatBytes(status.total)}</>
+                                    )}
+                                </Typography>
+                            </Stack>
+                            <Typography variant="caption" fontWeight={700}>{status.percent || 0}%</Typography>
+                        </Stack>
+                        <LinearProgress
+                            variant={status.phase === 'download' ? 'determinate' : 'indeterminate'}
+                            value={status.percent || 0}
+                            color="info"
+                            sx={{ height: 8, borderRadius: 4 }}
+                        />
+                    </Box>
+                )}
+
+                {hotApplied && status.state !== 'hot-updating' && (
+                    <Box sx={{
+                        mt: 2, p: 2, borderRadius: 2,
+                        bgcolor: alpha(theme.palette.success.main, 0.10),
+                        border: `1px solid ${alpha(theme.palette.success.main, 0.4)}`,
+                    }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+                            <CheckIcon color="success" />
+                            <Box sx={{ flex: 1, minWidth: 200 }}>
+                                <Typography variant="body2" fontWeight={700} color="success.main">
+                                    التحديث جاهز للتطبيق
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    اضغط الزرّ لإعادة تحميل التطبيق وتفعيل الإصدار الجديد فوراً (لن يُعاد تشغيل البرنامج).
+                                </Typography>
+                            </Box>
+                            <Button
+                                variant="contained" color="success" startIcon={<ReloadIcon />}
+                                onClick={handleHotReload}
+                            >
+                                إعادة تحميل التطبيق الآن
+                            </Button>
+                        </Stack>
                     </Box>
                 )}
 
@@ -648,8 +795,20 @@ export default function UpdaterPanel() {
                                 {check.asset && ` · حجم التحميل: ${formatBytes(check.asset.size)}`}
                             </Typography>
                         </Box>
-                        <Stack direction="row" spacing={1}>
-                            {!downloadedPath && !downloading && check.asset && (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {/* HOT mode → live frontend update (no UAC, no restart) */}
+                            {check.updateMode === 'hot' && !hotApplied && (
+                                <Button
+                                    variant="contained" color="info"
+                                    startIcon={<HotIcon />}
+                                    disabled={busy || hotUpdating}
+                                    onClick={handleHotApply}
+                                >
+                                    تطبيق التحديث الفوريّ
+                                </Button>
+                            )}
+                            {/* INSTALLER mode → classic NSIS download + install */}
+                            {check.updateMode !== 'hot' && !downloadedPath && !downloading && check.asset && (
                                 <Button
                                     variant="contained" color="warning"
                                     startIcon={<DownloadIcon />}
@@ -659,7 +818,7 @@ export default function UpdaterPanel() {
                                     تحميل التحديث
                                 </Button>
                             )}
-                            {downloadedPath && (
+                            {check.updateMode !== 'hot' && downloadedPath && (
                                 <Button
                                     variant="contained" color="success"
                                     startIcon={<InstallIcon />}
@@ -668,7 +827,7 @@ export default function UpdaterPanel() {
                                     ابدأ التثبيت الآن
                                 </Button>
                             )}
-                            {!check.asset && (
+                            {check.updateMode !== 'hot' && !check.asset && (
                                 <Chip
                                     label="لا يوجد ملفّ مثبّت في هذا الإصدار"
                                     color="error" variant="outlined"
@@ -676,6 +835,44 @@ export default function UpdaterPanel() {
                             )}
                         </Stack>
                     </Stack>
+
+                    {/* Mode explanation banner — tells the user WHY this update
+                        is hot-or-not. Critical for trust: explains that
+                        hot updates skip UAC because nothing system-level
+                        is changing, and installer updates need UAC because
+                        the backend exe is being replaced. */}
+                    <Box sx={{
+                        mt: 2, p: 1.75, borderRadius: 2,
+                        border: `1px solid ${alpha(
+                            check.updateMode === 'hot' ? theme.palette.info.main : theme.palette.warning.main,
+                            0.35,
+                        )}`,
+                        bgcolor: alpha(
+                            check.updateMode === 'hot' ? theme.palette.info.main : theme.palette.warning.main,
+                            0.06,
+                        ),
+                    }}>
+                        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                            {check.updateMode === 'hot'
+                                ? <HotIcon color="info" fontSize="small" />
+                                : <InstallIcon color="warning" fontSize="small" />}
+                            <Box>
+                                <Typography
+                                    variant="caption" fontWeight={700}
+                                    color={check.updateMode === 'hot' ? 'info.main' : 'warning.main'}
+                                >
+                                    {check.updateMode === 'hot'
+                                        ? 'تحديث فوريّ (واجهة فقط)'
+                                        : 'تحديث كامل (يتطلّب المثبّت)'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                    {check.updateMode === 'hot'
+                                        ? `جميع التغييرات في ملفّات الواجهة فقط. سيُنزَّل أرشيف صغير (${check.hotArchive ? formatBytes(check.hotArchive.size) : ''})، يُتحقَّق من سلامته بصمةً ببصمة، ثم يُطبَّق فوراً بإعادة تحميل النافذة فقط — بدون إعادة تثبيت أو إعادة تشغيل.`
+                                        : 'هذا التحديث يعدّل ملفّات النظام (الخادم/Electron) المقفلة أثناء التشغيل، لذا يلزم المثبّت الكامل وصلاحيات المدير.'}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Box>
 
                     {check.releaseNotes && (
                         <Box sx={{
@@ -746,6 +943,60 @@ export default function UpdaterPanel() {
                             {check.repoUrl}
                         </Link>.
                     </Typography>
+                </Paper>
+            )}
+
+            {/* ── Active channel card ──────────────────────────── */}
+            {channel && (
+                <Paper elevation={0} sx={{
+                    p: 2.5, borderRadius: 3,
+                    border: `1px solid ${alpha(
+                        channel.mode === 'channel' ? theme.palette.info.main : theme.palette.divider,
+                        channel.mode === 'channel' ? 0.4 : 0.7,
+                    )}`,
+                    bgcolor: channel.mode === 'channel'
+                        ? alpha(theme.palette.info.main, isLight ? 0.04 : 0.10)
+                        : 'transparent',
+                }}>
+                    <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Avatar sx={{
+                            bgcolor: alpha(
+                                channel.mode === 'channel' ? theme.palette.info.main : theme.palette.text.secondary,
+                                0.15,
+                            ),
+                            color: channel.mode === 'channel' ? 'info.main' : 'text.secondary',
+                            width: 40, height: 40,
+                        }}>
+                            <ChannelIcon fontSize="small" />
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                            <Typography variant="body2" fontWeight={700}>
+                                {channel.mode === 'channel'
+                                    ? `قناة الواجهة النشطة: v${channel.version}`
+                                    : 'الواجهة الأصليّة المثبَّتة (baseline)'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {channel.mode === 'channel'
+                                    ? `طُبِّقت في ${formatDate(channel.appliedAt || undefined)} · بصمة ${channel.sha8}`
+                                    : 'لم يُطبَّق أيّ تحديث سريع — تعمل بالنسخة التي ركّبها المثبّت.'}
+                            </Typography>
+                            {channel.mode === 'baseline' && channel.configuredPath && channel.configuredExists === false && (
+                                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+                                    ⚠ يوجد ملفّ قناة لكنّه يشير لمسار غير صالح — تمّ التراجع تلقائيّاً للنسخة الأصليّة.
+                                </Typography>
+                            )}
+                        </Box>
+                        {channel.mode === 'channel' && (
+                            <Button
+                                variant="outlined" color="warning" size="small"
+                                startIcon={<RollbackIcon />}
+                                disabled={busy}
+                                onClick={handleHotRollback}
+                            >
+                                العودة للنسخة الأصليّة
+                            </Button>
+                        )}
+                    </Stack>
                 </Paper>
             )}
 

@@ -67,17 +67,29 @@ export type FileDiff =
           remoteTotalSize?: number;
       };
 
+export type UpdateMode = 'none' | 'hot' | 'installer' | 'unknown';
+
 export interface UpdateCheckBase {
     currentVersion: string;
     latestVersion: string;
     versionIsNewer: boolean;
     filesDiffer: boolean;
+    /**
+     * How the update should be applied:
+     * - 'hot'       → frontend-only, can be applied live (no UAC, no restart)
+     * - 'installer' → backend/native files changed, NSIS installer required
+     * - 'none'      → already in sync
+     * - 'unknown'   → manifest unavailable
+     */
+    updateMode: UpdateMode;
     releaseName: string;
     releaseNotes: string;
     releaseDate: string;
     releaseUrl: string;
     repoUrl: string;
     asset: ReleaseAsset | null;
+    /** The frontend-only hot-update archive, when present in the release. */
+    hotArchive: ReleaseAsset | null;
     fileDiff: FileDiff;
 }
 
@@ -86,6 +98,39 @@ export type UpdateCheckResult =
     | (UpdateCheckBase & { state: 'update-available' })
     | { state: 'no-releases'; repoUrl: string };
 
+// ─── Hot update (live frontend-only) ─────────────────────────────────
+
+export interface ChannelInfo {
+    /** 'baseline' = installer-shipped frontend; 'channel' = applied hot update */
+    mode: 'baseline' | 'channel';
+    baselineDir: string;
+    activeDir: string;
+    appliedAt: string | null;
+    version: string | null;
+    sha8: string | null;
+    configuredPath?: string;
+    configuredExists?: boolean;
+}
+
+export interface HotUpdateResult {
+    applied: boolean;
+    channelName: string;
+    version: string;
+    sha8: string;
+    path: string;
+    appliedAt: string;
+    prunedOld: number;
+}
+
+export interface HotUpdateApi {
+    getChannel(): Promise<ChannelInfo>;
+    apply(): Promise<HotUpdateResult>;
+    rollback(): Promise<{ rolledBack: boolean; reason?: string }>;
+    reload(): Promise<{ reloaded: boolean }>;
+}
+
+export type HotUpdatePhase = 'check' | 'download' | 'extract' | 'verify' | 'install';
+
 export type UpdaterStatus =
     | { state: 'idle' }
     | { state: 'checking' }
@@ -93,7 +138,9 @@ export type UpdaterStatus =
     | { state: 'downloaded'; path: string; size: number }
     | { state: 'installing' }
     | { state: 'error'; message: string }
-    | { state: 'updates-available-bg'; latestVersion: string; currentVersion: string };
+    | { state: 'updates-available-bg'; latestVersion: string; currentVersion: string }
+    | { state: 'hot-updating'; phase: HotUpdatePhase; percent: number; received?: number; total?: number }
+    | { state: 'hot-updated'; version: string; channelName: string };
 
 declare global {
     interface Window {
@@ -118,6 +165,12 @@ declare global {
              */
             downloadInstaller: () => Promise<{ path: string; size: number; name: string }>;
             installAndRelaunch: (installerPath: string) => Promise<{ launched: true }>;
+            /**
+             * Hot-update API — applies frontend-only updates LIVE without UAC
+             * or restart. The main process validates every extracted file's
+             * SHA-256 against the manifest before activating.
+             */
+            hotUpdate: HotUpdateApi;
             onStatus: (cb: (status: UpdaterStatus) => void) => () => void;
         };
     }

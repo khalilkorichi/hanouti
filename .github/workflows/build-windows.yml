@@ -98,12 +98,19 @@ jobs:
         # client can compare its installed files to the canonical release.
         run: node scripts/build-manifest.cjs
 
+      - name: Build frontend hot-update archive
+        # Bundles only the frontend (HTML/JS/CSS) into frontend-dist.tar.gz.
+        # When a release ships frontend-only changes, the desktop client
+        # can hot-patch by downloading this small archive instead of the
+        # full installer — no UAC, no restart, no re-download of backend.exe.
+        run: node scripts/build-frontend-archive.cjs
+
       - name: Show build artifacts
         shell: bash
         run: |
           ls -lah release/ || echo "(no release dir)"
           echo "--- artifacts ---"
-          find release -maxdepth 2 -type f -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" -o -name "*.json" 2>/dev/null
+          find release -maxdepth 2 -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" -o -name "*.json" -o -name "*.tar.gz" \) 2>/dev/null
 
       - name: Upload installer as workflow artifact
         uses: actions/upload-artifact@v4
@@ -114,6 +121,7 @@ jobs:
             release/*.exe.blockmap
             release/latest.yml
             release/manifest.json
+            release/frontend-dist.tar.gz
           retention-days: 30
           if-no-files-found: error
 
@@ -151,6 +159,7 @@ jobs:
             release/*.exe.blockmap
             release/latest.yml
             release/manifest.json
+            release/frontend-dist.tar.gz
           draft: false
           prerelease: false
           generate_release_notes: true

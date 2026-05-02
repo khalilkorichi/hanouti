@@ -74,12 +74,47 @@ Flow:
    stdio:'ignore')` + `unref()` the installer, then `app.quit()` after 1.2s
    so NSIS can take over (UAC + auto-relaunch).
 
-The NSIS installer is still used for the actual replacement step because
-`electron.exe` and `backend.exe` are file-locked at runtime — only the
-installer can atomically swap them after killing the running process.
-The file-level diff exists to **detect** drift and **show** the user a
-precise breakdown (changed/added/removed file lists in `UpdaterPanel`),
-not to replace files in-place.
+The NSIS installer is still used for the actual replacement step **of
+backend/native files** because `electron.exe` and `backend.exe` are
+file-locked at runtime — only the installer can atomically swap them
+after killing the running process.
+
+**Frontend hot-updates (v1.0.7+, channels system)** — Slack/Discord/VS Code
+pattern. The frontend (HTML/JS/CSS) has NO file-lock, so it can be replaced
+live without re-running NSIS. `compareManifests` adds a `frontendOnly`
+flag (true when every changed/added/removed file lives under
+`frontend-dist/`); `checkForUpdates` returns a derived `updateMode`:
+- `'hot'` → frontend-only delta + `frontend-dist.tar.gz` asset present
+- `'installer'` → backend/native files changed, NSIS required
+- `'none' / 'unknown'` → no diff or manifest unavailable
+
+Each release uploads a `frontend-dist.tar.gz` asset (built by
+`scripts/build-frontend-archive.cjs` via the OS-bundled `tar` — no extra
+deps; Windows 10+ ships `tar.exe`). When mode is `'hot'`, the desktop
+client (`electron/hotUpdater.cjs`):
+1. Re-fetches release+manifest in main process (renderer never supplies URLs)
+2. Streams the tarball to `<userData>/updates/` (host allow-list,
+   100 MB hard cap, post-redirect re-validation, exact size match)
+3. Extracts to `<userData>/channels/.staging-<sha8>-<ts>/` via spawned `tar`
+4. Verifies every extracted file's SHA-256 against the release manifest
+   (8-way parallel; abort + cleanup on ANY mismatch)
+5. Atomic-renames staging → `<userData>/channels/frontend-<ver>-<sha8>/`
+6. Atomic-writes `<userData>/channels/active.json` pointing to (5)
+7. Prunes old channels keeping the 3 most recent
+
+`main.cjs` resolves the frontend path at every load via
+`hotUpdater.getActiveFrontendDir()`, which reads `active.json`,
+sanity-checks `index.html` exists+non-empty, and silently falls back to
+the installer baseline on ANY failure (corruption, manual deletion, etc).
+This makes the system self-healing: a corrupted hot update can never
+brick the app. One-click rollback simply deletes `active.json`.
+
+The IPC surface is minimal and zero-trust: `hotUpdate.{getChannel, apply,
+rollback, reload}` — no URLs/paths from the renderer. The UI shows a
+"تحديث فوريّ (واجهة فقط)" badge with explanation, an "تطبيق التحديث
+الفوريّ" button, live progress (download/extract/verify/install phases),
+"إعادة تحميل التطبيق الآن" after success, and an active-channel card with
+"العودة للنسخة الأصليّة" rollback button.
 
 IPC contract is intentionally minimal so the renderer cannot inject arbitrary
 download URLs. Path-traversal-safe (filename whitelist + updates-dir confinement),

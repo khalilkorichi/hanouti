@@ -34,7 +34,8 @@ const crypto = require('crypto');
 const { app, shell } = require('electron');
 const { spawn } = require('child_process');
 const log = require('electron-log');
-const { DEFAULT_UPDATER_CONFIG, APP_FILES_DIR } = require('./config.cjs');
+const { DEFAULT_UPDATER_CONFIG, APP_FILES_DIR, APP_FILES_LAYOUT } = require('./config.cjs');
+const APP_FILES_LAYOUT_FRONTEND = APP_FILES_LAYOUT.frontend;
 
 const CONFIG_FILE = 'updater-config.json';
 const UPDATES_SUBDIR = 'updates';
@@ -343,18 +344,25 @@ function compareManifests(local, remote) {
             remoteTotalSize: remote.totalSize || 0,
         };
     }
+    const FRONTEND_PREFIX = `${APP_FILES_LAYOUT_FRONTEND}/`;
     const localMap = new Map(local.files.map((f) => [f.path, f]));
     const remoteMap = new Map(remote.files.map((f) => [f.path, f]));
     const changed = [];
     const added = [];
     const removed = [];
     let unchangedCount = 0;
+    // Track whether ANY mutation touches a non-frontend file. Done while
+    // building the diff so the classification works even when we later
+    // truncate the per-category arrays for the IPC payload.
+    let hasNonFrontendChange = false;
     for (const r of remote.files) {
         const l = localMap.get(r.path);
         if (!l) {
             added.push({ path: r.path, size: r.size });
+            if (!r.path.startsWith(FRONTEND_PREFIX)) hasNonFrontendChange = true;
         } else if (l.sha256 !== r.sha256 || l.size !== r.size) {
             changed.push({ path: r.path, size: r.size, oldSize: l.size });
+            if (!r.path.startsWith(FRONTEND_PREFIX)) hasNonFrontendChange = true;
         } else {
             unchangedCount++;
         }
@@ -362,6 +370,7 @@ function compareManifests(local, remote) {
     for (const l of local.files) {
         if (!remoteMap.has(l.path)) {
             removed.push({ path: l.path, size: l.size });
+            if (!l.path.startsWith(FRONTEND_PREFIX)) hasNonFrontendChange = true;
         }
     }
     const downloadSize = changed.reduce((s, f) => s + f.size, 0)
@@ -376,6 +385,10 @@ function compareManifests(local, remote) {
     return {
         available: true,
         inSync,
+        // True when every changed/added/removed file lives under
+        // app-files/frontend-dist/. Used by hotUpdater.classifyDiff() to
+        // decide whether we can skip the NSIS installer.
+        frontendOnly: !hasNonFrontendChange,
         counts: {
             changed: changed.length,
             added: added.length,
@@ -458,12 +471,32 @@ async function checkForUpdates() {
   const filesDiffer = fileDiff.available && !fileDiff.inSync;
   const updateAvailable = versionIsNewer || filesDiffer;
 
+  // Decide HOW the update should be applied:
+  //   'none'       → already in sync, nothing to do
+  //   'hot'        → only frontend files differ → can be applied live
+  //                  via hotUpdater (no UAC, no restart, no installer)
+  //   'installer'  → backend.exe / electron / native files differ → must
+  //                  go through the NSIS installer flow
+  //   'unknown'    → manifest unavailable → fall back to installer
+  const hotArchive = pickHotArchiveAsset(release);
+  let updateMode = 'unknown';
+  if (fileDiff.available) {
+    if (fileDiff.inSync) updateMode = 'none';
+    else if (fileDiff.frontendOnly && hotArchive) updateMode = 'hot';
+    else updateMode = 'installer';
+  } else if (updateAvailable) {
+    updateMode = 'installer';
+  } else {
+    updateMode = 'none';
+  }
+
   return {
     state: updateAvailable ? 'update-available' : 'up-to-date',
     currentVersion,
     latestVersion,
     versionIsNewer,
     filesDiffer,
+    updateMode,
     releaseName: release.name || release.tag_name,
     releaseNotes: release.body || '',
     releaseDate: release.published_at,
@@ -472,8 +505,16 @@ async function checkForUpdates() {
     asset: asset
       ? { name: asset.name, size: asset.size, downloadUrl: asset.browser_download_url }
       : null,
+    hotArchive: hotArchive
+      ? { name: hotArchive.name, size: hotArchive.size, downloadUrl: hotArchive.browser_download_url }
+      : null,
     fileDiff,
   };
+}
+
+function pickHotArchiveAsset(release) {
+  if (!release || !Array.isArray(release.assets)) return null;
+  return release.assets.find((a) => a.name === 'frontend-dist.tar.gz') || null;
 }
 
 let activeDownload = null;
@@ -678,6 +719,15 @@ async function cleanupOldDownloads() {
   }
 }
 
+// Convenience for the hot-update IPC: fetch the latest release using the
+// user's saved updater config, applying the same prerelease/host policy
+// as checkForUpdates. Exposed because hotUpdater needs the raw release
+// object (with assets[]) to find frontend-dist.tar.gz.
+async function _fetchLatestReleaseForHotUpdate() {
+  const cfg = await loadConfig();
+  return await fetchLatestRelease(cfg);
+}
+
 module.exports = {
   loadConfig,
   saveConfig,
@@ -685,10 +735,12 @@ module.exports = {
   downloadInstaller,
   installAndRelaunch,
   cleanupOldDownloads,
+  // Used by hotUpdater (main process only).
+  _fetchLatestReleaseForHotUpdate,
+  _fetchRemoteManifest: fetchRemoteManifest,
   // Exported for tests / debugging only.
   _isNewer: isNewer,
   _pickWindowsAsset: pickWindowsAsset,
   _computeLocalManifest: computeLocalManifest,
   _compareManifests: compareManifests,
-  _fetchRemoteManifest: fetchRemoteManifest,
 };
