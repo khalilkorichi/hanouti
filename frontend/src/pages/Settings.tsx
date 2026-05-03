@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
     Typography, Box, TextField, Switch, Stack, Avatar,
     useTheme, alpha, Tooltip, Paper, IconButton,
@@ -67,6 +68,15 @@ export default function Settings() {
     const { showNotification } = useNotification();
 
     const [activeSection, setActiveSection] = useState<SectionKey>('profile');
+
+    /* Allow other pages (e.g. AdminMenu) to deep-link via navigate('/settings', { state: { section } }) */
+    const location = useLocation();
+    useEffect(() => {
+        const target = (location.state as { section?: SectionKey } | null)?.section;
+        if (target && (['profile','appearance','data','activity','updates','security','about'] as SectionKey[]).includes(target)) {
+            setActiveSection(target);
+        }
+    }, [location.state, location.key]);
     const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
     const [openRestoreDialog, setOpenRestoreDialog] = useState(false);
     const [username, setUsername] = useState('المسؤول');

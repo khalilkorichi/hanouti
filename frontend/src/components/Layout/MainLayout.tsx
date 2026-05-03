@@ -6,6 +6,8 @@ import Header from './Header';
 import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
 import OnboardingWizard from '../Onboarding/OnboardingWizard';
+import GlobalCustomShortcuts from '../Shortcuts/GlobalCustomShortcuts';
+import ShortcutsManagerDialog from '../Shortcuts/ShortcutsManagerDialog';
 import useOnboarding from '../../hooks/useOnboarding';
 import api from '../../services/api';
 
@@ -21,6 +23,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
     const [forcePasswordChange, setForcePasswordChange] = useState(false);
+    const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
     const { showOnboarding, completeOnboarding } = useOnboarding();
     const navigate = useNavigate();
     const theme = useTheme();
@@ -68,6 +71,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 onMenuClick={() => setMobileSidebarOpen(true)}
                 isDarkMode={isDarkMode}
                 onThemeToggle={onThemeToggle}
+                onOpenShortcuts={() => setShortcutsDialogOpen(true)}
                 collapsed={collapsed}
                 onCollapseToggle={handleCollapseToggle}
                 isPermanent={!isMobile}
@@ -121,6 +125,16 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
             <OnboardingWizard
                 open={showOnboarding && !forcePasswordChange}
                 onComplete={completeOnboarding}
+            />
+
+            {/* User-defined keyboard shortcuts (theme toggle, navigation, etc.) */}
+            <GlobalCustomShortcuts
+                onThemeToggle={onThemeToggle}
+                onOpenShortcuts={() => setShortcutsDialogOpen(true)}
+            />
+            <ShortcutsManagerDialog
+                open={shortcutsDialogOpen}
+                onClose={() => setShortcutsDialogOpen(false)}
             />
         </Box>
     );

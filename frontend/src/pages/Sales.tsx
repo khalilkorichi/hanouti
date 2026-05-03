@@ -17,6 +17,7 @@ import { useCartStore } from '../store/cartStore';
 import type { Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
 import { useKeyboardShortcuts, type Shortcut } from '../hooks/useKeyboardShortcuts';
+import { useShortcutCombo } from '../store/shortcutsStore';
 
 const DragItemOverlay = ({ product }: { product: Product | null }) => {
     if (!product) return null;
@@ -82,20 +83,31 @@ export default function Sales() {
         }
     };
 
+    const help        = useShortcutCombo('pos.help');
+    const barcode     = useShortcutCombo('pos.barcode');
+    const search      = useShortcutCombo('pos.search');
+    const discount    = useShortcutCombo('pos.discount');
+    const toggleTools = useShortcutCombo('pos.toggleTools');
+    const togglePay   = useShortcutCombo('pos.togglePayment');
+    const checkout    = useShortcutCombo('pos.checkout');
+    const clearCart   = useShortcutCombo('pos.clearCart');
+    const qtyPlus     = useShortcutCombo('pos.qtyPlus');
+    const qtyMinus    = useShortcutCombo('pos.qtyMinus');
+
     const shortcuts = useMemo<Shortcut[]>(() => [
-        { key: 'F1', label: 'مساعدة', handler: () => setShowHelp(true), allowInInputs: true },
-        { key: 'F2', label: 'باركود', handler: () => barcodeRef.current?.focus(), allowInInputs: true },
-        { key: 'F3', label: 'بحث', handler: () => explorerRef.current?.focusSearch(), allowInInputs: true },
-        { key: 'F4', label: 'خصم', handler: () => cartRef.current?.focusDiscount(), allowInInputs: true },
-        { key: 'F6', label: 'إخفاء/إظهار أدوات السلة', handler: () => cartRef.current?.togglePosTools(), allowInInputs: true },
-        { key: 'F8', label: 'تبديل دفع', handler: () => cartRef.current?.togglePayment(), allowInInputs: true },
-        { key: 'F9', label: 'إتمام البيع', handler: () => cartRef.current?.triggerCheckout(), allowInInputs: true },
-        { key: 'F10', label: 'تفريغ السلة', handler: () => cartRef.current?.clearCart(), allowInInputs: true },
-        { key: 'plus', label: 'كمية +', handler: () => adjustLastItemQty(1) },
-        { key: 'minus', label: 'كمية -', handler: () => adjustLastItemQty(-1) },
+        { ...help,        label: 'مساعدة',                    handler: () => setShowHelp(true),                  allowInInputs: true },
+        { ...barcode,     label: 'باركود',                    handler: () => barcodeRef.current?.focus(),        allowInInputs: true },
+        { ...search,      label: 'بحث',                       handler: () => explorerRef.current?.focusSearch(), allowInInputs: true },
+        { ...discount,    label: 'خصم',                       handler: () => cartRef.current?.focusDiscount(),   allowInInputs: true },
+        { ...toggleTools, label: 'إخفاء/إظهار أدوات السلة',   handler: () => cartRef.current?.togglePosTools(),  allowInInputs: true },
+        { ...togglePay,   label: 'تبديل دفع',                 handler: () => cartRef.current?.togglePayment(),   allowInInputs: true },
+        { ...checkout,    label: 'إتمام البيع',               handler: () => cartRef.current?.triggerCheckout(), allowInInputs: true },
+        { ...clearCart,   label: 'تفريغ السلة',               handler: () => cartRef.current?.clearCart(),       allowInInputs: true },
+        { ...qtyPlus,     label: 'كمية +',                    handler: () => adjustLastItemQty(1) },
+        { ...qtyMinus,    label: 'كمية -',                    handler: () => adjustLastItemQty(-1) },
         { key: '?', shift: true, label: 'مساعدة', handler: () => setShowHelp(true) },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], []);
+    ], [help, barcode, search, discount, toggleTools, togglePay, checkout, clearCart, qtyPlus, qtyMinus]);
 
     useKeyboardShortcuts(shortcuts);
 

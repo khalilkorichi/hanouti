@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useKeyboardShortcuts, type Shortcut } from '../hooks/useKeyboardShortcuts';
+import { useShortcutCombo } from '../store/shortcutsStore';
 
 const FOCUS_FLAG = 'hanouti.focus-barcode-on-mount';
 
@@ -22,12 +23,13 @@ export default function GlobalBarcodeShortcut() {
     const navigate = useNavigate();
     const location = useLocation();
     const onPos = location.pathname.startsWith('/sales') && !location.pathname.startsWith('/sales-list');
+    const combo = useShortcutCombo('global.barcodeJump');
 
     const shortcuts = useMemo<Shortcut[]>(() => {
         if (onPos) return [];
         return [
             {
-                key: 'F2',
+                ...combo,
                 label: 'فتح نقطة البيع وتركيز الباركود',
                 allowInInputs: true,
                 handler: () => {
@@ -36,7 +38,7 @@ export default function GlobalBarcodeShortcut() {
                 },
             },
         ];
-    }, [onPos, navigate]);
+    }, [onPos, navigate, combo]);
 
     useKeyboardShortcuts(shortcuts);
     return null;

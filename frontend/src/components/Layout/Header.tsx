@@ -21,6 +21,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useNotification, SEVERITY_CONFIG, type NotifHistoryItem } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import AdminMenu from './AdminMenu';
 
 const PAGE_TITLES: Record<string, string> = {
     '/': 'لوحة التحكم',
@@ -37,13 +38,14 @@ interface HeaderProps {
     onMenuClick: () => void;
     isDarkMode: boolean;
     onThemeToggle: () => void;
+    onOpenShortcuts: () => void;
     collapsed?: boolean;
     onCollapseToggle?: () => void;
     isPermanent?: boolean;
 }
 
 export default function Header({
-    onMenuClick, isDarkMode, onThemeToggle,
+    onMenuClick, isDarkMode, onThemeToggle, onOpenShortcuts,
     collapsed = false, onCollapseToggle, isPermanent = false,
 }: HeaderProps) {
     const theme = useTheme();
@@ -56,6 +58,9 @@ export default function Header({
 
     const [bellAnchor, setBellAnchor] = useState<HTMLButtonElement | null>(null);
     const bellOpen = Boolean(bellAnchor);
+
+    const [adminAnchor, setAdminAnchor] = useState<HTMLDivElement | null>(null);
+    const adminOpen = Boolean(adminAnchor);
 
     const pageTitle = PAGE_TITLES[location.pathname] || storeName;
     const sidebarWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
@@ -140,20 +145,35 @@ export default function Header({
                             </IconButton>
                         </Tooltip>
 
-                        {/* User */}
-                        <Box sx={{
-                            display: 'flex', alignItems: 'center', gap: 1, marginInlineStart: 0.5, px: 1.5, py: 0.5,
-                            borderRadius: 2, cursor: 'pointer', transition: 'all 0.2s',
-                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) },
-                        }}>
-                            <Avatar sx={{ width: 34, height: 34, bgcolor: theme.palette.primary.main, fontSize: '0.85rem', fontWeight: 700, boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.35)}` }}>
-                                م
-                            </Avatar>
-                            <Box sx={{ textAlign: 'start', display: { xs: 'none', sm: 'block' } }}>
-                                <Typography variant="caption" fontWeight={700} display="block" sx={{ lineHeight: 1.3 }}>المدير</Typography>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.68rem' }}>admin</Typography>
+                        {/* User — clickable: opens AdminMenu Popover */}
+                        <Tooltip title="قائمة المدير" arrow>
+                            <Box
+                                onClick={(e) => setAdminAnchor(e.currentTarget)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setAdminAnchor(e.currentTarget);
+                                    }
+                                }}
+                                sx={{
+                                    display: 'flex', alignItems: 'center', gap: 1, marginInlineStart: 0.5, px: 1.5, py: 0.5,
+                                    borderRadius: 2, cursor: 'pointer', transition: 'all 0.2s',
+                                    bgcolor: adminOpen ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                                    '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                    '&:focus-visible': { outline: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`, outlineOffset: 2 },
+                                }}
+                            >
+                                <Avatar sx={{ width: 34, height: 34, bgcolor: theme.palette.primary.main, fontSize: '0.85rem', fontWeight: 700, boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.35)}` }}>
+                                    م
+                                </Avatar>
+                                <Box sx={{ textAlign: 'start', display: { xs: 'none', sm: 'block' } }}>
+                                    <Typography variant="caption" fontWeight={700} display="block" sx={{ lineHeight: 1.3 }}>المدير</Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.68rem' }}>admin</Typography>
+                                </Box>
                             </Box>
-                        </Box>
+                        </Tooltip>
                     </Box>
                 </Toolbar>
             </AppBar>
@@ -277,6 +297,15 @@ export default function Header({
                     )}
                 </Box>
             </Popover>
+
+            {/* ── Admin Menu ── */}
+            <AdminMenu
+                anchorEl={adminAnchor}
+                onClose={() => setAdminAnchor(null)}
+                isDarkMode={isDarkMode}
+                onThemeToggle={onThemeToggle}
+                onOpenShortcuts={onOpenShortcuts}
+            />
         </>
     );
 }
