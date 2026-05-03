@@ -22,6 +22,8 @@ export interface SaleCreate {
     discount_value: number;
     discount_type: 'fixed' | 'percentage';
     tax_value: number;
+    customer_id?: number | null;
+    paid_amount?: number | null;
 }
 
 export interface Sale {
@@ -36,6 +38,8 @@ export interface Sale {
     tax_value: number;
     discount_value: number;
     discount_type: string;
+    customer_id?: number | null;
+    customer?: { id: number; name: string; phone: string | null } | null;
     created_at: string;
     items: SaleItem[];
 }

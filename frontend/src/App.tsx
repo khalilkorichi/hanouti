@@ -68,6 +68,7 @@ const loadSales          = () => import('./pages/Sales');
 const loadSalesList      = () => import('./pages/SalesList');
 const loadInventory      = () => import('./pages/Inventory');
 const loadReports        = () => import('./pages/Reports');
+const loadCustomers      = () => import('./pages/Customers');
 const loadComponentsDemo = () => import('./pages/ComponentsDemo');
 
 const Dashboard      = lazy(loadDashboard);
@@ -79,6 +80,7 @@ const Sales          = lazy(loadSales);
 const SalesList      = lazy(loadSalesList);
 const Inventory      = lazy(loadInventory);
 const Reports        = lazy(loadReports);
+const Customers      = lazy(loadCustomers);
 const ComponentsDemo = lazy(loadComponentsDemo);
 
 function PageLoader() {
@@ -178,6 +180,7 @@ function AppContent() {
                 <Route path="/sales-list"     element={wrap(SalesList)} />
                 <Route path="/inventory"      element={wrap(Inventory)} />
                 <Route path="/reports"        element={wrap(Reports)} />
+                <Route path="/customers"      element={wrap(Customers)} />
                 <Route path="/settings"       element={wrap(Settings)} />
                 <Route path="/components-demo" element={wrap(ComponentsDemo)} />
                 <Route path="*"              element={<Navigate to="/" replace />} />

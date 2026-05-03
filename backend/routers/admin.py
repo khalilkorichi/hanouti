@@ -41,6 +41,8 @@ def factory_reset(
     Tables wiped (in FK-safe order):
       - sale_items
       - sales
+      - customer_payments
+      - customers
       - stock_movements
       - products
       - categories
@@ -59,6 +61,8 @@ def factory_reset(
         # Delete in FK-safe order
         db.query(models.SaleItem).delete(synchronize_session=False)
         db.query(models.Sale).delete(synchronize_session=False)
+        db.query(models.CustomerPayment).delete(synchronize_session=False)
+        db.query(models.Customer).delete(synchronize_session=False)
         db.query(models.StockMovement).delete(synchronize_session=False)
         db.query(models.Product).delete(synchronize_session=False)
         db.query(models.Category).delete(synchronize_session=False)
@@ -71,6 +75,8 @@ def factory_reset(
         tables = (
             "sale_items",
             "sales",
+            "customer_payments",
+            "customers",
             "stock_movements",
             "products",
             "categories",
@@ -82,7 +88,8 @@ def factory_reset(
                     db.execute(
                         text(
                             "DELETE FROM sqlite_sequence WHERE name IN "
-                            "('sale_items','sales','stock_movements',"
+                            "('sale_items','sales','customer_payments',"
+                            "'customers','stock_movements',"
                             "'products','categories','store_profile')"
                         )
                     )

@@ -3,9 +3,34 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import models, database, crud, schemas
-from routers import auth, products, categories, sales, inventory, reports, backup, store_profile, admin
+from routers import auth, products, categories, sales, inventory, reports, backup, store_profile, admin, customers
+from sqlalchemy import text as _sql_text
 
 models.Base.metadata.create_all(bind=database.engine)
+
+
+def _run_lightweight_migrations():
+    """Idempotent column additions for tables that pre-existed before new
+    features were introduced (since we don't run Alembic in this project)."""
+    try:
+        dialect = database.engine.dialect.name
+        with database.engine.begin() as conn:
+            if dialect == "postgresql":
+                conn.execute(_sql_text(
+                    "ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id)"
+                ))
+                conn.execute(_sql_text(
+                    "CREATE INDEX IF NOT EXISTS ix_sales_customer_id ON sales(customer_id)"
+                ))
+            elif dialect == "sqlite":
+                cols = [r[1] for r in conn.execute(_sql_text("PRAGMA table_info(sales)")).fetchall()]
+                if "customer_id" not in cols:
+                    conn.execute(_sql_text("ALTER TABLE sales ADD COLUMN customer_id INTEGER"))
+    except Exception as e:  # pragma: no cover — best-effort
+        print(f"[migrations] warning: {e}")
+
+
+_run_lightweight_migrations()
 
 
 @asynccontextmanager
@@ -43,6 +68,7 @@ app.include_router(reports.router)
 app.include_router(backup.router)
 app.include_router(store_profile.router)
 app.include_router(admin.router)
+app.include_router(customers.router)
 
 
 @app.get("/")

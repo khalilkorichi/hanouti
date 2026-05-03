@@ -12,6 +12,7 @@ const FEATURE_TO_PATHS: Record<string, string[]> = {
     inventory: ['/products', '/inventory'],
     categories: ['/categories'],
     reports: ['/reports'],
+    debts: ['/customers'],
 };
 
 const ALWAYS_VISIBLE = new Set(['/', '/settings']);

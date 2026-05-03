@@ -448,6 +448,7 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
         payment_method=sale.payment_method,
         discount_value=sale.discount_value,
         discount_type=sale.discount_type,
+        customer_id=sale.customer_id,
         status="draft"
     )
     db.add(db_sale)
@@ -484,11 +485,203 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
         discount_amount = sale.discount_value
         
     db_sale.total = subtotal + total_tax - discount_amount
-    db_sale.due_amount = db_sale.total 
-    
+
+    # Apply paid_amount (defaults to full payment when omitted, preserving
+    # legacy behaviour). When less than total, the remainder becomes due.
+    paid = sale.paid_amount if sale.paid_amount is not None else db_sale.total
+    if paid < 0:
+        paid = 0.0
+    if paid > db_sale.total:
+        paid = db_sale.total
+    db_sale.paid_amount = paid
+    db_sale.due_amount = max(0.0, db_sale.total - paid)
+
     db.commit()
     db.refresh(db_sale)
     return db_sale
+
+
+# ============ Customer CRUD ============
+def _customer_aggregates(db: Session, customer_ids: list[int]) -> dict:
+    """Returns {customer_id: (total_purchases, total_due, sales_count)}"""
+    if not customer_ids:
+        return {}
+    rows = (
+        db.query(
+            models.Sale.customer_id,
+            func.coalesce(func.sum(models.Sale.total), 0.0),
+            func.coalesce(func.sum(models.Sale.due_amount), 0.0),
+            func.count(models.Sale.id),
+        )
+        .filter(
+            models.Sale.customer_id.in_(customer_ids),
+            models.Sale.status == "completed",
+        )
+        .group_by(models.Sale.customer_id)
+        .all()
+    )
+    return {cid: (float(tp or 0), float(td or 0), int(cnt or 0)) for cid, tp, td, cnt in rows}
+
+
+def _serialize_customer(c: models.Customer, agg: tuple = (0.0, 0.0, 0)) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "phone": c.phone,
+        "notes": c.notes,
+        "created_at": c.created_at,
+        "updated_at": c.updated_at,
+        "total_purchases": agg[0],
+        "total_due": agg[1],
+        "sales_count": agg[2],
+    }
+
+
+def get_customers(db: Session, q: Optional[str] = None, only_with_debt: bool = False):
+    query = db.query(models.Customer)
+    if q:
+        s = f"%{q}%"
+        query = query.filter(or_(models.Customer.name.ilike(s), models.Customer.phone.ilike(s)))
+    customers = query.order_by(models.Customer.name).all()
+    aggs = _customer_aggregates(db, [c.id for c in customers])
+    out = [_serialize_customer(c, aggs.get(c.id, (0.0, 0.0, 0))) for c in customers]
+    if only_with_debt:
+        out = [c for c in out if c["total_due"] > 0.0001]
+    return out
+
+
+def get_customer(db: Session, customer_id: int):
+    c = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not c:
+        return None
+    aggs = _customer_aggregates(db, [c.id])
+    return _serialize_customer(c, aggs.get(c.id, (0.0, 0.0, 0)))
+
+
+def create_customer(db: Session, payload: schemas.CustomerCreate):
+    phone = (payload.phone or "").strip() or None
+    if phone:
+        existing = db.query(models.Customer).filter(models.Customer.phone == phone).first()
+        if existing:
+            raise ValueError("رقم الهاتف مستخدم بالفعل لعميل آخر")
+    c = models.Customer(name=payload.name.strip(), phone=phone, notes=payload.notes)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return _serialize_customer(c, (0.0, 0.0, 0))
+
+
+def update_customer(db: Session, customer_id: int, payload: schemas.CustomerUpdate):
+    c = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not c:
+        return None
+    if payload.name is not None:
+        c.name = payload.name.strip()
+    if payload.phone is not None:
+        new_phone = payload.phone.strip() or None
+        if new_phone and new_phone != c.phone:
+            existing = db.query(models.Customer).filter(
+                models.Customer.phone == new_phone, models.Customer.id != customer_id
+            ).first()
+            if existing:
+                raise ValueError("رقم الهاتف مستخدم بالفعل لعميل آخر")
+        c.phone = new_phone
+    if payload.notes is not None:
+        c.notes = payload.notes
+    db.commit()
+    db.refresh(c)
+    aggs = _customer_aggregates(db, [c.id])
+    return _serialize_customer(c, aggs.get(c.id, (0.0, 0.0, 0)))
+
+
+def delete_customer(db: Session, customer_id: int) -> bool:
+    c = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not c:
+        return False
+    # Detach from sales (preserve history) and delete payments via cascade
+    db.query(models.Sale).filter(models.Sale.customer_id == customer_id).update(
+        {models.Sale.customer_id: None}, synchronize_session=False
+    )
+    db.delete(c)
+    db.commit()
+    return True
+
+
+def get_customer_sales(db: Session, customer_id: int):
+    return (
+        db.query(models.Sale)
+        .filter(models.Sale.customer_id == customer_id)
+        .order_by(models.Sale.created_at.desc())
+        .all()
+    )
+
+
+def get_customer_payments(db: Session, customer_id: int):
+    return (
+        db.query(models.CustomerPayment)
+        .filter(models.CustomerPayment.customer_id == customer_id)
+        .order_by(models.CustomerPayment.created_at.desc())
+        .all()
+    )
+
+
+def record_customer_payment(db: Session, customer_id: int, payload: schemas.CustomerPaymentCreate):
+    """Record a payment and FIFO-allocate it across the customer's unpaid completed sales."""
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise ValueError("العميل غير موجود")
+    if payload.amount <= 0:
+        raise ValueError("يجب أن يكون المبلغ أكبر من صفر")
+
+    payment = models.CustomerPayment(
+        customer_id=customer_id,
+        amount=payload.amount,
+        method=payload.method,
+        notes=payload.notes,
+    )
+    db.add(payment)
+
+    # FIFO allocation across unpaid completed sales (oldest first)
+    remaining = float(payload.amount)
+    unpaid = (
+        db.query(models.Sale)
+        .filter(
+            models.Sale.customer_id == customer_id,
+            models.Sale.status == "completed",
+            models.Sale.due_amount > 0,
+        )
+        .order_by(models.Sale.created_at.asc())
+        .all()
+    )
+    for s in unpaid:
+        if remaining <= 0:
+            break
+        apply = min(remaining, float(s.due_amount or 0))
+        s.paid_amount = float(s.paid_amount or 0) + apply
+        s.due_amount = max(0.0, float(s.due_amount or 0) - apply)
+        remaining -= apply
+
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def get_debt_summary(db: Session):
+    rows = (
+        db.query(
+            models.Sale.customer_id,
+            func.sum(models.Sale.due_amount),
+        )
+        .filter(
+            models.Sale.customer_id.isnot(None),
+            models.Sale.status == "completed",
+            models.Sale.due_amount > 0,
+        )
+        .group_by(models.Sale.customer_id)
+        .all()
+    )
+    total = sum(float(d or 0) for _, d in rows)
+    return {"total_debt": total, "customers_with_debt": len(rows)}
 
 def get_sale(db: Session, sale_id: int):
     return db.query(models.Sale).filter(models.Sale.id == sale_id).first()
@@ -568,8 +761,17 @@ def complete_sale(db: Session, sale_id: int):
         )
         
     sale.status = "completed"
-    sale.paid_amount = sale.total
-    sale.due_amount = 0
+    # Preserve a partial payment when a customer is attached (deferred payment),
+    # otherwise auto-fill as fully paid (legacy walk-in behaviour).
+    if sale.customer_id:
+        paid = float(sale.paid_amount or 0)
+        if paid > sale.total:
+            paid = sale.total
+        sale.paid_amount = paid
+        sale.due_amount = max(0.0, sale.total - paid)
+    else:
+        sale.paid_amount = sale.total
+        sale.due_amount = 0
     
     db.commit()
     db.refresh(sale)

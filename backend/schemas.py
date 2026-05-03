@@ -145,10 +145,20 @@ class SaleBase(BaseModel):
 
 class SaleCreate(SaleBase):
     items: List[SaleItemCreate]
+    customer_id: Optional[int] = None
+    paid_amount: Optional[float] = None
 
 class SaleUpdate(BaseModel):
     status: Optional[str] = None
     paid_amount: Optional[float] = None
+
+class CustomerLite(BaseModel):
+    id: int
+    name: str
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class Sale(SaleBase):
     id: int
@@ -158,12 +168,60 @@ class Sale(SaleBase):
     total: float
     paid_amount: float
     due_amount: float
+    customer_id: Optional[int] = None
+    customer: Optional[CustomerLite] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     items: List[SaleItem] = []
 
     class Config:
         from_attributes = True
+
+# ============ Customer Schemas ============
+class CustomerBase(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+
+class CustomerCreate(CustomerBase):
+    pass
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+
+class Customer(CustomerBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    total_due: float = 0.0
+    total_purchases: float = 0.0
+    sales_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+# ============ Customer Payment Schemas ============
+class CustomerPaymentBase(BaseModel):
+    amount: float = Field(gt=0)
+    method: str = "cash"
+    notes: Optional[str] = None
+
+class CustomerPaymentCreate(CustomerPaymentBase):
+    pass
+
+class CustomerPayment(CustomerPaymentBase):
+    id: int
+    customer_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CustomersDebtSummary(BaseModel):
+    total_debt: float
+    customers_with_debt: int
 
 # ============ Sales Actions ============
 class SaleCancelRequest(BaseModel):

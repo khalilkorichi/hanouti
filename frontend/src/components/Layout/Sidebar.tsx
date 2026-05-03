@@ -23,6 +23,7 @@ import {
     Logout as LogoutIcon,
     Warehouse as WarehouseIcon,
     StorefrontRounded as StoreIcon,
+    People as PeopleIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -44,6 +45,7 @@ const menuItems = [
     { text: 'المنتجات', icon: <InventoryIcon />, path: '/products', color: '#06B6D4' },
     { text: 'الفئات', icon: <CategoryIcon />, path: '/categories', color: '#F59E0B' },
     { text: 'سجل المبيعات', icon: <ReceiptIcon />, path: '/sales-list', color: '#EF4444' },
+    { text: 'العملاء والديون', icon: <PeopleIcon />, path: '/customers', color: '#EC4899' },
     { text: 'المخزون', icon: <WarehouseIcon />, path: '/inventory', color: '#10B981' },
     { text: 'التقارير', icon: <AssessmentIcon />, path: '/reports', color: '#8B5CF6' },
     { text: 'الإعدادات', icon: <SettingsIcon />, path: '/settings', color: '#64748B' },

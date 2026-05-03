@@ -16,6 +16,7 @@ import {
     InventoryRounded,
     CategoryRounded,
     AssessmentRounded,
+    CreditScoreRounded,
 } from '@mui/icons-material';
 
 export interface OnboardingOption {
@@ -85,6 +86,7 @@ export const onboardingQuestions: OnboardingQuestion[] = [
             { value: 'inventory', label: 'إدارة المخزون', icon: createElement(InventoryRounded) },
             { value: 'categories', label: 'الفئات', icon: createElement(CategoryRounded) },
             { value: 'reports', label: 'التقارير', icon: createElement(AssessmentRounded) },
+            { value: 'debts', label: 'الديون والعملاء', icon: createElement(CreditScoreRounded) },
         ],
     },
 ];

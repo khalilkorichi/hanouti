@@ -1,6 +1,7 @@
 import {
     Box, Typography, IconButton, Divider, TextField, Select, MenuItem,
-    FormControl, InputLabel, Paper, Stack, Chip, alpha, useTheme, Tooltip
+    FormControl, InputLabel, Paper, Stack, Chip, alpha, useTheme, Tooltip,
+    Autocomplete,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -9,15 +10,18 @@ import {
     ShoppingCartCheckout as CheckoutIcon,
     Print as PrintIcon,
     Edit as EditIcon,
-    ShoppingCartOutlined as EmptyCartIcon
+    ShoppingCartOutlined as EmptyCartIcon,
+    PersonAddRounded as PersonAddIcon,
 } from '@mui/icons-material';
 import { useCartStore } from '../../store/cartStore';
 import { useDroppable } from '@dnd-kit/core';
 import { CustomButton, UnifiedModal } from '../Common';
-import { forwardRef, useImperativeHandle, useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { forwardRef, useImperativeHandle, useState, useRef, useMemo } from 'react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { salesService, type Sale } from '../../services/salesService';
 import { productService } from '../../services/productService';
+import { customerService, type Customer } from '../../services/customerService';
+import { useSettingsStore } from '../../store/settingsStore';
 import { useReactToPrint } from 'react-to-print';
 import { Receipt } from './Receipt';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -53,10 +57,36 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [completedSale, setCompletedSale] = useState<Sale | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    const [paidAmountInput, setPaidAmountInput] = useState<string>('');
+    const [showAddCustomer, setShowAddCustomer] = useState(false);
+    const [newCustomerForm, setNewCustomerForm] = useState({ name: '', phone: '' });
     const receiptRef = useRef<HTMLDivElement>(null);
     const discountInputRef = useRef<HTMLInputElement>(null);
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
+    const debtsEnabled = useSettingsStore((s) => s.isPathVisible('/customers'));
+
+    const { data: customers = [] } = useQuery({
+        queryKey: ['customers-list-cart'],
+        queryFn: () => customerService.list(),
+        enabled: debtsEnabled,
+    });
+
+    const createCustomerMutation = useMutation({
+        mutationFn: customerService.create,
+        onSuccess: (c) => {
+            queryClient.invalidateQueries({ queryKey: ['customers-list-cart'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            setSelectedCustomer(c);
+            setShowAddCustomer(false);
+            setNewCustomerForm({ name: '', phone: '' });
+            showNotification('تمت إضافة العميل', 'success');
+        },
+        onError: (e: { response?: { data?: { detail?: string } } }) => {
+            showNotification(e.response?.data?.detail || 'فشل إضافة العميل', 'error');
+        },
+    });
 
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<EditProductForm>({ name: '', sale_price: 0, purchase_price: 0, stock_qty: 0 });
@@ -79,7 +109,17 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
             setCompletedSale(data);
             setShowSuccessModal(true);
             clearCart();
-            showNotification('تمت عملية البيع بنجاح', 'success');
+            setSelectedCustomer(null);
+            setPaidAmountInput('');
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['customers-list-cart'] });
+            queryClient.invalidateQueries({ queryKey: ['customers-debt-summary'] });
+            showNotification(
+                data.due_amount > 0
+                    ? `تمت العملية — دين بقيمة ${data.due_amount.toFixed(0)} دج على ${data.customer?.name || 'العميل'}`
+                    : 'تمت عملية البيع بنجاح',
+                'success'
+            );
         },
         onError: (error) => {
             showNotification('حدث خطأ أثناء إتمام البيع: ' + error, 'error');
@@ -132,8 +172,26 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
         });
     };
 
+    const subtotal = getSubtotal();
+    const discount = getDiscount();
+    const total = getTotal();
+    const isProcessing = createSaleMutation.isPending || completeSaleMutation.isPending;
+
+    const paidAmount = useMemo(() => {
+        if (paidAmountInput === '') return total;
+        const parsed = parseFloat(paidAmountInput);
+        if (isNaN(parsed) || parsed < 0) return 0;
+        return Math.min(parsed, total);
+    }, [paidAmountInput, total]);
+    const dueAmount = Math.max(0, total - paidAmount);
+    const hasDebt = dueAmount > 0.001;
+
     const handleCheckout = () => {
         if (items.length === 0) return;
+        if (hasDebt && !selectedCustomer) {
+            showNotification('يجب اختيار عميل للبيع المؤجل', 'warning');
+            return;
+        }
         const saleData = {
             items: items.map(item => ({
                 product_id: item.id,
@@ -144,15 +202,12 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
             payment_method: paymentMethod,
             discount_value: discountValue,
             discount_type: discountType,
-            tax_value: 0
+            tax_value: 0,
+            customer_id: selectedCustomer?.id ?? null,
+            paid_amount: paidAmountInput === '' ? null : paidAmount,
         };
         createSaleMutation.mutate(saleData);
     };
-
-    const subtotal = getSubtotal();
-    const discount = getDiscount();
-    const total = getTotal();
-    const isProcessing = createSaleMutation.isPending || completeSaleMutation.isPending;
 
     useImperativeHandle(ref, () => ({
         focusDiscount: () => {
@@ -378,6 +433,40 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                 }}
             >
                 <Stack spacing={1.5}>
+                    {/* Customer attach (debts feature) */}
+                    {debtsEnabled && (
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                            <Autocomplete<Customer, false, false, false>
+                                size="small"
+                                options={customers}
+                                value={selectedCustomer}
+                                onChange={(_, v) => setSelectedCustomer(v)}
+                                getOptionLabel={(o) => o.name + (o.phone ? ` — ${o.phone}` : '')}
+                                isOptionEqualToValue={(a, b) => a.id === b.id}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label={hasDebt ? 'العميل (مطلوب للدين) *' : 'العميل (اختياري)'}
+                                        error={hasDebt && !selectedCustomer}
+                                    />
+                                )}
+                                sx={{ flex: 1 }}
+                            />
+                            <Tooltip title="إضافة عميل جديد">
+                                <IconButton
+                                    color="primary"
+                                    onClick={() => setShowAddCustomer(true)}
+                                    sx={{
+                                        border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                                        borderRadius: 1.5,
+                                    }}
+                                >
+                                    <PersonAddIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    )}
+
                     {/* Discount & Payment */}
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
@@ -416,6 +505,27 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                         </FormControl>
                     </Box>
 
+                    {/* Paid amount (debts feature only) */}
+                    {debtsEnabled && (
+                        <TextField
+                            label="المبلغ المدفوع"
+                            size="small"
+                            type="number"
+                            value={paidAmountInput}
+                            onChange={(e) => setPaidAmountInput(e.target.value)}
+                            placeholder={total.toFixed(2)}
+                            helperText={
+                                hasDebt
+                                    ? `سيُسجَّل دين بقيمة ${dueAmount.toFixed(0)} دج`
+                                    : 'اتركه فارغاً للدفع الكامل'
+                            }
+                            FormHelperTextProps={{
+                                sx: { color: hasDebt ? 'error.main' : 'text.secondary', fontWeight: hasDebt ? 700 : 400 },
+                            }}
+                            InputProps={{ endAdornment: <Typography variant="caption">دج</Typography> }}
+                        />
+                    )}
+
                     <Divider />
 
                     {/* Totals */}
@@ -434,6 +544,12 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                             <Typography variant="subtitle1" fontWeight={800} color="primary.main">الإجمالي:</Typography>
                             <Typography variant="subtitle1" fontWeight={800} color="primary.main">{total.toFixed(2)} دج</Typography>
                         </Box>
+                        {debtsEnabled && hasDebt && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" color="error.main" fontWeight={700}>الدين:</Typography>
+                                <Typography variant="body2" fontWeight={800} color="error.main">{dueAmount.toFixed(2)} دج</Typography>
+                            </Box>
+                        )}
                     </Box>
 
                     <CustomButton
@@ -536,7 +652,69 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                         الإجمالي: <strong>{completedSale?.total?.toFixed(2)} دج</strong>
                     </Typography>
+                    {completedSale?.customer && (
+                        <Typography color="text.secondary" sx={{ mt: 1 }}>
+                            العميل: <strong>{completedSale.customer.name}</strong>
+                        </Typography>
+                    )}
+                    {completedSale && completedSale.due_amount > 0 && (
+                        <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.error.main, 0.08) }}>
+                            <Typography color="error.main" fontWeight={800}>
+                                دين مستحق: {completedSale.due_amount.toFixed(2)} دج
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                مدفوع: {completedSale.paid_amount.toFixed(2)} دج
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
+            </UnifiedModal>
+
+            {/* Add Customer Modal */}
+            <UnifiedModal
+                open={showAddCustomer}
+                onClose={() => setShowAddCustomer(false)}
+                title="إضافة عميل جديد"
+                maxWidth="xs"
+                actions={
+                    <>
+                        <CustomButton
+                            variant="contained"
+                            onClick={() => {
+                                if (!newCustomerForm.name.trim()) {
+                                    showNotification('الاسم مطلوب', 'warning');
+                                    return;
+                                }
+                                createCustomerMutation.mutate({
+                                    name: newCustomerForm.name.trim(),
+                                    phone: newCustomerForm.phone.trim() || null,
+                                });
+                            }}
+                            loading={createCustomerMutation.isPending}
+                        >
+                            حفظ
+                        </CustomButton>
+                        <CustomButton color="inherit" onClick={() => setShowAddCustomer(false)}>
+                            إلغاء
+                        </CustomButton>
+                    </>
+                }
+            >
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField
+                        label="الاسم *"
+                        value={newCustomerForm.name}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                        fullWidth
+                        autoFocus
+                    />
+                    <TextField
+                        label="رقم الهاتف"
+                        value={newCustomerForm.phone}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                        fullWidth
+                    />
+                </Stack>
             </UnifiedModal>
 
             {/* Hidden Receipt */}

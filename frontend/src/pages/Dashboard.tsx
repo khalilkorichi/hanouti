@@ -38,11 +38,14 @@ import {
     ShoppingCartCheckout as CheckoutIcon,
     Refresh as RefreshIcon,
     CheckCircleOutline as InventoryHealthyIcon,
+    CreditScoreRounded as DebtIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
 import { productService, type Product } from '../services/productService';
 import { categoryService, type Category, type CategoryCreate } from '../services/categoryService';
 import { salesService } from '../services/salesService';
+import { customerService } from '../services/customerService';
+import { useSettingsStore } from '../store/settingsStore';
 import { UnifiedModal, CustomButton, CustomInput, PageHeader } from '../components/Common';
 import { Storefront as StorefrontIcon } from '@mui/icons-material';
 import ProductForm from '../components/Products/ProductForm';
@@ -206,6 +209,13 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [kpiError, setKpiError] = useState(false);
 
+    const debtsEnabled = useSettingsStore((s) => s.isPathVisible('/customers'));
+    const { data: debtSummary } = useQuery({
+        queryKey: ['customers-debt-summary'],
+        queryFn: customerService.debtSummary,
+        enabled: debtsEnabled,
+    });
+
     const [activeDialog, setActiveDialog] = useState<'addProduct' | 'quickSale' | 'addCategory' | 'lowStock' | null>(null);
 
     const closeDialog = useCallback(() => setActiveDialog(null), []);
@@ -264,6 +274,12 @@ export default function Dashboard() {
             subtitle: 'منتج قارب النفاد',
             icon: <WarningIcon />, color: '#EF4444', badge: 'تحذير',
         },
+        ...(debtsEnabled ? [{
+            title: 'إجمالي الديون',
+            value: debtSummary ? `${debtSummary.total_debt.toLocaleString('ar-DZ')} دج` : '—',
+            subtitle: debtSummary ? `${debtSummary.customers_with_debt} عميل مدين` : 'لا توجد ديون',
+            icon: <DebtIcon />, color: '#EC4899', badge: 'الديون',
+        }] : []),
     ];
 
     const quickActions = [

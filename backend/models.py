@@ -60,6 +60,37 @@ class Product(Base):
         Index("ix_products_active_name", "is_active", "name"),
     )
 
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    phone = Column(String, nullable=True, unique=True, index=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    sales = relationship("Sale", back_populates="customer")
+    payments = relationship("CustomerPayment", back_populates="customer", cascade="all, delete-orphan")
+
+
+class CustomerPayment(Base):
+    __tablename__ = "customer_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), index=True, nullable=False)
+    amount = Column(Float, nullable=False, default=0.0)
+    method = Column(String, default="cash")
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    customer = relationship("Customer", back_populates="payments")
+
+    __table_args__ = (
+        Index("ix_cust_pay_customer_created", "customer_id", "created_at"),
+    )
+
+
 class Sale(Base):
     __tablename__ = "sales"
 
@@ -67,7 +98,10 @@ class Sale(Base):
     invoice_no = Column(String, unique=True, index=True)
     status = Column(String, default="draft") # draft, completed, cancelled
     payment_method = Column(String, default="cash") # cash, card, etc.
-    
+
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    customer = relationship("Customer", back_populates="sales")
+
     subtotal = Column(Float, default=0.0)
     discount_value = Column(Float, default=0.0)
     discount_type = Column(String, default="fixed") # fixed, percentage
