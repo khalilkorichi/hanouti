@@ -50,11 +50,11 @@ export default function BulkActionsBar({
                 borderRadius: 2.5,
                 border: `1.5px solid ${alpha(
                     active ? theme.palette.primary.main : theme.palette.divider,
-                    active ? 0.35 : 0.5
+                    active ? 0.35 : 0.4
                 )}`,
                 background: active
                     ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.secondary.main, 0.03)})`
-                    : alpha(theme.palette.action.hover, 0.3),
+                    : 'transparent',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
@@ -66,8 +66,18 @@ export default function BulkActionsBar({
             <Chip
                 label={count > 0 ? `${count} محدد` : 'لا يوجد تحديد'}
                 size="small"
-                color={active ? 'primary' : 'default'}
-                sx={{ fontWeight: 800, fontSize: '0.78rem', minWidth: 76 }}
+                color="primary"
+                variant={active ? 'filled' : 'outlined'}
+                sx={{
+                    fontWeight: 800,
+                    fontSize: '0.78rem',
+                    minWidth: 76,
+                    ...(active ? {} : {
+                        borderColor: alpha(theme.palette.primary.main, 0.4),
+                        color: theme.palette.text.secondary,
+                        bgcolor: 'transparent',
+                    }),
+                }}
             />
 
             {/* Select All toggle button */}
