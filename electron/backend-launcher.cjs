@@ -61,8 +61,14 @@ async function startBackend(appDir, userDataDir, isDev) {
   fs.mkdirSync(dataDir, { recursive: true });
   const dbPath = path.join(dataDir, 'hanouti.db');
 
+  // Auto-backup snapshots must live in durable user data, not the
+  // PyInstaller bundle's extraction directory (which is wiped on each launch).
+  const backupDir = path.join(userDataDir, 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+
   log.info('[backend] launching', exePath);
   log.info('[backend] db path', dbPath);
+  log.info('[backend] backup dir', backupDir);
 
   child = spawn(exePath, [], {
     cwd: path.dirname(exePath),
@@ -71,6 +77,7 @@ async function startBackend(appDir, userDataDir, isDev) {
       HANOUTI_DB_PATH: dbPath,
       HANOUTI_HOST: BACKEND_HOST,
       HANOUTI_PORT: String(BACKEND_PORT),
+      HANOUTI_BACKUP_DIR: backupDir,
       DATABASE_URL: `sqlite:///${dbPath.replace(/\\/g, '/')}`,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

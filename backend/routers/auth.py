@@ -13,9 +13,11 @@ from routers.backup import write_auto_backup
 
 
 def _safe_login_snapshot() -> None:
-    """Best-effort login snapshot, throttled to once per 24h."""
+    """Best-effort snapshot on every successful login. Failures are logged
+    but never block authentication. The 7-file rotation in write_auto_backup
+    bounds disk usage; the daily lifespan loop is a separate trigger."""
     try:
-        write_auto_backup(tag="login", min_interval_seconds=24 * 60 * 60)
+        write_auto_backup(tag="login")
     except Exception as e:  # pragma: no cover
         print(f"[login-backup] failed: {e}")
 

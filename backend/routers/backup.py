@@ -280,29 +280,48 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
             if old_id is not None:
                 sale_map[int(old_id)] = obj.id
 
-        # Sale items (depend on sales + products)
+        # Sale items (depend on sales + products) — fail fast on bad refs
         for row in data.get("sale_items", []):
             payload = _filter_columns(models.SaleItem, row)
             old_sale = payload.get("sale_id")
             old_prod = payload.get("product_id")
-            new_sale = sale_map.get(int(old_sale)) if old_sale is not None else None
-            new_prod = prod_map.get(int(old_prod)) if old_prod is not None else None
+            if old_sale is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="عنصر بيع بدون مرجع للفاتورة (sale_id) — الملف تالف.",
+                )
+            new_sale = sale_map.get(int(old_sale))
             if new_sale is None:
-                continue  # orphaned line — skip rather than break the transaction
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"عنصر بيع يشير إلى فاتورة غير موجودة (sale_id={old_sale}).",
+                )
+            new_prod = prod_map.get(int(old_prod)) if old_prod is not None else None
+            if old_prod is not None and new_prod is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"عنصر بيع يشير إلى منتج غير موجود (product_id={old_prod}).",
+                )
             payload["sale_id"] = new_sale
             payload["product_id"] = new_prod
             db.add(models.SaleItem(**payload))
 
-        # Customer payments (depend on customers)
+        # Customer payments (depend on customers) — fail fast on bad refs
         for row in data.get("customer_payments", []):
             old_id = row.get("id")
             payload = _filter_columns(models.CustomerPayment, row)
             old_cust = payload.get("customer_id")
             if old_cust is None:
-                continue
+                raise HTTPException(
+                    status_code=400,
+                    detail="دفعة عميل بدون مرجع للعميل (customer_id) — الملف تالف.",
+                )
             new_cust = cust_map.get(int(old_cust))
             if new_cust is None:
-                continue
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"دفعة عميل تشير إلى عميل غير موجود (customer_id={old_cust}).",
+                )
             payload["customer_id"] = new_cust
             obj = models.CustomerPayment(**payload)
             db.add(obj)
@@ -310,15 +329,28 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
             if old_id is not None:
                 pay_map[int(old_id)] = obj.id
 
-        # Allocations (depend on payments + sales)
+        # Allocations (depend on payments + sales) — fail fast
         for row in data.get("customer_payment_allocations", []):
             payload = _filter_columns(models.CustomerPaymentAllocation, row)
             old_pay = payload.get("payment_id")
             old_sale = payload.get("sale_id")
-            new_pay = pay_map.get(int(old_pay)) if old_pay is not None else None
-            new_sale = sale_map.get(int(old_sale)) if old_sale is not None else None
-            if new_pay is None or new_sale is None:
-                continue
+            if old_pay is None or old_sale is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="تخصيص دفعة بدون مرجع للدفعة أو الفاتورة — الملف تالف.",
+                )
+            new_pay = pay_map.get(int(old_pay))
+            new_sale = sale_map.get(int(old_sale))
+            if new_pay is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"تخصيص دفعة يشير إلى دفعة غير موجودة (payment_id={old_pay}).",
+                )
+            if new_sale is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"تخصيص دفعة يشير إلى فاتورة غير موجودة (sale_id={old_sale}).",
+                )
             payload["payment_id"] = new_pay
             payload["sale_id"] = new_sale
             db.add(models.CustomerPaymentAllocation(**payload))
@@ -327,17 +359,31 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
         for row in data.get("stock_movements", []):
             payload = _filter_columns(models.StockMovement, row)
             old_prod = payload.get("product_id")
-            new_prod = prod_map.get(int(old_prod)) if old_prod is not None else None
+            if old_prod is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="حركة مخزون بدون مرجع للمنتج — الملف تالف.",
+                )
+            new_prod = prod_map.get(int(old_prod))
             if new_prod is None:
-                continue
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"حركة مخزون تشير إلى منتج غير موجود (product_id={old_prod}).",
+                )
             payload["product_id"] = new_prod
             ref_type = (payload.get("ref_type") or "").lower()
             old_ref = payload.get("ref_id")
             if ref_type == "sale" and old_ref is not None:
                 try:
-                    payload["ref_id"] = sale_map.get(int(old_ref))
+                    new_ref = sale_map.get(int(old_ref))
                 except (TypeError, ValueError):
-                    payload["ref_id"] = None
+                    new_ref = None
+                if new_ref is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"حركة مخزون تشير إلى فاتورة غير موجودة (ref_id={old_ref}).",
+                    )
+                payload["ref_id"] = new_ref
             db.add(models.StockMovement(**payload))
 
         # Store profile (single row)
