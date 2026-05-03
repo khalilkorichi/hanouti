@@ -255,63 +255,57 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                     },
                 },
                 /* ──────────────────────────────────────────────
-                   Switch — تصميم احترافيّ نظيف (RTL: الكرة تنزلق يساراً عند التفعيل)
-                   الأبعاد: 52×28 — الكرة: 22 — الإزاحة: 22
+                   Switch — تصميم نظيف يعتمد على سلوك MUI القياسيّ
+                   (stylis-plugin-rtl يقلب الاتّجاه تلقائيّاً)
                 ────────────────────────────────────────────── */
                 MuiSwitch: {
                     defaultProps: { disableRipple: true },
                     styleOverrides: {
                         root: {
-                            width: 52,
-                            height: 28,
+                            width: 46,
+                            height: 26,
                             padding: 0,
                             overflow: 'visible',
                             display: 'inline-flex',
-                            alignItems: 'center',
                             verticalAlign: 'middle',
                         },
                         switchBase: {
-                            padding: 0,
-                            margin: 3,
-                            top: 0,
-                            // الإيقاف: الكرة على اليمين (RTL) عبر translateX
-                            transform: 'translateX(24px)',
-                            transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+                            padding: 3,
+                            transitionDuration: '300ms',
                             '&.Mui-checked': {
-                                // التفعيل: الكرة تنزلق إلى اليسار
-                                transform: 'translateX(0px)',
+                                transform: 'translateX(20px)',
                                 color: '#FFFFFF',
                                 '& + .MuiSwitch-track': {
                                     opacity: 1,
-                                    border: `1px solid ${primaryColor}`,
                                     backgroundColor: primaryColor,
-                                    backgroundImage: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}E0 100%)`,
-                                    boxShadow: `0 4px 12px ${primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                                    backgroundImage: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}E6 100%)`,
+                                    border: `1px solid ${primaryColor}`,
+                                    boxShadow: `0 2px 8px ${primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.18)`,
                                 },
                             },
                             '&.Mui-disabled': {
-                                '& + .MuiSwitch-track': { opacity: isLight ? 0.5 : 0.4 },
+                                '& + .MuiSwitch-track': { opacity: 0.4 },
                                 '& .MuiSwitch-thumb': { opacity: 0.7 },
                             },
                             '&:hover': { backgroundColor: 'transparent' },
                         },
                         thumb: {
-                            width: 22,
-                            height: 22,
+                            boxSizing: 'border-box',
+                            width: 20,
+                            height: 20,
                             borderRadius: '50%',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.12)',
-                            transition: 'box-shadow 0.2s ease',
                         },
                         track: {
-                            borderRadius: 999,
+                            borderRadius: 13,
                             opacity: 1,
                             border: `1px solid ${isLight ? '#CBD5E1' : '#334155'}`,
                             backgroundColor: isLight ? '#E2E8F0' : '#1E293B',
                             boxShadow: isLight
-                                ? 'inset 0 1px 2px rgba(15,23,42,0.08)'
+                                ? 'inset 0 1px 2px rgba(15,23,42,0.06)'
                                 : 'inset 0 1px 2px rgba(0,0,0,0.4)',
-                            transition: 'background-color 0.32s ease, border-color 0.25s ease, box-shadow 0.32s ease, opacity 0.25s ease',
+                            transition: 'background-color 300ms ease, border-color 200ms ease, box-shadow 300ms ease, opacity 200ms ease',
                         },
                     },
                 },
