@@ -9,7 +9,8 @@ Hanouti is an AI-powered Smart Inventory and Point of Sale (POS) system for reta
 - **Database**: SQLite with WAL mode, 64MB cache, 256MB mmap, NORMAL synchronous, 5s busy timeout (default `backend/hanouti.db`), PostgreSQL with connection pool (10+20) supported via `DATABASE_URL` env var
 - **Composite DB indexes**: products(category_id+is_active, stock_qty+min_qty, is_active+name), sales(status+created_at, created_at), sale_items(sale_id, product_id, sale_id+product_id), stock_movements(product_id+created_at)
 - **Code splitting + preload**: Pages are lazy-loaded via `React.lazy + Suspense`. After login, all routes are preloaded in background via `requestIdleCallback` for instant navigation.
-- **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer
+- **Hooks**: `src/hooks/useDebounce.ts` — 350ms debounce applied to search inputs in Inventory, SalesList, ProductExplorer; `src/hooks/useKeyboardShortcuts.ts` — window-level shortcut hook used by the Sales page (auto-skips typing targets unless `allowInInputs`, supports `plus`/`minus`/`esc` synonyms with layout-correct shift handling)
+- **Cashier speed (v1.0.12)**: Sales page exposes imperative handles on `ProductExplorer` (`focusSearch`, `clearSearch`) and `CartPanel` (`focusDiscount`, `triggerCheckout`, `togglePayment`, `clearCart`) and wires shortcuts F1 help, F2 search, F3 barcode, F4 discount, F8 toggle payment, F9 checkout, F10 clear, +/- adjust last item, Shift+? help. Barcode quick-add input (`BarcodeQuickAdd`) accepts `N*BARCODE` multiplier syntax and resolves via `GET /products/by-barcode/{code}`.
 
 ## Desktop Edition (Windows .exe)
 

@@ -14,7 +14,7 @@ import {
 import { useCartStore } from '../../store/cartStore';
 import { useDroppable } from '@dnd-kit/core';
 import { CustomButton, UnifiedModal } from '../Common';
-import { useState, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesService, type Sale } from '../../services/salesService';
 import { productService } from '../../services/productService';
@@ -29,7 +29,16 @@ interface EditProductForm {
     stock_qty: number;
 }
 
-export default function CartPanel() {
+export interface CartPanelHandle {
+    focusDiscount: () => void;
+    triggerCheckout: () => void;
+    togglePayment: () => void;
+    clearCart: () => void;
+}
+
+type CartPanelProps = Record<string, never>;
+
+const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
 
@@ -44,6 +53,7 @@ export default function CartPanel() {
     const [completedSale, setCompletedSale] = useState<Sale | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const receiptRef = useRef<HTMLDivElement>(null);
+    const discountInputRef = useRef<HTMLInputElement>(null);
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
 
@@ -142,6 +152,29 @@ export default function CartPanel() {
     const discount = getDiscount();
     const total = getTotal();
     const isProcessing = createSaleMutation.isPending || completeSaleMutation.isPending;
+
+    useImperativeHandle(ref, () => ({
+        focusDiscount: () => {
+            discountInputRef.current?.focus();
+            discountInputRef.current?.select();
+        },
+        triggerCheckout: () => {
+            if (items.length === 0 || isProcessing) return;
+            handleCheckout();
+        },
+        togglePayment: () => {
+            setPaymentMethod(prev => (prev === 'cash' ? 'card' : 'cash'));
+            showNotification(
+                paymentMethod === 'cash' ? 'تم التحويل إلى الدفع بالبطاقة' : 'تم التحويل إلى الدفع نقداً',
+                'info',
+            );
+        },
+        clearCart: () => {
+            if (items.length === 0) return;
+            clearCart();
+            showNotification('تم تفريغ السلة', 'info');
+        },
+    }), [items.length, isProcessing, paymentMethod, clearCart, showNotification]);
 
     return (
         <Paper
@@ -347,9 +380,10 @@ export default function CartPanel() {
                     {/* Discount & Payment */}
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <TextField
-                            label="الخصم"
+                            label="الخصم (F4)"
                             size="small"
                             type="number"
+                            inputRef={discountInputRef}
                             value={discountValue}
                             onChange={(e) => setDiscount(Number(e.target.value), discountType)}
                             InputProps={{
@@ -510,4 +544,8 @@ export default function CartPanel() {
             </div>
         </Paper>
     );
-}
+});
+
+CartPanel.displayName = 'CartPanel';
+
+export default CartPanel;

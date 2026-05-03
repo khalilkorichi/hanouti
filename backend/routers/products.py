@@ -40,6 +40,15 @@ def get_products_count(
     count = crud.get_products_count(db, query=query, category_id=category_id)
     return {"count": count}
 
+@router.get("/by-barcode/{barcode}", response_model=schemas.Product)
+def get_product_by_barcode(barcode: str, db: Session = Depends(database.get_db)):
+    """Exact-match barcode lookup for cashier quick-add. Returns 404 if not found
+    so the frontend can fall back to fuzzy search or surface a 'not found' toast."""
+    product = crud.get_product_by_barcode(db, barcode=barcode)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product with this barcode not found")
+    return product
+
 @router.get("/{product_id}", response_model=schemas.Product)
 def get_product(product_id: int, db: Session = Depends(database.get_db)):
     """Get a specific product"""

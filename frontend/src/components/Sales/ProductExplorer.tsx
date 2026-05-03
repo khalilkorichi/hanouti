@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useDebounce } from '../../hooks/useDebounce';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
@@ -89,12 +89,28 @@ const ProductCard = ({ product }: { product: Product }) => {
     );
 };
 
-export default function ProductExplorer() {
+export interface ProductExplorerHandle {
+    focusSearch: () => void;
+    clearSearch: () => void;
+}
+
+type ProductExplorerProps = Record<string, never>;
+
+const ProductExplorer = forwardRef<ProductExplorerHandle, ProductExplorerProps>((_props, ref) => {
     const theme = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebounce(searchQuery, 300);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
     const [page, setPage] = useState(1);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        focusSearch: () => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+        },
+        clearSearch: () => setSearchQuery(''),
+    }), []);
 
     // Reset to first page whenever the active search term or category changes
     // (debouncedSearch lags the input, so this also waits the debounce window).
@@ -148,9 +164,10 @@ export default function ProductExplorer() {
                 <SearchInput
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    placeholder="بحث عن منتج للإضافة للسلة..."
+                    placeholder="بحث عن منتج للإضافة للسلة... (F2)"
                     isLoading={isLoading}
                     sx={{ mb: 2 }}
+                    inputRef={searchInputRef}
                 />
 
                 <Tabs
@@ -246,4 +263,8 @@ export default function ProductExplorer() {
             )}
         </Box>
     );
-}
+});
+
+ProductExplorer.displayName = 'ProductExplorer';
+
+export default ProductExplorer;

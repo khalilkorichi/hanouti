@@ -60,6 +60,20 @@ export const productService = {
         const response = await api.get<Product>(`/products/${id}`);
         return response.data;
     },
+    /**
+     * Exact-match barcode lookup. Returns null on 404 (no product) instead of
+     * throwing, so callers can chain into fuzzy search without try/catch.
+     */
+    getByBarcode: async (barcode: string): Promise<Product | null> => {
+        try {
+            const response = await api.get<Product>(`/products/by-barcode/${encodeURIComponent(barcode)}`);
+            return response.data;
+        } catch (err: unknown) {
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            if (status === 404) return null;
+            throw err;
+        }
+    },
     create: async (data: ProductCreate) => {
         const response = await api.post<Product>('/products/', data);
         return response.data;

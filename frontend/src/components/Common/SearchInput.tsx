@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type RefObject } from 'react';
 import {
     InputBase, Box, IconButton, CircularProgress,
     alpha, type SxProps, type Theme,
@@ -17,6 +17,8 @@ interface SearchInputProps {
     size?: 'small' | 'medium';
     sx?: SxProps<Theme>;
     autoFocus?: boolean;
+    /** Optional ref forwarded to the underlying <input>. */
+    inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export default function SearchInput({
@@ -28,8 +30,10 @@ export default function SearchInput({
     size = 'small',
     sx,
     autoFocus,
+    inputRef: externalRef,
 }: SearchInputProps) {
-    const inputRef = useRef<HTMLInputElement>(null);
+    const internalRef = useRef<HTMLInputElement>(null);
+    const inputRef = externalRef ?? internalRef;
     const hasValue = value.length > 0;
     const height = size === 'small' ? 40 : 48;
     const iconSize = size === 'small' ? 20 : 22;
