@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import models, database
+from routers.backup import write_auto_backup
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -56,6 +57,12 @@ def factory_reset(
             status_code=400,
             detail=f"تأكيد غير صحيح. يجب إرسال كلمة التأكيد '{CONFIRM_PHRASE}'.",
         )
+
+    # Take an automatic safety snapshot before wiping everything.
+    try:
+        write_auto_backup(tag="pre-reset")
+    except Exception as e:  # pragma: no cover
+        print(f"[factory-reset] pre-reset snapshot failed: {e}")
 
     try:
         # Delete in FK-safe order

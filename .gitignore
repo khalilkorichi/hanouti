@@ -29,3 +29,7 @@ build/pyinstaller-spec/
 # OS
 .DS_Store
 Thumbs.db
+
+# Auto-backup snapshots (runtime user data)
+backend/backups/
+

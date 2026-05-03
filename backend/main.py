@@ -1,9 +1,12 @@
+import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import models, database, crud, schemas
 from routers import auth, products, categories, sales, inventory, reports, backup, store_profile, admin, customers
+from routers.backup import write_auto_backup
 from sqlalchemy import text as _sql_text
 
 models.Base.metadata.create_all(bind=database.engine)
@@ -44,6 +47,26 @@ def _run_lightweight_migrations():
 _run_lightweight_migrations()
 
 
+async def _auto_backup_loop():
+    """Write a snapshot at startup and once every 24 hours of continuous use."""
+    INTERVAL_SECONDS = 24 * 60 * 60
+    # Initial snapshot shortly after startup so a fresh launch is always safe.
+    await asyncio.sleep(5)
+    last_date: str | None = None
+    while True:
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            if today != last_date:
+                write_auto_backup(tag="daily")
+                last_date = today
+        except Exception as e:  # pragma: no cover
+            print(f"[auto-backup] loop error: {e}")
+        try:
+            await asyncio.sleep(INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            break
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db = database.SessionLocal()
@@ -55,7 +78,16 @@ async def lifespan(app: FastAPI):
             print("Created default admin user with password: 1234")
     finally:
         db.close()
-    yield
+
+    backup_task = asyncio.create_task(_auto_backup_loop())
+    try:
+        yield
+    finally:
+        backup_task.cancel()
+        try:
+            await backup_task
+        except (asyncio.CancelledError, Exception):
+            pass
 
 
 app = FastAPI(title="Hanouti API", version="1.0.0", lifespan=lifespan)

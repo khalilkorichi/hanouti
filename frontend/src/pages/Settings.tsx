@@ -28,6 +28,9 @@ import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
 import UpdaterPanel from '../components/Settings/UpdaterPanel';
 import FactoryResetCard from '../components/Settings/FactoryResetCard';
+import RestoreBackupDialog from '../components/Settings/RestoreBackupDialog';
+import AutoBackupsCard from '../components/Settings/AutoBackupsCard';
+import { backupService } from '../services/backupService';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -62,21 +65,29 @@ export default function Settings() {
 
     const [activeSection, setActiveSection] = useState<SectionKey>('profile');
     const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+    const [openRestoreDialog, setOpenRestoreDialog] = useState(false);
     const [username, setUsername] = useState('المسؤول');
     const [email] = useState('admin@hanouti.com');
     const handleSaveProfile = () => {
         showNotification('تم حفظ بيانات الملف الشخصي', 'success', { title: 'تم الحفظ' });
     };
 
-    const handleBackup = () => {
-        const data = JSON.stringify({ date: new Date(), app: 'Hanouti', version: '1.0.0' }, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `hanouti_backup_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        showNotification('تم تصدير النسخة الاحتياطية', 'success');
+    const handleBackup = async () => {
+        try {
+            const blob = await backupService.exportSnapshot();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hanouti_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification('تم تصدير النسخة الاحتياطية', 'success');
+        } catch (e) {
+            console.error('[backup] export failed:', e);
+            showNotification('تعذّر تصدير النسخة الاحتياطية', 'error');
+        }
     };
 
     const activeNav = NAV_ITEMS.find(n => n.key === activeSection)!;
@@ -460,14 +471,27 @@ export default function Settings() {
                                     <Typography variant="body2" color="text.secondary" textAlign="center">
                                         استعادة البيانات من ملف نسخة احتياطية سابق
                                     </Typography>
-                                    <CustomButton variant="outlined" component="label" fullWidth startIcon={<UploadIcon />}
-                                        sx={{ borderColor: '#8B5CF6', color: '#8B5CF6', '&:hover': { borderColor: '#7C3AED', bgcolor: alpha('#8B5CF6', 0.05) } }}>
+                                    <CustomButton
+                                        variant="outlined"
+                                        fullWidth
+                                        startIcon={<UploadIcon />}
+                                        onClick={() => setOpenRestoreDialog(true)}
+                                        sx={{
+                                            borderColor: '#8B5CF6',
+                                            color: '#8B5CF6',
+                                            '&:hover': {
+                                                borderColor: '#7C3AED',
+                                                bgcolor: alpha('#8B5CF6', 0.05),
+                                            },
+                                        }}
+                                    >
                                         رفع ملف النسخة
-                                        <input type="file" hidden accept=".json" />
                                     </CustomButton>
                                 </Box>
                             </SettingsCard>
                         </Box>
+
+                        <AutoBackupsCard />
 
                         <FactoryResetCard />
                     </Stack>
@@ -588,6 +612,10 @@ export default function Settings() {
             </Box>
 
             <ChangePasswordDialog open={openPasswordDialog} onClose={() => setOpenPasswordDialog(false)} />
+            <RestoreBackupDialog
+                open={openRestoreDialog}
+                onClose={() => setOpenRestoreDialog(false)}
+            />
         </Box>
     );
 }

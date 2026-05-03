@@ -21,6 +21,8 @@ import OnboardingStep from './OnboardingStep';
 import { onboardingQuestions } from '../../data/onboardingQuestions';
 import { updateStoreProfile, type StoreProfile } from '../../services/storeProfileService';
 import { useSettingsStore } from '../../store/settingsStore';
+import RestoreBackupDialog from '../Settings/RestoreBackupDialog';
+import { RestoreRounded } from '@mui/icons-material';
 
 interface OnboardingWizardProps {
     open: boolean;
@@ -39,6 +41,7 @@ export default function OnboardingWizard({ open, onComplete }: OnboardingWizardP
     const [answers, setAnswers] = useState<AnswerMap>({});
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [restoreOpen, setRestoreOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const applyStoreProfile = useSettingsStore((s) => s.applyStoreProfile);
@@ -198,7 +201,9 @@ export default function OnboardingWizard({ open, onComplete }: OnboardingWizardP
                         unmountOnExit
                     >
                         <Box sx={{ width: '100%', maxWidth: 820, mx: 'auto' }}>
-                            {isWelcome && <WelcomeScreen />}
+                            {isWelcome && (
+                                <WelcomeScreen onRestoreClick={() => setRestoreOpen(true)} />
+                            )}
 
                             {currentQuestion && (
                                 <OnboardingStep
@@ -300,11 +305,15 @@ export default function OnboardingWizard({ open, onComplete }: OnboardingWizardP
                     </Box>
                 </Box>
             </Box>
+            <RestoreBackupDialog
+                open={restoreOpen}
+                onClose={() => setRestoreOpen(false)}
+            />
         </Dialog>
     );
 }
 
-function WelcomeScreen() {
+function WelcomeScreen({ onRestoreClick }: { onRestoreClick: () => void }) {
     const theme = useTheme();
     return (
         <Box sx={{ textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
@@ -338,6 +347,24 @@ function WelcomeScreen() {
             <Typography variant="body1" color="text.secondary">
                 سنطرح عليك ٤ أسئلة سريعة لنخصص لوحة التحكم لطبيعة نشاطك.
             </Typography>
+            <Box sx={{ mt: 4 }}>
+                <Button
+                    onClick={onRestoreClick}
+                    startIcon={<RestoreRounded />}
+                    sx={{
+                        borderRadius: 2,
+                        fontWeight: 600,
+                        color: theme.palette.text.secondary,
+                        textDecoration: 'underline',
+                        '&:hover': {
+                            color: theme.palette.primary.main,
+                            bgcolor: alpha(theme.palette.primary.main, 0.06),
+                        },
+                    }}
+                >
+                    لديّ نسخة احتياطية لاستعادتها
+                </Button>
+            </Box>
         </Box>
     );
 }
