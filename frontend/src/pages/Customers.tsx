@@ -600,9 +600,6 @@ function CustomerDetailDrawer({
     const theme = useTheme();
     const [tab, setTab] = useState(0);
 
-    // Refetch the customer record so the drawer header (totals/debt) stays in
-    // sync after a payment is recorded — the parent prop is a snapshot and may
-    // hold stale numbers until the customers list query refetches.
     const { data: freshCustomer } = useQuery({
         queryKey: ['customer-detail', customer?.id],
         queryFn: () => customerService.get(customer!.id),

@@ -1,7 +1,7 @@
 import {
     Box, Typography, IconButton, Divider, TextField, Select, MenuItem,
     FormControl, InputLabel, Paper, Stack, Chip, alpha, useTheme, Tooltip,
-    Autocomplete, Collapse,
+    Autocomplete,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -12,8 +12,6 @@ import {
     Edit as EditIcon,
     ShoppingCartOutlined as EmptyCartIcon,
     PersonAddRounded as PersonAddIcon,
-    UnfoldLessRounded as CollapseAllIcon,
-    UnfoldMoreRounded as ExpandAllIcon,
 } from '@mui/icons-material';
 import { useCartStore } from '../../store/cartStore';
 import { useDroppable } from '@dnd-kit/core';
@@ -57,9 +55,6 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
 
     const { setNodeRef, isOver } = useDroppable({ id: 'cart-droppable' });
     const [paymentMethod, setPaymentMethod] = useState('cash');
-    // When true the cart shows only a compact one-line summary per item
-    // (name × qty = total). When false the user sees full edit controls.
-    const [itemsCollapsed, setItemsCollapsed] = useState(false);
     const [completedSale, setCompletedSale] = useState<Sale | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -268,40 +263,16 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                 <Typography variant="h6" fontWeight={700}>
                     السلة
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <Chip
-                        label={items.length}
-                        size="small"
-                        sx={{
-                            bgcolor: 'rgba(255,255,255,0.25)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            height: 26
-                        }}
-                    />
-                    {items.length > 0 && (
-                        <Tooltip
-                            title={itemsCollapsed ? 'إظهار تفاصيل العناصر' : 'إخفاء تفاصيل العناصر'}
-                            placement="bottom"
-                        >
-                            <IconButton
-                                size="small"
-                                onClick={() => setItemsCollapsed((v) => !v)}
-                                sx={{
-                                    color: '#fff',
-                                    bgcolor: 'rgba(255,255,255,0.15)',
-                                    width: 28,
-                                    height: 28,
-                                    '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
-                                }}
-                            >
-                                {itemsCollapsed
-                                    ? <ExpandAllIcon sx={{ fontSize: 18 }} />
-                                    : <CollapseAllIcon sx={{ fontSize: 18 }} />}
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                </Box>
+                <Chip
+                    label={items.length}
+                    size="small"
+                    sx={{
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        height: 26
+                    }}
+                />
             </Box>
 
             {/* Items */}
@@ -352,9 +323,7 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                             {item.name}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {itemsCollapsed
-                                                ? `${item.qty} × ${item.sale_price} = ${(item.sale_price * item.qty).toFixed(0)} دج`
-                                                : `${item.sale_price} دج / وحدة`}
+                                            {item.sale_price} دج / وحدة
                                         </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
@@ -389,8 +358,7 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                     </Box>
                                 </Box>
 
-                                {/* Row 2: Qty controls + price editable + subtotal — hidden when collapsed */}
-                                <Collapse in={!itemsCollapsed} timeout={180} unmountOnExit>
+                                {/* Row 2: Qty controls + price editable + subtotal */}
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                         <IconButton
@@ -450,7 +418,6 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                         {(item.sale_price * item.qty).toFixed(0)} دج
                                     </Typography>
                                 </Box>
-                                </Collapse>
                             </Box>
                         ))}
                     </Box>

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Box, Toolbar, useMediaQuery, useTheme } from '@mui/material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
 import OnboardingWizard from '../Onboarding/OnboardingWizard';
 import useOnboarding from '../../hooks/useOnboarding';
 import api from '../../services/api';
-import { useSettingsStore } from '../../store/settingsStore';
 
 interface MainLayoutProps {
     children: ReactNode;
@@ -24,17 +23,8 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
     const [forcePasswordChange, setForcePasswordChange] = useState(false);
     const { showOnboarding, completeOnboarding } = useOnboarding();
     const navigate = useNavigate();
-    const location = useLocation();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-    const kioskMode = useSettingsStore((s) => s.kioskMode);
-
-    // While kiosk mode is active, lock the user to the POS screen.
-    useEffect(() => {
-        if (kioskMode && location.pathname !== '/sales') {
-            navigate('/sales', { replace: true });
-        }
-    }, [kioskMode, location.pathname, navigate]);
 
     void (collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH);
 
@@ -78,13 +68,13 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 onMenuClick={() => setMobileSidebarOpen(true)}
                 isDarkMode={isDarkMode}
                 onThemeToggle={onThemeToggle}
-                collapsed={kioskMode ? true : collapsed}
+                collapsed={collapsed}
                 onCollapseToggle={handleCollapseToggle}
-                isPermanent={!isMobile && !kioskMode}
+                isPermanent={!isMobile}
             />
 
-            {/* Desktop: permanent sidebar (hidden in kiosk mode) */}
-            {!isMobile && !kioskMode && (
+            {/* Desktop: permanent sidebar */}
+            {!isMobile && (
                 <Sidebar
                     open
                     onClose={() => {}}
@@ -94,8 +84,8 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 />
             )}
 
-            {/* Mobile: temporary drawer (hidden in kiosk mode) */}
-            {isMobile && !kioskMode && (
+            {/* Mobile: temporary drawer */}
+            {isMobile && (
                 <Sidebar
                     open={mobileSidebarOpen}
                     onClose={() => setMobileSidebarOpen(false)}
