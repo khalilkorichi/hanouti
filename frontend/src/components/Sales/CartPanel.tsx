@@ -71,7 +71,22 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
         onChange(Math.max(min, Math.min(next, item.stock_qty)));
     };
 
+    const setExact = (q: number) => {
+        const clamped = Math.max(min, Math.min(q, item.stock_qty));
+        onChange(roundQty(clamped, item.unit));
+    };
+
+    const presets: { label: string; value: number }[] = fractional
+        ? [
+            { label: '¼', value: 0.25 },
+            { label: '½', value: 0.5 },
+            { label: '¾', value: 0.75 },
+            { label: '1', value: 1 },
+        ]
+        : [];
+
     return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <IconButton
                 size="small"
@@ -140,6 +155,45 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
             >
                 <AddIcon sx={{ fontSize: 15 }} />
             </IconButton>
+        </Box>
+            {fractional && (
+                <Box sx={{ display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
+                    {presets.map((p) => {
+                        const active = Math.abs(item.qty - p.value) < 0.0005;
+                        return (
+                            <Box
+                                key={p.label}
+                                component="button"
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setExact(p.value); }}
+                                disabled={p.value > item.stock_qty}
+                                sx={{
+                                    cursor: 'pointer',
+                                    border: `1px solid ${alpha(theme.palette.primary.main, active ? 0.9 : 0.35)}`,
+                                    bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+                                    color: active ? 'primary.main' : 'text.secondary',
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem',
+                                    px: 0.75,
+                                    py: 0.1,
+                                    borderRadius: 1,
+                                    minWidth: 26,
+                                    height: 22,
+                                    lineHeight: 1,
+                                    transition: 'all 0.15s',
+                                    '&:hover:not(:disabled)': {
+                                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                        borderColor: alpha(theme.palette.primary.main, 0.7),
+                                    },
+                                    '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
+                                }}
+                            >
+                                {p.label}
+                            </Box>
+                        );
+                    })}
+                </Box>
+            )}
         </Box>
     );
 }
