@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useLocation } from 'react-router-dom';
 import { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
+import { useSettingsStore } from '../../store/settingsStore';
 import { useNotification, SEVERITY_CONFIG, type NotifHistoryItem } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -51,11 +52,12 @@ export default function Header({
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const { history, unreadCount, markAllAsRead, markAsRead, clearHistory } = useNotification();
+    const storeName = useSettingsStore((s) => s.storeName);
 
     const [bellAnchor, setBellAnchor] = useState<HTMLButtonElement | null>(null);
     const bellOpen = Boolean(bellAnchor);
 
-    const pageTitle = PAGE_TITLES[location.pathname] || 'حانوتي';
+    const pageTitle = PAGE_TITLES[location.pathname] || storeName;
     const sidebarWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
     const appBarRight = isPermanent && !isMobile ? sidebarWidth : 0;
 

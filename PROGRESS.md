@@ -1,6 +1,48 @@
 # ملخص التقدم في نظام حانوتي POS
 
-## تاريخ آخر تحديث: 2025-11-21
+## تاريخ آخر تحديث: 2026-05-03
+
+---
+
+## 🚀 ميزة جديدة (2026-05-03): معالج الإعداد الأولي (Onboarding Wizard)
+
+### الوصف
+عند فتح التطبيق لأول مرة بعد تسجيل الدخول، يظهر **معالج إعداد بملء الشاشة** يطرح ٤ أسئلة قصيرة (اسم المتجر، نوع النشاط، عدد الموظفين، الميزات المطلوبة)، ثم يحفظ الإجابات في `store_profile` في قاعدة البيانات ويُخصّص الواجهة (اسم المتجر في الشريط الجانبي والـ Header، إخفاء عناصر الـ Sidebar غير المختارة).
+
+### الملفات الجديدة
+**Backend:**
+- `backend/models.py` — إضافة موديل `StoreProfile`
+- `backend/schemas.py` — إضافة `StoreProfile` / `StoreProfileUpdate` (تم الإبقاء على ملف `schemas.py` الموحّد بدل إنشاء مجلد `schemas/` لتجنّب تعارض الاستيراد مع باقي المشروع)
+- `backend/routers/store_profile.py` — جديد: `GET/PUT /store-profile`
+- `backend/main.py` — تسجيل الـ router
+
+**Frontend:**
+- `frontend/src/services/storeProfileService.ts` — جديد
+- `frontend/src/store/settingsStore.ts` — جديد (Zustand + persist)
+- `frontend/src/data/onboardingQuestions.ts` — جديد
+- `frontend/src/hooks/useOnboarding.ts` — جديد
+- `frontend/src/components/Onboarding/OnboardingWizard.tsx` — جديد
+- `frontend/src/components/Onboarding/OnboardingStep.tsx` — جديد
+- `frontend/src/components/Onboarding/OnboardingOptionCard.tsx` — جديد
+- `frontend/src/components/Layout/MainLayout.tsx` — استدعاء `useOnboarding` وإظهار `OnboardingWizard`
+- `frontend/src/components/Layout/Sidebar.tsx` — فلترة العناصر حسب `features_needed` + اسم المتجر
+- `frontend/src/components/Layout/Header.tsx` — اسم المتجر كعنوان افتراضي
+
+### قائمة الفحص اليدوي
+- [ ] **أول تشغيل**: تسجيل الدخول → يظهر المعالج تلقائياً (شاشة ترحيب).
+- [ ] **شريط التقدم**: يتحرك عند الانتقال بين الخطوات.
+- [ ] **الانيميشن RTL**: التالي ينزلق من اليمين، السابق من اليسار (Slide).
+- [ ] **خطوة اسم المتجر**: لا يمكن المتابعة بدون نص.
+- [ ] **خطوة نوع النشاط**: اختيار واحد فقط، الكرت يتحوّل لونه عند التحديد + علامة ✓.
+- [ ] **خطوة عدد الموظفين**: اختيار واحد فقط.
+- [ ] **خطوة الميزات**: اختيار متعدد، يجب اختيار واحدة على الأقل.
+- [ ] **زر إنهاء الإعداد**: يحفظ في `/store-profile` (PUT) ويظهر شاشة الاحتفال.
+- [ ] **شاشة الاحتفال**: confetti CSS + علامة ✓ متحركة + اسم المتجر.
+- [ ] **بعد الإغلاق التلقائي (~2.6s)**: المعالج يختفي، اسم المتجر يظهر في Sidebar/Header.
+- [ ] **فلترة Sidebar**: العناصر غير المختارة في "الميزات" تختفي (تبقى لوحة التحكم والإعدادات دائماً).
+- [ ] **إعادة تحميل الصفحة**: المعالج لا يظهر مرة أخرى (`onboarding_completed = true`).
+- [ ] **زر السابق**: يعود خطوة دون فقدان الإجابات.
+- [ ] **اختبار API يدوي**: `curl http://localhost:8000/store-profile/` يُرجع JSON صحيح.
 
 ---
 

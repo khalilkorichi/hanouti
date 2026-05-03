@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar, { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import ChangePasswordDialog from '../Auth/ChangePasswordDialog';
+import OnboardingWizard from '../Onboarding/OnboardingWizard';
+import useOnboarding from '../../hooks/useOnboarding';
 import api from '../../services/api';
 
 interface MainLayoutProps {
@@ -19,6 +21,7 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
     const [forcePasswordChange, setForcePasswordChange] = useState(false);
+    const { showOnboarding, completeOnboarding } = useOnboarding();
     const navigate = useNavigate();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -113,6 +116,11 @@ export default function MainLayout({ children, isDarkMode, onThemeToggle }: Main
                 open={forcePasswordChange}
                 onClose={() => setForcePasswordChange(false)}
                 forceChange={true}
+            />
+
+            <OnboardingWizard
+                open={showOnboarding && !forcePasswordChange}
+                onComplete={completeOnboarding}
             />
         </Box>
     );

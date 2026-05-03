@@ -199,6 +199,30 @@ class StockMovement(StockMovementBase):
     class Config:
         from_attributes = True
 
+# ============ Store Profile Schemas ============
+class StoreProfileBase(BaseModel):
+    store_name: Optional[str] = None
+    business_type: Optional[str] = None
+    staff_count: Optional[str] = None
+    features_needed: Optional[list[str]] = None
+    onboarding_completed: bool = False
+
+
+class StoreProfileUpdate(BaseModel):
+    store_name: Optional[str] = None
+    business_type: Optional[str] = None
+    staff_count: Optional[str] = None
+    features_needed: Optional[list[str]] = None
+    onboarding_completed: Optional[bool] = None
+
+
+class StoreProfile(StoreProfileBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # ============ Inventory Adjustment ============
 class InventoryAdjustment(BaseModel):
     new_qty: int

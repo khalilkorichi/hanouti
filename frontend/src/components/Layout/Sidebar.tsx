@@ -25,6 +25,7 @@ import {
     StorefrontRounded as StoreIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface SidebarProps {
     open: boolean;
@@ -53,6 +54,9 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
     const location = useLocation();
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
+    const isPathVisible = useSettingsStore((s) => s.isPathVisible);
+    const storeName = useSettingsStore((s) => s.storeName);
+    const visibleMenu = menuItems.filter((item) => isPathVisible(item.path));
 
     return (
         <Box
@@ -104,7 +108,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                                 backgroundClip: 'text',
                             }}
                         >
-                            حانوتي
+                            {storeName}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" fontWeight={500}>
                             نظام POS
@@ -137,7 +141,7 @@ function SidebarContent({ onLogout, collapsed = false }: { onLogout: () => void;
                 )}
 
                 <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {menuItems.map((item) => {
+                    {visibleMenu.map((item) => {
                         const isActive = location.pathname === item.path;
                         return (
                             <ListItem key={item.text} disablePadding>

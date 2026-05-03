@@ -106,6 +106,19 @@ class SaleItem(Base):
         Index("ix_sale_items_sale_product", "sale_id", "product_id"),
     )
 
+class StoreProfile(Base):
+    __tablename__ = "store_profile"
+
+    id = Column(Integer, primary_key=True, index=True)
+    store_name = Column(String, nullable=True)
+    business_type = Column(String, nullable=True)
+    staff_count = Column(String, nullable=True)
+    features_needed = Column(String, nullable=True)  # comma-separated list
+    onboarding_completed = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
 class StockMovement(Base):
     __tablename__ = "stock_movements"
 
