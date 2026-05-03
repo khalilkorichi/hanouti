@@ -269,10 +269,13 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                         switchBase: {
                             padding: 3,
                             top: 0,
-                            left: 0,
+                            // البداية على اليمين (إيقاف) — مناسب لاتّجاه RTL
+                            left: 'auto',
+                            right: 0,
                             transition: 'transform 0.34s cubic-bezier(0.16, 1.05, 0.3, 1)',
                             '&.Mui-checked': {
-                                transform: 'translateX(24px)',
+                                // الإزاحة إلى اليسار عند التفعيل
+                                transform: 'translateX(-24px)',
                                 color: '#FFFFFF',
                                 '& + .MuiSwitch-track': {
                                     opacity: 1,
