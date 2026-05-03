@@ -254,62 +254,70 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                         root: { borderRadius: Math.max(r - 4, 4), transition },
                     },
                 },
-                /* ── Switch احترافيّ بنفس روح زرّ الأيقونة ── */
+                /* ── Switch احترافيّ متناسق مع روح زرّ الأيقونة ── */
                 MuiSwitch: {
-                    defaultProps: { disableRipple: false },
+                    defaultProps: { disableRipple: true },
                     styleOverrides: {
                         root: {
-                            width: 50,
-                            height: 28,
+                            width: 54,
+                            height: 30,
                             padding: 0,
                             overflow: 'visible',
+                            display: 'inline-flex',
+                            alignItems: 'center',
                         },
                         switchBase: {
                             padding: 3,
-                            transition: 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+                            top: 0,
+                            left: 0,
+                            transition: 'transform 0.34s cubic-bezier(0.16, 1.05, 0.3, 1)',
                             '&.Mui-checked': {
-                                transform: 'translateX(22px)',
+                                transform: 'translateX(24px)',
                                 color: '#FFFFFF',
                                 '& + .MuiSwitch-track': {
                                     opacity: 1,
-                                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}E6 100%)`,
-                                    boxShadow: `0 0 0 1px ${primaryColor}55, 0 4px 14px ${primaryColor}66`,
+                                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}D9 100%)`,
+                                    border: `1px solid ${primaryColor}`,
+                                    boxShadow: `0 0 0 4px ${primaryColor}1F, 0 4px 14px ${primaryColor}55, inset 0 1px 0 ${isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.18)'}`,
                                 },
                                 '& .MuiSwitch-thumb': {
-                                    boxShadow: `0 2px 6px ${primaryColor}80, 0 0 0 1px ${primaryColor}33 inset`,
+                                    boxShadow: `0 3px 8px ${primaryColor}80, 0 1px 2px rgba(0,0,0,0.18), 0 0 0 0.5px ${primaryColor}40`,
                                 },
                             },
                             '&.Mui-disabled': {
-                                '& + .MuiSwitch-track': { opacity: isLight ? 0.4 : 0.3 },
-                                '& .MuiSwitch-thumb': { opacity: 0.7 },
+                                '& + .MuiSwitch-track': { opacity: isLight ? 0.5 : 0.35 },
+                                '& .MuiSwitch-thumb': { opacity: 0.7, boxShadow: 'none' },
                             },
                             '&:hover': {
                                 backgroundColor: 'transparent',
-                                '& .MuiSwitch-thumb': {
-                                    transform: 'scale(1.08)',
-                                },
+                                '& .MuiSwitch-thumb': { transform: 'scale(1.08)' },
                             },
+                            '&:active .MuiSwitch-thumb': { transform: 'scale(0.94)' },
                         },
                         thumb: {
-                            width: 22,
-                            height: 22,
+                            width: 24,
+                            height: 24,
                             borderRadius: '50%',
                             background: isLight
-                                ? 'linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%)'
-                                : 'linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 100%)',
+                                ? 'radial-gradient(circle at 30% 30%, #FFFFFF 0%, #F1F5F9 100%)'
+                                : 'radial-gradient(circle at 30% 30%, #FFFFFF 0%, #E2E8F0 100%)',
                             boxShadow: isLight
-                                ? '0 2px 6px rgba(15,23,42,0.18), 0 0 0 1px rgba(15,23,42,0.06) inset'
-                                : '0 2px 6px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset',
-                            transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
+                                ? '0 2px 6px rgba(15,23,42,0.22), 0 1px 2px rgba(15,23,42,0.12), 0 0 0 0.5px rgba(15,23,42,0.06)'
+                                : '0 2px 8px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(0,0,0,0.2)',
+                            transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease',
                         },
                         track: {
-                            borderRadius: 14,
+                            borderRadius: 999,
                             opacity: 1,
-                            backgroundColor: isLight ? '#CBD5E1' : '#334155',
-                            transition: 'background 0.32s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.32s ease, opacity 0.25s ease',
+                            border: `1px solid ${isLight ? '#CBD5E1' : '#1E293B'}`,
+                            backgroundColor: isLight ? '#E2E8F0' : '#1E293B',
+                            backgroundImage: isLight
+                                ? 'linear-gradient(180deg, #DDE3EC 0%, #EAEFF6 100%)'
+                                : 'linear-gradient(180deg, #1A2334 0%, #243044 100%)',
                             boxShadow: isLight
-                                ? 'inset 0 1px 2px rgba(15,23,42,0.08)'
-                                : 'inset 0 1px 2px rgba(0,0,0,0.4)',
+                                ? 'inset 0 1px 2px rgba(15,23,42,0.10), inset 0 0 0 1px rgba(255,255,255,0.4)'
+                                : 'inset 0 1px 3px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(255,255,255,0.04)',
+                            transition: 'background 0.34s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.34s ease, border-color 0.25s ease, opacity 0.25s ease',
                         },
                     },
                 },
