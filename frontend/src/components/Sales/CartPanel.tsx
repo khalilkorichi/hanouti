@@ -82,7 +82,7 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                 sx={{
                     display: 'flex',
                     alignItems: 'stretch',
-                    height: 32,
+                    height: 28,
                     border: `1px solid ${stepperBorder}`,
                     borderRadius: 2,
                     overflow: 'hidden',
@@ -99,7 +99,7 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         border: 'none',
                         bgcolor: stepperBg,
                         color: theme.palette.primary.contrastText,
-                        width: 32,
+                        width: 24,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -108,7 +108,7 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
                     }}
                 >
-                    <RemoveIcon sx={{ fontSize: 18 }} />
+                    <RemoveIcon sx={{ fontSize: 14 }} />
                 </Box>
 
                 <Box
@@ -176,7 +176,7 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         border: 'none',
                         bgcolor: stepperBg,
                         color: theme.palette.primary.contrastText,
-                        width: 32,
+                        width: 24,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -185,7 +185,7 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
                     }}
                 >
-                    <AddIcon sx={{ fontSize: 18 }} />
+                    <AddIcon sx={{ fontSize: 14 }} />
                 </Box>
             </Box>
         </Box>
