@@ -11,11 +11,14 @@ import {
     CheckRounded as ConfirmIcon,
     CloseRounded as CancelCatIcon,
     LabelOutlined as CatIcon,
+    AutoAwesome as GenerateIcon,
 } from '@mui/icons-material';
 import { CustomInput, CustomButton, CustomSelect, CustomIconButton } from '../Common';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoryService, type Category } from '../../services/categoryService';
 import { productService, type Product, type ProductUpdate } from '../../services/productService';
+import { generateUniqueEan13 } from '../../utils/barcode';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const productSchema = z.object({
     name: z.string().min(1, 'اسم المنتج مطلوب'),
@@ -43,8 +46,27 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const [tabValue, setTabValue] = useState(0);
     const [showNewCat, setShowNewCat] = useState(false);
     const [newCatName, setNewCatName] = useState('');
+    const [generatingBarcode, setGeneratingBarcode] = useState(false);
     const queryClient = useQueryClient();
     const theme = useTheme();
+    const { showNotification } = useNotification();
+
+    const handleGenerateBarcode = async () => {
+        setGeneratingBarcode(true);
+        try {
+            const code = await generateUniqueEan13(async (candidate) => {
+                const found = await productService.getByBarcode(candidate);
+                return !!found;
+            });
+            setValue('barcode', code, { shouldDirty: true, shouldValidate: true });
+            showNotification('تم توليد باركود EAN-13 فريد', 'success');
+        } catch (e) {
+            const msg = (e as Error).message || 'تعذّر توليد باركود فريد';
+            showNotification(msg, 'error');
+        } finally {
+            setGeneratingBarcode(false);
+        }
+    };
 
     const { data: categories } = useQuery<Category[]>({
         queryKey: ['categories'],
@@ -162,18 +184,32 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                         )}
                     />
 
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Controller
-                            name="barcode"
-                            control={control}
-                            render={({ field }) => (
-                                <CustomInput
-                                    {...field}
-                                    label="الباركود"
-                                    fullWidth
-                                />
-                            )}
-                        />
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flex: 1 }}>
+                            <Controller
+                                name="barcode"
+                                control={control}
+                                render={({ field }) => (
+                                    <CustomInput
+                                        {...field}
+                                        label="الباركود"
+                                        fullWidth
+                                    />
+                                )}
+                            />
+                            <CustomIconButton
+                                tooltip="توليد باركود EAN-13 فريد"
+                                variant="primary"
+                                onClick={handleGenerateBarcode}
+                                disabled={generatingBarcode}
+                                sx={{ mt: 1, flexShrink: 0, border: '1.5px solid', borderColor: 'primary.main' }}
+                            >
+                                {generatingBarcode
+                                    ? <CircularProgress size={16} />
+                                    : <GenerateIcon fontSize="small" />
+                                }
+                            </CustomIconButton>
+                        </Box>
                         <Controller
                             name="sku"
                             control={control}

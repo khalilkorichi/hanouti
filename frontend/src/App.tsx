@@ -6,6 +6,7 @@ import MainLayout from './components/Layout/MainLayout';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import { AppThemeProvider, useAppTheme } from './contexts/ThemeContext';
 import { isElectron, getElectronUpdater, getElectronAPI } from './services/electronUpdater';
+import GlobalBarcodeShortcut from './components/GlobalBarcodeShortcut';
 
 // In Electron the page is loaded via file:// — BrowserRouter then sees the
 // pathname as the absolute file path (e.g. "/C:/Program%20Files/Hanouti/...")
@@ -70,7 +71,9 @@ const loadInventory      = () => import('./pages/Inventory');
 const loadReports        = () => import('./pages/Reports');
 const loadCustomers      = () => import('./pages/Customers');
 const loadComponentsDemo = () => import('./pages/ComponentsDemo');
+const loadBarcodePrintSheet = () => import('./pages/BarcodePrintSheet');
 
+const BarcodePrintSheet = lazy(loadBarcodePrintSheet);
 const Dashboard      = lazy(loadDashboard);
 const Login          = lazy(loadLogin);
 const Settings       = lazy(loadSettings);
@@ -171,6 +174,7 @@ function AppContent() {
 
     return (
         <Router>
+            <GlobalBarcodeShortcut />
             <Routes>
                 <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
                 <Route path="/"               element={wrap(Dashboard)} />
@@ -183,6 +187,7 @@ function AppContent() {
                 <Route path="/customers"      element={wrap(Customers)} />
                 <Route path="/settings"       element={wrap(Settings)} />
                 <Route path="/components-demo" element={wrap(ComponentsDemo)} />
+                <Route path="/print-barcodes" element={wrap(BarcodePrintSheet)} />
                 <Route path="*"              element={<Navigate to="/" replace />} />
             </Routes>
         </Router>

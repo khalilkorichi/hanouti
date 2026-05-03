@@ -69,8 +69,10 @@ export const useCartStore = create<CartState>()(
                 const item = state.items.find(i => i.id === productId);
                 if (!item) return { success: false, message: 'المنتج غير موجود' };
 
-                // Validate against stock
-                const validatedQty = Math.max(1, Math.min(qty, item.stock_qty));
+                // Weighed items (kg) can have fractional qty (e.g. 0.250 kg from a
+                // weight-EAN scan). Discrete units stay clamped at >= 1.
+                const minQty = item.unit === 'kg' ? 0.001 : 1;
+                const validatedQty = Math.max(minQty, Math.min(qty, item.stock_qty));
 
                 if (qty > item.stock_qty) {
                     set({

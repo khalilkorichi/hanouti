@@ -19,14 +19,18 @@ import {
     FileUpload as ImportIcon,
     FileDownloadOutlined as ExportCsvIcon,
     DeleteSweepOutlined as BulkDeleteIcon,
+    QrCode2 as BarcodeIcon,
+    Print as PrintBarcodeIcon,
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
+import { useNavigate } from 'react-router-dom';
 import { productService, type Product } from '../services/productService';
 import { UnifiedModal, CustomButton, CustomIconButton, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { Inventory2 as Inventory2Icon } from '@mui/icons-material';
 import { useNotification } from '../contexts/NotificationContext';
 import ProductForm from '../components/Products/ProductForm';
 import ImportProductsModal from '../components/Products/ImportProductsModal';
+import BarcodePreviewDialog from '../components/Products/BarcodePreviewDialog';
 
 export default function Products() {
     const queryClient = useQueryClient();
@@ -36,6 +40,8 @@ export default function Products() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
+    const navigate = useNavigate();
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
     const apiRef = useGridApiRef();
     const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
@@ -124,6 +130,21 @@ export default function Products() {
         queryClient.invalidateQueries({ queryKey: ['products'] });
         queryClient.invalidateQueries({ queryKey: ['products-count'] });
         queryClient.invalidateQueries({ queryKey: ['inventory-all-stats'] });
+    };
+
+    const handleBulkPrintBarcodes = () => {
+        const withBarcode = selectedProducts.filter(p => !!p.barcode);
+        if (withBarcode.length === 0) {
+            showNotification('لا يوجد باركود لأي من المنتجات المحددة. أضف باركود أولاً.', 'warning');
+            return;
+        }
+        if (withBarcode.length < selectedProducts.length) {
+            showNotification(
+                `سيتم تجاهل ${selectedProducts.length - withBarcode.length} منتج بدون باركود.`,
+                'info',
+            );
+        }
+        navigate('/print-barcodes', { state: { products: selectedProducts } });
     };
 
     const handleBulkExportCsv = () => {
@@ -250,6 +271,17 @@ export default function Products() {
             sortable: false,
             renderCell: (params: GridRenderCellParams) => (
                 <Box>
+                    <Tooltip title={(params.row as Product).barcode ? 'باركود' : 'لا يوجد باركود'}>
+                        <span>
+                            <CustomIconButton
+                                variant="primary"
+                                onClick={() => setBarcodeProduct(params.row as Product)}
+                                sx={{ ml: 0.5 }}
+                            >
+                                <BarcodeIcon fontSize="small" />
+                            </CustomIconButton>
+                        </span>
+                    </Tooltip>
                     <Tooltip title="تعديل">
                         <span>
                             <CustomIconButton
@@ -322,6 +354,11 @@ export default function Products() {
                     sx={{ borderRadius: 2, fontWeight: 700 }}>
                     حذف المحددة
                 </Button>
+                <Button size="small" startIcon={<PrintBarcodeIcon />} color="primary" variant="outlined"
+                    disabled={bulkLoading} onClick={handleBulkPrintBarcodes}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}>
+                    طباعة الباركود
+                </Button>
                 <Button size="small" startIcon={<ExportCsvIcon />} color="success" variant="outlined"
                     disabled={bulkLoading} onClick={handleBulkExportCsv}
                     sx={{ borderRadius: 2, fontWeight: 700 }}>
@@ -371,6 +408,12 @@ export default function Products() {
             <ImportProductsModal
                 open={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
+            />
+
+            <BarcodePreviewDialog
+                open={!!barcodeProduct}
+                onClose={() => setBarcodeProduct(null)}
+                product={barcodeProduct}
             />
         </Box>
     );
