@@ -23,10 +23,13 @@ interface SettingsState {
     staffCount: string | null;
     featuresNeeded: string[];
     visibleSidebarPaths: string[] | null;
+    posToolsCollapsed: boolean;
 
     applyStoreProfile: (profile: StoreProfile) => void;
     setStoreName: (name: string) => void;
     isPathVisible: (path: string) => boolean;
+    setPosToolsCollapsed: (v: boolean) => void;
+    togglePosToolsCollapsed: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -37,6 +40,7 @@ export const useSettingsStore = create<SettingsState>()(
             staffCount: null,
             featuresNeeded: [],
             visibleSidebarPaths: null,
+            posToolsCollapsed: false,
 
             applyStoreProfile: (profile) => {
                 const features = profile.features_needed || [];
@@ -67,6 +71,10 @@ export const useSettingsStore = create<SettingsState>()(
                 if (!visible) return true;
                 return visible.includes(path);
             },
+
+            setPosToolsCollapsed: (v) => set({ posToolsCollapsed: v }),
+            togglePosToolsCollapsed: () =>
+                set((s) => ({ posToolsCollapsed: !s.posToolsCollapsed })),
         }),
         {
             name: 'hanouti-settings',

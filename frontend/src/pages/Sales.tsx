@@ -87,6 +87,7 @@ export default function Sales() {
         { key: 'F2', label: 'باركود', handler: () => barcodeRef.current?.focus(), allowInInputs: true },
         { key: 'F3', label: 'بحث', handler: () => explorerRef.current?.focusSearch(), allowInInputs: true },
         { key: 'F4', label: 'خصم', handler: () => cartRef.current?.focusDiscount(), allowInInputs: true },
+        { key: 'F6', label: 'إخفاء/إظهار أدوات السلة', handler: () => cartRef.current?.togglePosTools(), allowInInputs: true },
         { key: 'F8', label: 'تبديل دفع', handler: () => cartRef.current?.togglePayment(), allowInInputs: true },
         { key: 'F9', label: 'إتمام البيع', handler: () => cartRef.current?.triggerCheckout(), allowInInputs: true },
         { key: 'F10', label: 'تفريغ السلة', handler: () => cartRef.current?.clearCart(), allowInInputs: true },

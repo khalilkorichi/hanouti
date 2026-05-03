@@ -1,7 +1,7 @@
 import {
     Box, Typography, IconButton, Divider, TextField, Select, MenuItem,
     FormControl, InputLabel, Paper, Stack, Chip, alpha, useTheme, Tooltip,
-    Autocomplete,
+    Autocomplete, Collapse,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -12,6 +12,8 @@ import {
     Edit as EditIcon,
     ShoppingCartOutlined as EmptyCartIcon,
     PersonAddRounded as PersonAddIcon,
+    UnfoldLess as CollapseIcon,
+    UnfoldMore as ExpandIcon,
 } from '@mui/icons-material';
 import { useCartStore } from '../../store/cartStore';
 import { useDroppable } from '@dnd-kit/core';
@@ -38,6 +40,7 @@ export interface CartPanelHandle {
     triggerCheckout: () => void;
     togglePayment: () => void;
     clearCart: () => void;
+    togglePosTools: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -66,6 +69,8 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
     const debtsEnabled = useSettingsStore((s) => s.isPathVisible('/customers'));
+    const posToolsCollapsed = useSettingsStore((s) => s.posToolsCollapsed);
+    const togglePosToolsCollapsed = useSettingsStore((s) => s.togglePosToolsCollapsed);
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers-list-cart'],
@@ -211,8 +216,13 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
 
     useImperativeHandle(ref, () => ({
         focusDiscount: () => {
-            discountInputRef.current?.focus();
-            discountInputRef.current?.select();
+            // Auto-expand the tools panel if it was hidden so the field is reachable.
+            if (posToolsCollapsed) togglePosToolsCollapsed();
+            // Defer focus one tick so the Collapse animation has mounted the input.
+            setTimeout(() => {
+                discountInputRef.current?.focus();
+                discountInputRef.current?.select();
+            }, posToolsCollapsed ? 220 : 0);
         },
         triggerCheckout: () => {
             if (items.length === 0 || isProcessing) return;
@@ -230,7 +240,10 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
             clearCart();
             showNotification('تم تفريغ السلة', 'info');
         },
-    }), [items.length, isProcessing, paymentMethod, clearCart, showNotification]);
+        togglePosTools: () => {
+            togglePosToolsCollapsed();
+        },
+    }), [items.length, isProcessing, paymentMethod, clearCart, showNotification, posToolsCollapsed, togglePosToolsCollapsed]);
 
     return (
         <Paper
@@ -263,16 +276,35 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                 <Typography variant="h6" fontWeight={700}>
                     السلة
                 </Typography>
-                <Chip
-                    label={items.length}
-                    size="small"
-                    sx={{
-                        bgcolor: 'rgba(255,255,255,0.25)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        height: 26
-                    }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                        label={items.length}
+                        size="small"
+                        sx={{
+                            bgcolor: 'rgba(255,255,255,0.25)',
+                            color: '#fff',
+                            fontWeight: 700,
+                            height: 26
+                        }}
+                    />
+                    <Tooltip title={posToolsCollapsed ? 'إظهار العميل والخصم والدفع (F6)' : 'إخفاء العميل والخصم والدفع (F6)'}>
+                        <IconButton
+                            size="small"
+                            onClick={togglePosToolsCollapsed}
+                            sx={{
+                                color: '#fff',
+                                bgcolor: 'rgba(255,255,255,0.15)',
+                                width: 28,
+                                height: 28,
+                                '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
+                            }}
+                        >
+                            {posToolsCollapsed
+                                ? <ExpandIcon sx={{ fontSize: 18 }} />
+                                : <CollapseIcon sx={{ fontSize: 18 }} />}
+                        </IconButton>
+                    </Tooltip>
+                </Box>
             </Box>
 
             {/* Items */}
@@ -433,6 +465,63 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                 }}
             >
                 <Stack spacing={1.5}>
+                    {/* Compact summary shown when tools are hidden */}
+                    {posToolsCollapsed && (
+                        <Box
+                            onClick={togglePosToolsCollapsed}
+                            role="button"
+                            sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.75,
+                                alignItems: 'center',
+                                px: 1.25,
+                                py: 0.75,
+                                borderRadius: 1.5,
+                                cursor: 'pointer',
+                                border: `1px dashed ${alpha(theme.palette.divider, 0.9)}`,
+                                bgcolor: isLight
+                                    ? alpha(theme.palette.primary.main, 0.04)
+                                    : alpha(theme.palette.primary.main, 0.10),
+                                '&:hover': {
+                                    borderColor: theme.palette.primary.main,
+                                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                },
+                            }}
+                        >
+                            <Chip
+                                size="small"
+                                label={`الدفع: ${paymentMethod === 'cash' ? 'نقداً' : 'بطاقة'}`}
+                                sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}
+                            />
+                            {discountValue > 0 && (
+                                <Chip
+                                    size="small"
+                                    color="success"
+                                    label={`خصم: ${discountValue}${discountType === 'percentage' ? '%' : ' دج'}`}
+                                    sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}
+                                />
+                            )}
+                            {debtsEnabled && selectedCustomer && (
+                                <Chip
+                                    size="small"
+                                    color="primary"
+                                    label={`العميل: ${selectedCustomer.name}`}
+                                    sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600, maxWidth: 180 }}
+                                />
+                            )}
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ ml: 'auto', fontWeight: 500 }}
+                            >
+                                F6 للتعديل
+                            </Typography>
+                        </Box>
+                    )}
+
+                    <Collapse in={!posToolsCollapsed} timeout={200} unmountOnExit>
+                        <Stack spacing={1.5}>
                     {/* Customer attach (debts feature) */}
                     {debtsEnabled && (
                         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
@@ -504,6 +593,8 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                             </Select>
                         </FormControl>
                     </Box>
+                        </Stack>
+                    </Collapse>
 
                     {/* Paid amount (debts feature only) */}
                     {debtsEnabled && (
