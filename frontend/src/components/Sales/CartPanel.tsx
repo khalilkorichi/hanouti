@@ -36,7 +36,8 @@ export interface CartPanelHandle {
     clearCart: () => void;
 }
 
-type CartPanelProps = Record<string, never>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface CartPanelProps {}
 
 const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
     const theme = useTheme();

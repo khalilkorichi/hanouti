@@ -94,7 +94,8 @@ export interface ProductExplorerHandle {
     clearSearch: () => void;
 }
 
-type ProductExplorerProps = Record<string, never>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface ProductExplorerProps {}
 
 const ProductExplorer = forwardRef<ProductExplorerHandle, ProductExplorerProps>((_props, ref) => {
     const theme = useTheme();
