@@ -71,22 +71,9 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
         onChange(Math.max(min, Math.min(next, item.stock_qty)));
     };
 
-    const setExact = (q: number) => {
-        const clamped = Math.max(min, Math.min(q, item.stock_qty));
-        onChange(roundQty(clamped, item.unit));
-    };
-
-    const presets: { label: string; value: number }[] = fractional
-        ? [
-            { label: '¼', value: 0.25 },
-            { label: '½', value: 0.5 },
-            { label: '¾', value: 0.75 },
-            { label: '1', value: 1 },
-        ]
-        : [];
-
-    const stepperBg = alpha(theme.palette.action.hover, 0.6);
-    const stepperBorder = alpha(theme.palette.divider, 0.8);
+    const stepperBorder = alpha(theme.palette.primary.main, 0.4);
+    const stepperBg = theme.palette.primary.main;
+    const stepperBgHover = theme.palette.primary.dark;
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
@@ -111,17 +98,17 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         cursor: 'pointer',
                         border: 'none',
                         bgcolor: stepperBg,
-                        color: 'text.primary',
-                        width: 30,
+                        color: theme.palette.primary.contrastText,
+                        width: 32,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         transition: 'background 0.15s',
-                        '&:hover:not(:disabled)': { bgcolor: alpha(theme.palette.primary.main, 0.12) },
-                        '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
+                        '&:hover:not(:disabled)': { bgcolor: stepperBgHover },
+                        '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
                     }}
                 >
-                    <RemoveIcon sx={{ fontSize: 16 }} />
+                    <RemoveIcon sx={{ fontSize: 18 }} />
                 </Box>
 
                 <Box
@@ -188,60 +175,19 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                         cursor: 'pointer',
                         border: 'none',
                         bgcolor: stepperBg,
-                        color: 'text.primary',
-                        width: 30,
+                        color: theme.palette.primary.contrastText,
+                        width: 32,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         transition: 'background 0.15s',
-                        '&:hover:not(:disabled)': { bgcolor: alpha(theme.palette.primary.main, 0.12) },
-                        '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
+                        '&:hover:not(:disabled)': { bgcolor: stepperBgHover },
+                        '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
                     }}
                 >
-                    <AddIcon sx={{ fontSize: 16 }} />
+                    <AddIcon sx={{ fontSize: 18 }} />
                 </Box>
             </Box>
-
-            {fractional && (
-                <Box sx={{ display: 'flex', gap: 0.35 }}>
-                    {presets.map((p) => {
-                        const active = Math.abs(item.qty - p.value) < 0.0005;
-                        return (
-                            <Box
-                                key={p.label}
-                                component="button"
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setExact(p.value); }}
-                                disabled={p.value > item.stock_qty}
-                                sx={{
-                                    cursor: 'pointer',
-                                    border: `1px solid ${active ? theme.palette.primary.main : alpha(theme.palette.divider, 0.9)}`,
-                                    bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
-                                    color: active ? 'primary.main' : 'text.secondary',
-                                    fontWeight: 700,
-                                    fontSize: '0.7rem',
-                                    fontFamily: 'inherit',
-                                    px: 0,
-                                    py: 0,
-                                    borderRadius: '999px',
-                                    width: 24,
-                                    height: 24,
-                                    lineHeight: 1,
-                                    transition: 'all 0.15s',
-                                    '&:hover:not(:disabled)': {
-                                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                        borderColor: theme.palette.primary.main,
-                                        color: 'primary.main',
-                                    },
-                                    '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
-                                }}
-                            >
-                                {p.label}
-                            </Box>
-                        );
-                    })}
-                </Box>
-            )}
         </Box>
     );
 }
@@ -634,7 +580,7 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                         color="primary.main"
                                         sx={{ minWidth: 64, textAlign: 'start', fontSize: '0.9rem' }}
                                     >
-                                        {(item.sale_price * item.qty).toFixed(isFractionalUnit(item.unit) ? 2 : 0)} دج
+                                        {Math.round(item.sale_price * item.qty)} دج
                                     </Typography>
                                 </Box>
                             </Box>
