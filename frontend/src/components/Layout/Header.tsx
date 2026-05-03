@@ -14,8 +14,10 @@ import {
     DeleteOutline as ClearIcon,
     NotificationsOff as EmptyBellIcon,
     CheckRounded as AllReadIcon,
+    PointOfSaleRounded as KioskIcon,
+    StorefrontRounded as StoreIcon,
 } from '@mui/icons-material';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useNotification, SEVERITY_CONFIG, type NotifHistoryItem } from '../../contexts/NotificationContext';
@@ -48,11 +50,21 @@ export default function Header({
 }: HeaderProps) {
     const theme = useTheme();
     const location = useLocation();
+    const navigate = useNavigate();
     const isLight = theme.palette.mode === 'light';
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const { history, unreadCount, markAllAsRead, markAsRead, clearHistory } = useNotification();
     const storeName = useSettingsStore((s) => s.storeName);
+    const kioskMode = useSettingsStore((s) => s.kioskMode);
+    const toggleKioskMode = useSettingsStore((s) => s.toggleKioskMode);
+
+    const handleToggleKiosk = () => {
+        const next = !kioskMode;
+        toggleKioskMode();
+        // Entering kiosk mode lands the user straight on the POS screen.
+        if (next) navigate('/sales');
+    };
 
     const [bellAnchor, setBellAnchor] = useState<HTMLButtonElement | null>(null);
     const bellOpen = Boolean(bellAnchor);
@@ -113,6 +125,30 @@ export default function Header({
 
                     {/* Left: tools */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {/* Kiosk ↔ Store toggle */}
+                        <Tooltip title={kioskMode ? 'الخروج من وضع الكشك' : 'تفعيل وضع الكشك'} arrow>
+                            <IconButton
+                                onClick={handleToggleKiosk}
+                                size="small"
+                                sx={{
+                                    color: kioskMode ? theme.palette.warning.main : 'text.secondary',
+                                    bgcolor: kioskMode ? alpha(theme.palette.warning.main, 0.12) : 'transparent',
+                                    border: kioskMode ? `1px solid ${alpha(theme.palette.warning.main, 0.35)}` : '1px solid transparent',
+                                    borderRadius: 1.5,
+                                    transition: 'all 0.2s',
+                                    '&:hover': {
+                                        bgcolor: kioskMode
+                                            ? alpha(theme.palette.warning.main, 0.18)
+                                            : alpha(theme.palette.primary.main, 0.08),
+                                        color: kioskMode ? theme.palette.warning.dark : 'primary.main',
+                                    },
+                                }}
+                            >
+                                {kioskMode
+                                    ? <StoreIcon sx={{ fontSize: 20 }} />
+                                    : <KioskIcon sx={{ fontSize: 20 }} />}
+                            </IconButton>
+                        </Tooltip>
                         <Tooltip title={isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'} arrow>
                             <IconButton onClick={onThemeToggle} size="small"
                                 sx={{ color: 'text.secondary', borderRadius: 1.5, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08), color: 'primary.main' } }}>

@@ -331,6 +331,7 @@ export default function Customers() {
                     invalidate();
                     queryClient.invalidateQueries({ queryKey: ['customer-sales'] });
                     queryClient.invalidateQueries({ queryKey: ['customer-payments'] });
+                    queryClient.invalidateQueries({ queryKey: ['customer-detail'] });
                 }}
             />
 
@@ -599,6 +600,16 @@ function CustomerDetailDrawer({
     const theme = useTheme();
     const [tab, setTab] = useState(0);
 
+    // Refetch the customer record so the drawer header (totals/debt) stays in
+    // sync after a payment is recorded — the parent prop is a snapshot and may
+    // hold stale numbers until the customers list query refetches.
+    const { data: freshCustomer } = useQuery({
+        queryKey: ['customer-detail', customer?.id],
+        queryFn: () => customerService.get(customer!.id),
+        enabled: !!customer,
+    });
+    const c = freshCustomer ?? customer;
+
     const { data: sales = [] } = useQuery({
         queryKey: ['customer-sales', customer?.id],
         queryFn: () => customerService.sales(customer!.id),
@@ -617,7 +628,7 @@ function CustomerDetailDrawer({
             onClose={onClose}
             PaperProps={{ sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } }}
         >
-            {customer && (
+            {c && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <Box sx={{
                         p: 2.5,
@@ -627,13 +638,13 @@ function CustomerDetailDrawer({
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                             <Stack direction="row" spacing={1.5} alignItems="center">
                                 <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.25)' }}>
-                                    {customer.name.charAt(0)}
+                                    {c.name.charAt(0)}
                                 </Avatar>
                                 <Box>
-                                    <Typography variant="h6" fontWeight={800}>{customer.name}</Typography>
-                                    {customer.phone && (
+                                    <Typography variant="h6" fontWeight={800}>{c.name}</Typography>
+                                    {c.phone && (
                                         <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                                            {customer.phone}
+                                            {c.phone}
                                         </Typography>
                                     )}
                                 </Box>
@@ -644,12 +655,12 @@ function CustomerDetailDrawer({
                         </Stack>
 
                         <Stack direction="row" spacing={2} sx={{ mt: 2.5 }}>
-                            <MiniStat label="الإجمالي" value={fmt(customer.total_purchases)} />
-                            <MiniStat label="الديون" value={fmt(customer.total_due)} highlight={customer.total_due > 0} />
-                            <MiniStat label="الفواتير" value={String(customer.sales_count)} />
+                            <MiniStat label="الإجمالي" value={fmt(c.total_purchases)} />
+                            <MiniStat label="الديون" value={fmt(c.total_due)} highlight={c.total_due > 0} />
+                            <MiniStat label="الفواتير" value={String(c.sales_count)} />
                         </Stack>
 
-                        {customer.total_due > 0 && (
+                        {c.total_due > 0 && (
                             <CustomButton
                                 variant="contained"
                                 startIcon={<PaymentsIcon />}
@@ -675,10 +686,10 @@ function CustomerDetailDrawer({
                         {tab === 1 && <PaymentsList payments={payments} />}
                     </Box>
 
-                    {customer.notes && (
+                    {c.notes && (
                         <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
                             <Typography variant="caption" color="text.secondary">ملاحظات</Typography>
-                            <Typography variant="body2">{customer.notes}</Typography>
+                            <Typography variant="body2">{c.notes}</Typography>
                         </Box>
                     )}
                 </Box>

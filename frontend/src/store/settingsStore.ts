@@ -23,10 +23,15 @@ interface SettingsState {
     staffCount: string | null;
     featuresNeeded: string[];
     visibleSidebarPaths: string[] | null;
+    /** When true the UI runs in distraction-free POS-only mode (sidebar
+     *  hidden, locked to /sales). Kiosk vs full store mode toggle. */
+    kioskMode: boolean;
 
     applyStoreProfile: (profile: StoreProfile) => void;
     setStoreName: (name: string) => void;
     isPathVisible: (path: string) => boolean;
+    setKioskMode: (on: boolean) => void;
+    toggleKioskMode: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -37,6 +42,10 @@ export const useSettingsStore = create<SettingsState>()(
             staffCount: null,
             featuresNeeded: [],
             visibleSidebarPaths: null,
+            kioskMode: false,
+
+            setKioskMode: (on) => set({ kioskMode: on }),
+            toggleKioskMode: () => set((s) => ({ kioskMode: !s.kioskMode })),
 
             applyStoreProfile: (profile) => {
                 const features = profile.features_needed || [];

@@ -886,6 +886,12 @@ def delete_sale(db: Session, sale_id: int) -> bool:
             product = get_product(db, item.product_id)
             if product:
                 product.stock_qty += item.qty
+    # Defensively remove any payment allocations referencing this sale.
+    # The FK is declared ON DELETE CASCADE, but on SQLite legacy DBs the
+    # cascade may not fire if the table was created before the migration.
+    db.query(models.CustomerPaymentAllocation).filter(
+        models.CustomerPaymentAllocation.sale_id == sale_id
+    ).delete(synchronize_session=False)
     db.delete(sale)
     db.commit()
     return True
