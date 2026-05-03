@@ -225,12 +225,11 @@ export const SEVERITY_CONFIG: Record<NotifSeverity, {
    Single toast card
 ════════════════════════════════════════ */
 function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: string) => void }) {
-    const [progress, setProgress] = useState(100);
     const [isExiting, setIsExiting] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
+    const dismissTimerRef = useRef<number | null>(null);
     const startRef = useRef<number>(Date.now());
     const remainingRef = useRef<number>(notif.duration);
-    const rafRef = useRef<number | null>(null);
 
     const cfg = SEVERITY_CONFIG[notif.severity];
     const hasDuration = notif.duration > 0;
@@ -238,56 +237,74 @@ function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: 
     const dismiss = useCallback(() => {
         if (isExiting) return;
         setIsExiting(true);
-        setTimeout(() => onDismiss(notif.id), 330);
+        setTimeout(() => onDismiss(notif.id), 360);
     }, [isExiting, notif.id, onDismiss]);
 
+    // اعتمد على CSS animation للشريط الزمني (سلس على الـGPU) — ومؤقّت دقيق للإغلاق
     useEffect(() => {
         if (!hasDuration) return;
-        const tick = () => {
-            if (isPaused) { rafRef.current = requestAnimationFrame(tick); return; }
-            const elapsed = Date.now() - startRef.current;
-            const pct = Math.max(0, 100 - (elapsed / notif.duration) * 100);
-            setProgress(pct);
-            if (pct <= 0) dismiss();
-            else rafRef.current = requestAnimationFrame(tick);
+        const schedule = (ms: number) => {
+            if (dismissTimerRef.current) window.clearTimeout(dismissTimerRef.current);
+            dismissTimerRef.current = window.setTimeout(dismiss, ms);
         };
-        rafRef.current = requestAnimationFrame(tick);
-        return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
+        if (isPaused) {
+            if (dismissTimerRef.current) {
+                window.clearTimeout(dismissTimerRef.current);
+                dismissTimerRef.current = null;
+            }
+            remainingRef.current = Math.max(0, notif.duration - (Date.now() - startRef.current));
+        } else {
+            startRef.current = Date.now() - (notif.duration - remainingRef.current);
+            schedule(remainingRef.current);
+        }
+        return () => {
+            if (dismissTimerRef.current) {
+                window.clearTimeout(dismissTimerRef.current);
+                dismissTimerRef.current = null;
+            }
+        };
     }, [hasDuration, notif.duration, isPaused, dismiss]);
 
     return (
         <Box
             role="alert"
-            onMouseEnter={() => {
-                if (!hasDuration) return;
-                setIsPaused(true);
-                remainingRef.current = notif.duration * (progress / 100);
-            }}
-            onMouseLeave={() => {
-                if (!hasDuration) return;
-                startRef.current = Date.now() - (notif.duration - remainingRef.current);
-                setIsPaused(false);
-            }}
+            onMouseEnter={() => { if (hasDuration) setIsPaused(true); }}
+            onMouseLeave={() => { if (hasDuration) setIsPaused(false); }}
             sx={{
                 pointerEvents: 'auto',
                 borderRadius: 2.5,
                 overflow: 'hidden',
+                position: 'relative',
                 background: cfg.bg,
                 border: `1px solid ${alpha(cfg.border, 0.45)}`,
-                boxShadow: `0 12px 40px ${alpha('#000', 0.4)}, inset 0 1px 0 ${alpha('#fff', 0.08)}`,
+                boxShadow: `0 14px 44px ${alpha('#000', 0.42)}, 0 2px 8px ${alpha(cfg.border, 0.22)}, inset 0 1px 0 ${alpha('#fff', 0.08)}`,
+                transform: 'translateZ(0)',
                 animation: isExiting
-                    ? 'slideOut 0.33s cubic-bezier(0.4, 0, 1, 1) forwards'
-                    : 'slideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                '@keyframes slideIn': {
-                    '0%': { opacity: 0, transform: 'translateX(110%) scale(0.9)' },
-                    '100%': { opacity: 1, transform: 'translateX(0) scale(1)' },
+                    ? 'notifSlideOut 0.36s cubic-bezier(0.55, 0, 0.95, 0.4) forwards'
+                    : 'notifSlideIn 0.5s cubic-bezier(0.16, 1.1, 0.3, 1) forwards',
+                '@keyframes notifSlideIn': {
+                    '0%':   { opacity: 0, transform: 'translateX(120%) translateY(-6px) scale(0.92)' },
+                    '60%':  { opacity: 1, transform: 'translateX(-2%) translateY(0) scale(1.01)' },
+                    '100%': { opacity: 1, transform: 'translateX(0) translateY(0) scale(1)' },
                 },
-                '@keyframes slideOut': {
-                    '0%': { opacity: 1, transform: 'translateX(0)', maxHeight: '200px' },
-                    '60%': { opacity: 0 },
-                    '100%': { opacity: 0, transform: 'translateX(110%)', maxHeight: '0px' },
+                '@keyframes notifSlideOut': {
+                    '0%':   { opacity: 1, transform: 'translateX(0) scale(1)', maxHeight: '220px', marginTop: 0, marginBottom: 0 },
+                    '40%':  { opacity: 0, transform: 'translateX(20%) scale(0.98)' },
+                    '100%': { opacity: 0, transform: 'translateX(115%) scale(0.95)', maxHeight: '0px', marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0 },
+                },
+                '@keyframes notifShimmer': {
+                    '0%':   { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' },
+                },
+                '@keyframes notifProgress': {
+                    '0%':   { transform: 'scaleX(1)' },
+                    '100%': { transform: 'scaleX(0)' },
                 },
                 willChange: 'transform, opacity',
+                transition: 'box-shadow 0.25s ease',
+                '&:hover': {
+                    boxShadow: `0 18px 56px ${alpha('#000', 0.5)}, 0 4px 14px ${alpha(cfg.border, 0.32)}, inset 0 1px 0 ${alpha('#fff', 0.1)}`,
+                },
             }}
         >
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: '14px 14px 10px 14px' }}>
@@ -330,11 +347,39 @@ function NotifCard({ notif, onDismiss }: { notif: Notification; onDismiss: (id: 
             </Box>
             {hasDuration && (
                 <Box sx={{ px: 1.75, pb: '10px' }}>
-                    <Box sx={{ height: 2.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                    <Box sx={{
+                        height: 3,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(255,255,255,0.09)',
+                        overflow: 'hidden',
+                        position: 'relative',
+                    }}>
+                        {/* الشريط الزمنيّ — CSS animation لسلاسة قصوى على الـGPU */}
                         <Box sx={{
-                            height: '100%', width: `${progress}%`, bgcolor: cfg.progressColor,
-                            borderRadius: 2, boxShadow: `0 0 8px ${cfg.progressColor}`,
-                            transition: isPaused ? 'none' : 'width 0.08s linear',
+                            position: 'absolute',
+                            inset: 0,
+                            transformOrigin: 'right center',
+                            transform: 'scaleX(1)',
+                            background: `linear-gradient(90deg, ${alpha(cfg.progressColor, 0.7)} 0%, ${cfg.progressColor} 50%, ${alpha(cfg.progressColor, 0.7)} 100%)`,
+                            backgroundSize: '200% 100%',
+                            borderRadius: 2,
+                            boxShadow: `0 0 10px ${alpha(cfg.progressColor, 0.85)}, 0 0 4px ${cfg.progressColor}`,
+                            animation: `notifProgress ${notif.duration}ms linear forwards, notifShimmerBg 1.6s ease-in-out infinite`,
+                            animationPlayState: isPaused ? 'paused' : 'running',
+                            '@keyframes notifShimmerBg': {
+                                '0%, 100%': { backgroundPosition: '0% 50%' },
+                                '50%':      { backgroundPosition: '100% 50%' },
+                            },
+                        }} />
+                        {/* لمعان متحرّك خفيف فوق الشريط */}
+                        <Box sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: `linear-gradient(90deg, transparent 0%, ${alpha('#fff', 0.35)} 50%, transparent 100%)`,
+                            animation: 'notifShimmer 1.8s ease-in-out infinite',
+                            animationPlayState: isPaused ? 'paused' : 'running',
+                            mixBlendMode: 'overlay',
+                            pointerEvents: 'none',
                         }} />
                     </Box>
                 </Box>

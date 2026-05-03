@@ -163,17 +163,25 @@ export default function Header({
                 onClose={handleBellClose}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                PaperProps={{
-                    elevation: 12,
-                    sx: {
-                        width: 380,
-                        maxHeight: 520,
-                        borderRadius: 3,
-                        border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                    }
+                slotProps={{
+                    paper: {
+                        elevation: 12,
+                        sx: {
+                            width: 380,
+                            maxHeight: 520,
+                            borderRadius: 3,
+                            border: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            transformOrigin: 'top left !important',
+                            animation: 'notifPanelIn 0.35s cubic-bezier(0.16, 1.1, 0.3, 1)',
+                            '@keyframes notifPanelIn': {
+                                '0%':   { opacity: 0, transform: 'translateY(-8px) scale(0.96)' },
+                                '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
+                            },
+                        },
+                    },
                 }}
             >
                 <Box dir="rtl" sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -229,6 +237,7 @@ export default function Header({
                                 <NotifHistoryRow
                                     key={item.id}
                                     item={item}
+                                    index={idx}
                                     isLast={idx === history.length - 1}
                                     onRead={() => markAsRead(item.id)}
                                 />
@@ -272,8 +281,8 @@ export default function Header({
 
 /* ── Single history row ── */
 function NotifHistoryRow({
-    item, isLast, onRead
-}: { item: NotifHistoryItem; isLast: boolean; onRead: () => void }) {
+    item, isLast, onRead, index = 0,
+}: { item: NotifHistoryItem; isLast: boolean; onRead: () => void; index?: number }) {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
     const cfg = SEVERITY_CONFIG[item.severity];
@@ -297,19 +306,43 @@ function NotifHistoryRow({
                 bgcolor: item.read
                     ? 'transparent'
                     : (isLight ? alpha(cfg.lightColor, 0.04) : alpha(cfg.border, 0.06)),
-                transition: 'background-color 0.2s',
+                transition: 'background-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease',
+                opacity: 0,
+                transform: 'translateX(12px)',
+                animation: `notifRowIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards`,
+                animationDelay: `${Math.min(index * 50, 350)}ms`,
+                '@keyframes notifRowIn': {
+                    '0%':   { opacity: 0, transform: 'translateX(12px)' },
+                    '100%': { opacity: 1, transform: 'translateX(0)' },
+                },
                 '&:hover': !item.read ? {
-                    bgcolor: isLight ? alpha(cfg.lightColor, 0.08) : alpha(cfg.border, 0.1),
-                } : {},
+                    bgcolor: isLight ? alpha(cfg.lightColor, 0.1) : alpha(cfg.border, 0.13),
+                    transform: 'translateX(-2px)',
+                } : {
+                    bgcolor: alpha(theme.palette.action.hover, 0.6),
+                },
                 position: 'relative',
             }}
         >
-            {/* Unread dot */}
+            {/* Unread dot — مع نبضة احترافيّة */}
             {!item.read && (
                 <Box sx={{
                     position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                    width: 6, height: 6, borderRadius: '50%',
-                    bgcolor: cfg.border, boxShadow: `0 0 6px ${cfg.border}`,
+                    width: 7, height: 7, borderRadius: '50%',
+                    bgcolor: cfg.border,
+                    boxShadow: `0 0 8px ${cfg.border}`,
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute', inset: 0,
+                        borderRadius: '50%',
+                        bgcolor: cfg.border,
+                        animation: 'unreadPulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+                    },
+                    '@keyframes unreadPulse': {
+                        '0%':   { transform: 'scale(1)',   opacity: 0.7 },
+                        '70%':  { transform: 'scale(2.4)', opacity: 0 },
+                        '100%': { transform: 'scale(2.4)', opacity: 0 },
+                    },
                 }} />
             )}
 
@@ -320,6 +353,13 @@ function NotifHistoryRow({
                 bgcolor: isLight ? cfg.lightBg : alpha(cfg.border, 0.12),
                 color: isLight ? cfg.lightColor : cfg.border,
                 mt: 0.25,
+                transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
+                ...((!item.read) && {
+                    boxShadow: `0 0 0 2px ${alpha(cfg.border, 0.18)}`,
+                }),
+                '.MuiBox-root:hover > &': {
+                    transform: 'scale(1.06)',
+                },
             }}>
                 {cfg.icon}
             </Box>
