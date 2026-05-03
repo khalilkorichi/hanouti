@@ -207,6 +207,7 @@ interface CartPanelProps {}
 const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
+    const fmt = useFormatters();
 
     const {
         items, removeItem, updateQty, updateItemPrice,
