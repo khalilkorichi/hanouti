@@ -9,7 +9,6 @@ export interface CartItem extends Product {
 interface CartState {
     items: CartItem[];
     addItem: (product: Product) => { success: boolean; message?: string };
-    /** Add or accumulate a weighed product by raw kg (used by weight-EAN scans). */
     addWeighedItem: (product: Product, qtyKg: number) => { success: boolean; message?: string };
     removeItem: (productId: number) => void;
     updateQty: (productId: number, qty: number) => { success: boolean; message?: string };
@@ -90,8 +89,6 @@ export const useCartStore = create<CartState>()(
                 const item = state.items.find(i => i.id === productId);
                 if (!item) return { success: false, message: 'المنتج غير موجود' };
 
-                // Weighed items (kg) can have fractional qty (e.g. 0.250 kg from a
-                // weight-EAN scan). Discrete units stay clamped at >= 1.
                 const minQty = item.unit === 'kg' ? 0.001 : 1;
                 const validatedQty = Math.max(minQty, Math.min(qty, item.stock_qty));
 

@@ -138,11 +138,9 @@ export default function Products() {
             showNotification('لا يوجد باركود لأي من المنتجات المحددة. أضف باركود أولاً.', 'warning');
             return;
         }
-        if (withBarcode.length < selectedProducts.length) {
-            showNotification(
-                `سيتم تجاهل ${selectedProducts.length - withBarcode.length} منتج بدون باركود.`,
-                'info',
-            );
+        const skipped = selectedProducts.length - withBarcode.length;
+        if (skipped > 0) {
+            showNotification(`سيتم تجاهل ${skipped} منتج بدون باركود.`, 'info');
         }
         navigate('/print-barcodes', { state: { products: selectedProducts } });
     };

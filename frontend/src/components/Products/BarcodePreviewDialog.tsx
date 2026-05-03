@@ -12,13 +12,6 @@ interface Props {
     product: Product | null;
 }
 
-/**
- * Single-product barcode preview + print.
- *
- * Uses react-to-print's hidden-iframe approach so that triggering "طباعة"
- * doesn't disturb the rest of the application chrome — the user stays on
- * the Products page, the OS print dialog opens with just the label.
- */
 export default function BarcodePreviewDialog({ open, onClose, product }: Props) {
     const theme = useTheme();
     const labelRef = useRef<HTMLDivElement | null>(null);

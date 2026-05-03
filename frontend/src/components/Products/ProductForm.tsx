@@ -52,9 +52,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const { showNotification } = useNotification();
 
     const handleGenerateBarcode = async () => {
-        // Only fill empty fields automatically — never silently overwrite a
-        // value the user already typed or scanned. If they really want to
-        // replace it, they confirm via the prompt below.
         const current = (getValues('barcode') || '').trim();
         if (current) {
             const ok = window.confirm(

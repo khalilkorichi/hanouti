@@ -19,18 +19,6 @@ interface LocationState {
     products?: Product[];
 }
 
-/**
- * Bulk barcode print preview.
- *
- * Reached from the Products page bulk-actions bar with `state.products`. The
- * page IS the preview — what's on screen is what `window.print()` outputs,
- * thanks to a `@media print` block that hides the toolbar and resets margins.
- *
- * Two presets:
- *   - `avery30`: Avery 5160-style 3×10 grid, 30 labels per A4 page
- *   - `continuous`: 1 label per row (good for thermal label printers and for
- *     reprinting just one or two)
- */
 export default function BarcodePrintSheet() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -39,8 +27,6 @@ export default function BarcodePrintSheet() {
 
     const [layout, setLayout] = useState<Layout>('avery30');
 
-    // Set a body class while this page is mounted so the print stylesheet
-    // can hide everything outside the print container.
     useEffect(() => {
         document.body.classList.add('print-barcode-mode');
         return () => document.body.classList.remove('print-barcode-mode');
@@ -64,7 +50,6 @@ export default function BarcodePrintSheet() {
 
     return (
         <Box>
-            {/* ── Toolbar (hidden on print) ── */}
             <Paper
                 className="print-toolbar"
                 elevation={0}
@@ -122,7 +107,6 @@ export default function BarcodePrintSheet() {
                 </Alert>
             )}
 
-            {/* ── Print container ── */}
             <Box className="print-area" sx={{ p: 2, bgcolor: '#fff' }}>
                 {layout === 'avery30' ? (
                     <Box
@@ -180,7 +164,6 @@ export default function BarcodePrintSheet() {
                 )}
             </Box>
 
-            {/* ── Print stylesheet ── */}
             <style>{`
                 @media print {
                     @page { size: A4; margin: 8mm; }
@@ -192,20 +175,14 @@ export default function BarcodePrintSheet() {
                     body.print-barcode-mode .MuiDrawer-root,
                     body.print-barcode-mode .MuiAppBar-root,
                     body.print-barcode-mode .MuiToolbar-root { display: none !important; }
-                    /* Strip MainLayout chrome: padding, max-width, margins */
                     body.print-barcode-mode main,
                     body.print-barcode-mode .MuiContainer-root {
                         padding: 0 !important;
                         margin: 0 !important;
                         max-width: none !important;
                     }
-                    body.print-barcode-mode .print-area {
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
-                    body.print-barcode-mode .avery-grid {
-                        margin: 0 !important;
-                    }
+                    body.print-barcode-mode .print-area,
+                    body.print-barcode-mode .avery-grid { margin: 0 !important; padding: 0 !important; }
                 }
             `}</style>
         </Box>

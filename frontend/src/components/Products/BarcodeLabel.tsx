@@ -6,15 +6,9 @@ import type { Product } from '../../services/productService';
 
 interface Props {
     product: Product;
-    /** When true, render a wider/taller barcode for the single-product preview dialog. */
     large?: boolean;
 }
 
-/**
- * Single barcode label: name (top), price (right), barcode SVG, code text.
- * Same component is used in the dialog preview AND the bulk print sheet so
- * what you preview is exactly what prints.
- */
 export default function BarcodeLabel({ product, large = false }: Props) {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const code = product.barcode || '';
@@ -33,7 +27,7 @@ export default function BarcodeLabel({ product, large = false }: Props) {
                 lineColor: '#000000',
             });
         } catch {
-            // JsBarcode throws on invalid input — fall back to plain text below.
+            // invalid input — fall through to "no barcode" text
         }
     }, [code, large]);
 

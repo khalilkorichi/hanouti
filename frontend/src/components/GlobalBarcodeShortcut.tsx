@@ -4,16 +4,10 @@ import { useKeyboardShortcuts, type Shortcut } from '../hooks/useKeyboardShortcu
 
 const FOCUS_FLAG = 'hanouti.focus-barcode-on-mount';
 
-/** Set the flag from anywhere; consumed once by `<BarcodeQuickAdd>` on mount. */
 export function requestBarcodeFocusOnMount() {
-    try {
-        window.sessionStorage.setItem(FOCUS_FLAG, '1');
-    } catch {
-        /* private mode etc. — silently no-op */
-    }
+    try { window.sessionStorage.setItem(FOCUS_FLAG, '1'); } catch { /* no-op */ }
 }
 
-/** Returns true once if the flag was set (and clears it). */
 export function consumeBarcodeFocusFlag(): boolean {
     try {
         if (window.sessionStorage.getItem(FOCUS_FLAG) === '1') {
@@ -24,24 +18,13 @@ export function consumeBarcodeFocusFlag(): boolean {
     return false;
 }
 
-/**
- * Global F2 shortcut — focuses the POS barcode input from anywhere.
- *
- * On the POS page, the existing in-page shortcut wins (it has full ref access
- * to the input and can also `select()` the contents). Off-page, this hook
- * navigates to /sales and asks `<BarcodeQuickAdd>` to focus itself once it
- * mounts via a session-storage flag.
- *
- * Reuses the project's existing `useKeyboardShortcuts` machinery rather than
- * adding a parallel keydown listener.
- */
 export default function GlobalBarcodeShortcut() {
     const navigate = useNavigate();
     const location = useLocation();
     const onPos = location.pathname.startsWith('/sales') && !location.pathname.startsWith('/sales-list');
 
     const shortcuts = useMemo<Shortcut[]>(() => {
-        if (onPos) return []; // Sales page binds its own F2; don't double-bind.
+        if (onPos) return [];
         return [
             {
                 key: 'F2',

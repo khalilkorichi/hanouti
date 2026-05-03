@@ -20,18 +20,6 @@ interface Props {
     onShowHelp: () => void;
 }
 
-/**
- * Cashier-speed barcode entry.
- *
- * Behaviors:
- * - Pressing Enter looks up the product by exact barcode and adds it to the cart.
- * - Multiplier syntax: "3*123456" or "3x123456" → adds 3 units of barcode 123456.
- * - On success, the input clears and stays focused so the next scan/typing works.
- * - On not-found, shows a toast and keeps the input populated for correction.
- *
- * The component is fully controlled by its own internal state; the parent only
- * needs the `focus()` imperative handle to wire it to a global F3 shortcut.
- */
 export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onShowHelp }, ref) => {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
@@ -51,11 +39,8 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
         },
     }), []);
 
-    // When the user pressed F2 from another page, the global shortcut sets a
-    // session flag and routes here; we consume it on mount and focus the field.
     useEffect(() => {
         if (consumeBarcodeFocusFlag()) {
-            // Defer one tick — give the layout/refs time to finish mounting.
             setTimeout(() => inputRef.current?.focus(), 0);
         }
     }, []);
@@ -76,14 +61,7 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
         if (!code) return;
         setBusy(true);
         try {
-            // 1) Direct full-code lookup
             let product = await productService.getByBarcode(code);
-
-            // 2) Weight-EAN fallback: extract the 6-digit code + grams and try
-            // both the bare and `2…` prefixed forms. If we resolve to a kg
-            // product, add the fractional kg quantity directly — DO NOT go
-            // through addItem (qty=1) + updateQty since addItem would reject
-            // weighed products with stock < 1 kg.
             const weight = !product ? parseWeightEan(code) : null;
             if (weight) {
                 for (const cand of weight.lookupCandidates) {
@@ -117,7 +95,6 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
             if (qty > 1) {
                 const existing = useCartStore.getState().items.find(i => i.id === product.id);
                 const currentQty = existing?.qty ?? 1;
-                // -1 because addItem already incremented by 1 above.
                 const targetQty = currentQty + (qty - 1);
                 const r = updateQty(product.id, targetQty);
                 if (!r.success && r.message) {
@@ -135,7 +112,6 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
             showNotification('فشل البحث عن المنتج', 'error');
         } finally {
             setBusy(false);
-            // Re-focus so the cashier can keep scanning without clicking.
             inputRef.current?.focus();
         }
     };
@@ -219,25 +195,25 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
                     </Typography>
                 </Box>
             ) : (
-                <Tooltip title="وصّل ماسح USB ووجّهه نحو هذا الحقل">
-                    <Box
-                        sx={{
-                            display: { xs: 'none', md: 'flex' },
-                            alignItems: 'center',
-                            gap: 0.5,
-                            px: 1.25,
-                            py: 0.5,
-                            borderRadius: 1.5,
-                            border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
-                            color: 'text.secondary',
-                            flexShrink: 0,
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        <UsbIcon fontSize="inherit" />
-                        <Typography variant="caption">F2 لتركيز الحقل من أي شاشة</Typography>
-                    </Box>
-                </Tooltip>
+                <Box
+                    sx={{
+                        display: { xs: 'none', md: 'flex' },
+                        alignItems: 'center',
+                        gap: 0.75,
+                        px: 1.25,
+                        py: 0.5,
+                        borderRadius: 1.5,
+                        border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
+                        color: 'text.secondary',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    <UsbIcon fontSize="small" />
+                    <Typography variant="caption" fontWeight={600}>
+                        وصّل ماسح USB — F2 لتركيز الحقل من أي شاشة
+                    </Typography>
+                </Box>
             )}
             <Tooltip title="اختصارات لوحة المفاتيح (F1)">
                 <IconButton size="small" onClick={onShowHelp} sx={{ flexShrink: 0 }}>
