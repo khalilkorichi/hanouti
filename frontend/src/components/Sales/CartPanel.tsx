@@ -85,79 +85,125 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
         ]
         : [];
 
+    const stepperBg = alpha(theme.palette.action.hover, 0.6);
+    const stepperBorder = alpha(theme.palette.divider, 0.8);
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton
-                size="small"
-                onClick={() => adjust(-step)}
-                disabled={item.qty <= min}
+            {/* Unified stepper: - [number unit] +  */}
+            <Box
                 sx={{
-                    width: 28, height: 28,
-                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'stretch',
+                    height: 32,
+                    border: `1px solid ${stepperBorder}`,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    bgcolor: 'background.paper',
                 }}
             >
-                <RemoveIcon sx={{ fontSize: 15 }} />
-            </IconButton>
+                <Box
+                    component="button"
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); adjust(-step); }}
+                    disabled={item.qty <= min}
+                    sx={{
+                        cursor: 'pointer',
+                        border: 'none',
+                        bgcolor: stepperBg,
+                        color: 'text.primary',
+                        width: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background 0.15s',
+                        '&:hover:not(:disabled)': { bgcolor: alpha(theme.palette.primary.main, 0.12) },
+                        '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
+                    }}
+                >
+                    <RemoveIcon sx={{ fontSize: 16 }} />
+                </Box>
 
-            <TextField
-                size="small"
-                type="number"
-                value={draft}
-                onFocus={(e) => { setEditing(true); e.target.select(); }}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={() => { setEditing(false); commit(draft); }}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    if (e.key === 'Escape') {
-                        setDraft(formatQty(item.qty, item.unit));
-                        (e.target as HTMLInputElement).blur();
-                    }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                inputProps={{
-                    step,
-                    min,
-                    max: item.stock_qty,
-                    style: { textAlign: 'center', fontSize: '0.85rem', padding: '4px 0', width: fractional ? 56 : 38 },
-                }}
-                InputProps={{
-                    endAdornment: (
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 0.25, mr: 0.25, fontWeight: 600 }}>
-                            {unitLabel(item.unit)}
-                        </Typography>
-                    ),
-                    sx: { fontSize: '0.85rem' },
-                }}
-                sx={{
-                    '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                        height: 30,
-                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                            WebkitAppearance: 'none',
-                            margin: 0,
-                        },
-                        '& input[type=number]': { MozAppearance: 'textfield' },
-                    },
-                }}
-            />
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        px: 0.5,
+                        gap: 0.25,
+                        borderInline: `1px solid ${stepperBorder}`,
+                        minWidth: fractional ? 78 : 56,
+                    }}
+                >
+                    <input
+                        type="number"
+                        value={draft}
+                        onFocus={(e) => { setEditing(true); e.target.select(); }}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onBlur={() => { setEditing(false); commit(draft); }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') {
+                                setDraft(formatQty(item.qty, item.unit));
+                                (e.target as HTMLInputElement).blur();
+                            }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        step={step}
+                        min={min}
+                        max={item.stock_qty}
+                        style={{
+                            border: 'none',
+                            outline: 'none',
+                            background: 'transparent',
+                            textAlign: 'center',
+                            fontSize: '0.9rem',
+                            fontWeight: 700,
+                            width: fractional ? 44 : 32,
+                            padding: 0,
+                            color: 'inherit',
+                            fontFamily: 'inherit',
+                            MozAppearance: 'textfield',
+                        }}
+                    />
+                    <Typography
+                        component="span"
+                        sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: 'text.secondary',
+                            lineHeight: 1,
+                        }}
+                    >
+                        {unitLabel(item.unit)}
+                    </Typography>
+                </Box>
 
-            <IconButton
-                size="small"
-                onClick={() => adjust(step)}
-                disabled={item.qty >= item.stock_qty}
-                sx={{
-                    width: 28, height: 28,
-                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                    borderRadius: 1,
-                }}
-            >
-                <AddIcon sx={{ fontSize: 15 }} />
-            </IconButton>
-        </Box>
+                <Box
+                    component="button"
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); adjust(step); }}
+                    disabled={item.qty >= item.stock_qty}
+                    sx={{
+                        cursor: 'pointer',
+                        border: 'none',
+                        bgcolor: stepperBg,
+                        color: 'text.primary',
+                        width: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background 0.15s',
+                        '&:hover:not(:disabled)': { bgcolor: alpha(theme.palette.primary.main, 0.12) },
+                        '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
+                    }}
+                >
+                    <AddIcon sx={{ fontSize: 16 }} />
+                </Box>
+            </Box>
+
             {fractional && (
-                <Box sx={{ display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 0.35 }}>
                     {presets.map((p) => {
                         const active = Math.abs(item.qty - p.value) < 0.0005;
                         return (
@@ -169,23 +215,25 @@ function CartQtyControl({ item, onChange }: CartQtyControlProps) {
                                 disabled={p.value > item.stock_qty}
                                 sx={{
                                     cursor: 'pointer',
-                                    border: `1px solid ${alpha(theme.palette.primary.main, active ? 0.9 : 0.35)}`,
+                                    border: `1px solid ${active ? theme.palette.primary.main : alpha(theme.palette.divider, 0.9)}`,
                                     bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
                                     color: active ? 'primary.main' : 'text.secondary',
                                     fontWeight: 700,
-                                    fontSize: '0.72rem',
-                                    px: 0.75,
-                                    py: 0.1,
-                                    borderRadius: 1,
-                                    minWidth: 26,
-                                    height: 22,
+                                    fontSize: '0.7rem',
+                                    fontFamily: 'inherit',
+                                    px: 0,
+                                    py: 0,
+                                    borderRadius: '999px',
+                                    width: 24,
+                                    height: 24,
                                     lineHeight: 1,
                                     transition: 'all 0.15s',
                                     '&:hover:not(:disabled)': {
                                         bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                        borderColor: alpha(theme.palette.primary.main, 0.7),
+                                        borderColor: theme.palette.primary.main,
+                                        color: 'primary.main',
                                     },
-                                    '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
+                                    '&:disabled': { opacity: 0.35, cursor: 'not-allowed' },
                                 }}
                             >
                                 {p.label}
