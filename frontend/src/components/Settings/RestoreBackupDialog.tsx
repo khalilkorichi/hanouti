@@ -80,8 +80,25 @@ export default function RestoreBackupDialog({
             setConfirmText('');
             setSubmitting(false);
             setError(null);
+            return;
         }
-    }, [open]);
+        // When restoring an auto-backup, fetch its counts up-front.
+        if (autoFilename) {
+            setPreview(null);
+            setError(null);
+            setPreviewLoading(true);
+            backupService
+                .previewAuto(autoFilename)
+                .then((p) => setPreview(p))
+                .catch((e) => {
+                    const msg =
+                        (e as { response?: { data?: { detail?: string } } }).response?.data
+                            ?.detail || 'تعذّر قراءة ملف النسخة.';
+                    setError(msg);
+                })
+                .finally(() => setPreviewLoading(false));
+        }
+    }, [open, autoFilename]);
 
     const handleFile = async (f: File) => {
         setFile(f);
@@ -143,7 +160,8 @@ export default function RestoreBackupDialog({
     const canConfirm =
         confirmText === CONFIRM_PHRASE &&
         !submitting &&
-        (isAutoMode || (!!file && !!preview));
+        !!preview &&
+        (isAutoMode || !!file);
 
     return (
         <Dialog
@@ -290,7 +308,7 @@ export default function RestoreBackupDialog({
                     </Box>
                 )}
 
-                {(isAutoMode || preview) && (
+                {preview && (
                     <>
                         <Typography variant="body2" sx={{ mb: 1.5 }}>
                             للتأكيد، اكتب{' '}

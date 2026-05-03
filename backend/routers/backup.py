@@ -131,6 +131,9 @@ def _summarize(snapshot: Dict[str, Any]) -> Dict[str, int]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _validate_snapshot(snapshot: Any) -> Dict[str, Any]:
+    """Strict v1.1 validation. Refuses files where the version is not 1.1,
+    where any required table is missing or not a list, or where the sha256
+    checksum is missing or doesn't match the data block."""
     if not isinstance(snapshot, dict):
         raise HTTPException(status_code=400, detail="ملف النسخة الاحتياطية غير صالح.")
     meta = snapshot.get("meta")
@@ -138,34 +141,42 @@ def _validate_snapshot(snapshot: Any) -> Dict[str, Any]:
     if not isinstance(meta, dict) or not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="ملف النسخة الاحتياطية تالف أو غير مكتمل.")
     version = str(meta.get("version") or "")
-    if version not in ("1.0", "1.1"):
+    if version != SCHEMA_VERSION:
         raise HTTPException(
             status_code=400,
-            detail=f"إصدار النسخة الاحتياطية غير مدعوم: {version or 'غير محدد'}.",
+            detail=(
+                f"إصدار النسخة الاحتياطية غير مدعوم: {version or 'غير محدد'}. "
+                f"المطلوب: {SCHEMA_VERSION}."
+            ),
         )
-    # Required tables (1.0 may be missing customer/debt tables — fall back to empty)
+    # All required tables must exist as lists — no silent fallback.
+    missing: List[str] = []
     for t in REQUIRED_TABLES:
         if t not in data:
-            data[t] = []
+            missing.append(t)
+            continue
         if not isinstance(data[t], list):
             raise HTTPException(
                 status_code=400,
                 detail=f"بنية الجدول '{t}' غير صحيحة في ملف النسخة الاحتياطية.",
             )
-    # Checksum check (only enforced for v1.1 — v1.0 had no checksum)
-    if version == "1.1":
-        expected = meta.get("checksum")
-        if not expected:
-            raise HTTPException(
-                status_code=400,
-                detail="ملف النسخة الاحتياطية يفتقد لخانة التحقق (checksum).",
-            )
-        actual = _checksum(data)
-        if actual != expected:
-            raise HTTPException(
-                status_code=400,
-                detail="فشل التحقق من سلامة الملف — قد يكون تالفاً أو معدلاً.",
-            )
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail="ملف النسخة الاحتياطية ناقص. الجداول المفقودة: " + ", ".join(missing),
+        )
+    expected = meta.get("checksum")
+    if not expected:
+        raise HTTPException(
+            status_code=400,
+            detail="ملف النسخة الاحتياطية يفتقد لخانة التحقق (checksum).",
+        )
+    actual = _checksum(data)
+    if actual != expected:
+        raise HTTPException(
+            status_code=400,
+            detail="فشل التحقق من سلامة الملف — قد يكون تالفاً أو معدلاً.",
+        )
     return snapshot
 
 
@@ -312,7 +323,7 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
             payload["sale_id"] = new_sale
             db.add(models.CustomerPaymentAllocation(**payload))
 
-        # Stock movements (depend on products)
+        # Stock movements (depend on products + sales for ref_id where ref_type='sale')
         for row in data.get("stock_movements", []):
             payload = _filter_columns(models.StockMovement, row)
             old_prod = payload.get("product_id")
@@ -320,6 +331,13 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
             if new_prod is None:
                 continue
             payload["product_id"] = new_prod
+            ref_type = (payload.get("ref_type") or "").lower()
+            old_ref = payload.get("ref_id")
+            if ref_type == "sale" and old_ref is not None:
+                try:
+                    payload["ref_id"] = sale_map.get(int(old_ref))
+                except (TypeError, ValueError):
+                    payload["ref_id"] = None
             db.add(models.StockMovement(**payload))
 
         # Store profile (single row)
@@ -371,12 +389,28 @@ def _restore_snapshot(db: Session, snapshot: Dict[str, Any]) -> Dict[str, int]:
 # Auto-backup helpers (also used by main.py and admin.py)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def write_auto_backup(tag: Optional[str] = None) -> Optional[Path]:
+# In-process throttle for high-frequency triggers (e.g. login). Maps tag -> last write epoch.
+_LAST_WRITE_BY_TAG: Dict[str, float] = {}
+
+
+def write_auto_backup(
+    tag: Optional[str] = None,
+    min_interval_seconds: Optional[int] = None,
+) -> Optional[Path]:
     """Write a fresh auto-backup file and prune to AUTO_BACKUP_KEEP files.
+
+    If ``min_interval_seconds`` is given and a backup with the same tag was
+    written more recently than that, this is a no-op (returns None). Useful
+    to throttle login-triggered snapshots.
 
     Safe to call from sync code; opens its own DB session. Returns the file
     path on success, ``None`` on failure (logged, never raises).
     """
+    if tag and min_interval_seconds:
+        import time
+        last = _LAST_WRITE_BY_TAG.get(tag, 0.0)
+        if time.time() - last < min_interval_seconds:
+            return None
     db = SessionLocal()
     try:
         snapshot = _build_snapshot(db, tag=tag)
@@ -400,6 +434,9 @@ def write_auto_backup(tag: Optional[str] = None) -> Optional[Path]:
         print(f"[auto-backup] write failed: {e}")
         return None
 
+    if tag:
+        import time
+        _LAST_WRITE_BY_TAG[tag] = time.time()
     _prune_auto_backups(backup_dir)
     return path
 
@@ -477,6 +514,16 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
     }
 
 
+def _read_auto_counts(path: Path) -> Optional[Dict[str, int]]:
+    """Best-effort: read a snapshot and return its row counts; None on error."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            snap = json.load(f)
+        return _summarize(snap)
+    except Exception:
+        return None
+
+
 @router.get("/auto-list")
 def list_auto_backups():
     backup_dir = _resolve_backup_dir()
@@ -508,8 +555,26 @@ def list_auto_backups():
             "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
             "date": date_str,
             "tag": tag,
+            "counts": _read_auto_counts(p),
         })
     return {"items": items, "kept": AUTO_BACKUP_KEEP, "directory": str(backup_dir)}
+
+
+@router.get("/auto-preview/{filename}")
+def preview_auto_backup(filename: str):
+    path = _safe_resolve(filename)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            snapshot = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        raise HTTPException(status_code=400, detail=f"تعذّر قراءة ملف النسخة: {e}")
+    snapshot = _validate_snapshot(snapshot)
+    return {
+        "version": snapshot["meta"].get("version"),
+        "date": snapshot["meta"].get("date"),
+        "tag": snapshot["meta"].get("tag"),
+        "counts": _summarize(snapshot),
+    }
 
 
 @router.get("/auto-download/{filename}")

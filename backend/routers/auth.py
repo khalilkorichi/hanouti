@@ -9,6 +9,15 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 import crud, schemas, security, database
+from routers.backup import write_auto_backup
+
+
+def _safe_login_snapshot() -> None:
+    """Best-effort login snapshot, throttled to once per 24h."""
+    try:
+        write_auto_backup(tag="login", min_interval_seconds=24 * 60 * 60)
+    except Exception as e:  # pragma: no cover
+        print(f"[login-backup] failed: {e}")
 
 router = APIRouter()
 
@@ -46,6 +55,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token = security.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    _safe_login_snapshot()
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=schemas.Token)
@@ -61,6 +71,7 @@ async def login_simple(login_data: schemas.LoginRequest, db: Session = Depends(d
     access_token = security.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    _safe_login_snapshot()
     return {
         "access_token": access_token,
         "token_type": "bearer",

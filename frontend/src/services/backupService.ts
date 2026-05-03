@@ -25,6 +25,7 @@ export interface AutoBackupItem {
     modified: string;
     date: string | null;
     tag: string | null;
+    counts: BackupCounts | null;
 }
 
 export interface AutoBackupListResponse {
@@ -59,6 +60,13 @@ export const backupService = {
 
     async listAuto(): Promise<AutoBackupListResponse> {
         const res = await api.get<AutoBackupListResponse>('/backup/auto-list');
+        return res.data;
+    },
+
+    async previewAuto(filename: string): Promise<BackupPreview> {
+        const res = await api.get<BackupPreview>(
+            `/backup/auto-preview/${encodeURIComponent(filename)}`,
+        );
         return res.data;
     },
 
