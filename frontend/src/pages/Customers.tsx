@@ -30,9 +30,12 @@ import {
 } from '../components/Common';
 import { useNotification } from '../contexts/NotificationContext';
 import { useDebounce } from '../hooks/useDebounce';
+import { useFormatters } from '../utils/format';
 
-function fmt(n: number) {
-    return `${(n || 0).toLocaleString('ar-DZ', { maximumFractionDigits: 0 })} دج`;
+/** Customers page renders integer-only debt amounts (no decimals) by convention. */
+function useDebtFmt() {
+    const f = useFormatters();
+    return (n: number) => f.money(n, { decimalPlaces: 0, hideTrailingZeros: true });
 }
 
 interface FormState {
@@ -45,6 +48,7 @@ const EMPTY_FORM: FormState = { name: '', phone: '', notes: '' };
 
 export default function Customers() {
     const theme = useTheme();
+    const fmt = useDebtFmt();
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -350,6 +354,7 @@ export default function Customers() {
 }
 
 function AnonymousDebtsPanel({ onAssign }: { onAssign: (s: Sale) => void }) {
+    const fmt = useDebtFmt();
     const { data: anon = [] } = useQuery({
         queryKey: ['anonymous-debts'],
         queryFn: salesService.listAnonymousDebts,
@@ -409,6 +414,7 @@ function AssignCustomerDialog({
     onClose: () => void;
     onSuccess: () => void;
 }) {
+    const fmt = useDebtFmt();
     const { showNotification } = useNotification();
     const [selected, setSelected] = useState<Customer | null>(null);
 
@@ -520,6 +526,7 @@ function CustomerRow({
     onEdit: () => void; onDelete: () => void; onDetail: () => void; onPay: () => void;
 }) {
     const theme = useTheme();
+    const fmt = useDebtFmt();
     const hasDebt = customer.total_due > 0;
 
     return (
@@ -598,6 +605,7 @@ function CustomerDetailDrawer({
     customer, onClose, onPay,
 }: { customer: Customer | null; onClose: () => void; onPay: () => void }) {
     const theme = useTheme();
+    const fmt = useDebtFmt();
     const [tab, setTab] = useState(0);
 
     const { data: freshCustomer } = useQuery({
@@ -708,6 +716,7 @@ function MiniStat({ label, value, highlight }: { label: string; value: string; h
 
 function SalesList({ sales }: { sales: Sale[] }) {
     const theme = useTheme();
+    const fmt = useDebtFmt();
     if (sales.length === 0) {
         return <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>لا توجد فواتير</Typography>;
     }
@@ -760,6 +769,7 @@ function SalesList({ sales }: { sales: Sale[] }) {
 
 function PaymentsList({ payments }: { payments: CustomerPayment[] }) {
     const theme = useTheme();
+    const fmt = useDebtFmt();
     if (payments.length === 0) {
         return <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>لا توجد دفعات</Typography>;
     }
@@ -795,6 +805,7 @@ function PaymentsList({ payments }: { payments: CustomerPayment[] }) {
 function RecordPaymentDialog({
     customer, onClose, onSuccess,
 }: { customer: Customer | null; onClose: () => void; onSuccess: () => void }) {
+    const fmt = useDebtFmt();
     const { showNotification } = useNotification();
     const [amount, setAmount] = useState('');
     const [method, setMethod] = useState('cash');

@@ -148,7 +148,7 @@ function UpgradeSuccessNotifier() {
 }
 
 function AppContent() {
-    const { mode, toggleMode } = useAppTheme();
+    const { mode, toggleMode, defaultPage } = useAppTheme();
     const isDarkMode = mode === 'dark';
 
     useEffect(() => {
@@ -177,7 +177,7 @@ function AppContent() {
             <GlobalBarcodeShortcut />
             <Routes>
                 <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
-                <Route path="/"               element={wrap(Dashboard)} />
+                <Route path="/"               element={defaultPage !== '/' ? <Navigate to={defaultPage} replace /> : wrap(Dashboard)} />
                 <Route path="/products"       element={wrap(Products)} />
                 <Route path="/categories"     element={wrap(Categories)} />
                 <Route path="/sales"          element={wrap(Sales)} />
@@ -188,7 +188,7 @@ function AppContent() {
                 <Route path="/settings"       element={wrap(Settings)} />
                 <Route path="/components-demo" element={wrap(ComponentsDemo)} />
                 <Route path="/print-barcodes" element={wrap(BarcodePrintSheet)} />
-                <Route path="*"              element={<Navigate to="/" replace />} />
+                <Route path="*"              element={<Navigate to={defaultPage} replace />} />
             </Routes>
         </Router>
     );

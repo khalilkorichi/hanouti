@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useFormatters } from '../utils/format';
 import {
     Typography,
     Box,
@@ -204,6 +205,7 @@ function QuickActionCard({
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const fmt = useFormatters();
     const theme = useTheme();
     const { showNotification: _showNotification } = useNotification();
 
@@ -252,22 +254,25 @@ export default function Dashboard() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+    const fmtMoney0 = (v: number) => fmt.money(v, { decimalPlaces: 0, hideTrailingZeros: true });
+    const fmtNum0   = (v: number) => fmt.number(v, { decimalPlaces: 0, hideTrailingZeros: true });
+
     const stats = [
         {
             title: 'إجمالي المبيعات',
-            value: kpi?.total_sales != null ? `${kpi.total_sales.toLocaleString('ar-DZ')} دج` : '—',
+            value: kpi?.total_sales != null ? fmtMoney0(kpi.total_sales) : '—',
             subtitle: 'آخر 30 يوم',
             icon: <MoneyIcon />, color: '#4F46E5', badge: 'الإيرادات',
         },
         {
             title: 'عدد الطلبات',
-            value: kpi?.total_orders != null ? kpi.total_orders.toLocaleString('ar-DZ') : '—',
+            value: kpi?.total_orders != null ? fmtNum0(kpi.total_orders) : '—',
             subtitle: 'طلب مكتمل',
             icon: <ShoppingCartIcon />, color: '#10B981', badge: 'المعاملات',
         },
         {
             title: 'متوسط قيمة الطلب',
-            value: kpi?.avg_order_value != null ? `${kpi.avg_order_value.toFixed(0)} دج` : '—',
+            value: kpi?.avg_order_value != null ? fmtMoney0(kpi.avg_order_value) : '—',
             subtitle: 'لكل معاملة',
             icon: <TrendingUpIcon />, color: '#F59E0B', badge: 'المتوسط',
         },
@@ -279,7 +284,7 @@ export default function Dashboard() {
         },
         ...(debtsEnabled ? [{
             title: 'إجمالي الديون',
-            value: debtSummary ? `${debtSummary.total_debt.toLocaleString('ar-DZ')} دج` : '—',
+            value: debtSummary ? fmtMoney0(debtSummary.total_debt) : '—',
             subtitle: debtSummary ? `${debtSummary.customers_with_debt} عميل مدين — انقر للعرض` : 'لا توجد ديون',
             icon: <DebtIcon />, color: '#EC4899', badge: 'الديون',
             onClick: () => navigate('/customers?filter=debt'),
@@ -429,7 +434,7 @@ export default function Dashboard() {
                                                     </Typography>
                                                 </Box>
                                                 <Typography variant="caption" fontWeight={700} sx={{ color, flexShrink: 0, fontSize: '0.78rem' }}>
-                                                    {product.total_revenue.toLocaleString('ar-DZ')} دج
+                                                    {fmtMoney0(product.total_revenue)}
                                                 </Typography>
                                             </Box>
                                             <LinearProgress

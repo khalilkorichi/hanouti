@@ -28,6 +28,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useReactToPrint } from 'react-to-print';
 import { Receipt } from './Receipt';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useFormatters } from '../../utils/format';
 
 interface EditProductForm {
     name: string;
@@ -737,16 +738,16 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                             type="number"
                             value={paidAmountInput}
                             onChange={(e) => setPaidAmountInput(e.target.value)}
-                            placeholder={total.toFixed(2)}
+                            placeholder={fmt.amount(total)}
                             helperText={
                                 hasDebt
-                                    ? `سيُسجَّل دين بقيمة ${dueAmount.toFixed(0)} دج`
+                                    ? `سيُسجَّل دين بقيمة ${fmt.money(dueAmount, { decimalPlaces: 0 })}`
                                     : 'اتركه فارغاً للدفع الكامل'
                             }
                             FormHelperTextProps={{
                                 sx: { color: hasDebt ? 'error.main' : 'text.secondary', fontWeight: hasDebt ? 700 : 400 },
                             }}
-                            InputProps={{ endAdornment: <Typography variant="caption">دج</Typography> }}
+                            InputProps={{ endAdornment: <Typography variant="caption">{fmt.settings.currencySymbol}</Typography> }}
                         />
                     )}
 
@@ -756,22 +757,22 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography variant="body2" color="text.secondary">المجموع:</Typography>
-                            <Typography variant="body2" fontWeight={600}>{subtotal.toFixed(2)} دج</Typography>
+                            <Typography variant="body2" fontWeight={600}>{fmt.money(subtotal)}</Typography>
                         </Box>
                         {discount > 0 && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" color="success.main">الخصم:</Typography>
-                                <Typography variant="body2" fontWeight={600} color="success.main">- {discount.toFixed(2)} دج</Typography>
+                                <Typography variant="body2" fontWeight={600} color="success.main">- {fmt.money(discount)}</Typography>
                             </Box>
                         )}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
                             <Typography variant="subtitle1" fontWeight={800} color="primary.main">الإجمالي:</Typography>
-                            <Typography variant="subtitle1" fontWeight={800} color="primary.main">{total.toFixed(2)} دج</Typography>
+                            <Typography variant="subtitle1" fontWeight={800} color="primary.main">{fmt.money(total)}</Typography>
                         </Box>
                         {debtsEnabled && hasDebt && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" color="error.main" fontWeight={700}>الدين:</Typography>
-                                <Typography variant="body2" fontWeight={800} color="error.main">{dueAmount.toFixed(2)} دج</Typography>
+                                <Typography variant="body2" fontWeight={800} color="error.main">{fmt.money(dueAmount)}</Typography>
                             </Box>
                         )}
                     </Box>
@@ -874,7 +875,7 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                         رقم الفاتورة: <strong>{completedSale?.invoice_no}</strong>
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
-                        الإجمالي: <strong>{completedSale?.total?.toFixed(2)} دج</strong>
+                        الإجمالي: <strong>{fmt.money(completedSale?.total ?? 0)}</strong>
                     </Typography>
                     {completedSale?.customer && (
                         <Typography color="text.secondary" sx={{ mt: 1 }}>
@@ -884,10 +885,10 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                     {completedSale && completedSale.due_amount > 0 && (
                         <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.error.main, 0.08) }}>
                             <Typography color="error.main" fontWeight={800}>
-                                دين مستحق: {completedSale.due_amount.toFixed(2)} دج
+                                دين مستحق: {fmt.money(completedSale.due_amount)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                مدفوع: {completedSale.paid_amount.toFixed(2)} دج
+                                مدفوع: {fmt.money(completedSale.paid_amount)}
                             </Typography>
                         </Box>
                     )}

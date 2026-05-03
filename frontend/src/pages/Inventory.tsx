@@ -38,6 +38,7 @@ import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } 
 import { CustomButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { productService, type Product } from '../services/productService';
 import { useNotification } from '../contexts/NotificationContext';
+import { useFormatters } from '../utils/format';
 
 /* ── Stat card ── */
 interface StatCardProps {
@@ -153,7 +154,8 @@ function ZakatDialog({ open, onClose, inventoryValue }: { open: boolean; onClose
         return { exceedsNisab, zakatAmount, daysPassed, daysLeft, hawlComplete, hawlProgress, dueDate, zakatDue };
     }, [inventoryValue, nisab, hawlDate]);
 
-    const fmt = (n: number) => n.toLocaleString('ar-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' دج';
+    const f = useFormatters();
+    const fmt = (n: number) => f.money(n, { decimalPlaces: 2, hideTrailingZeros: false });
 
     const statusColor = calc.zakatDue ? '#EF4444' : calc.exceedsNisab ? '#F59E0B' : '#10B981';
     const statusLabel = calc.zakatDue
@@ -536,7 +538,8 @@ export default function Inventory() {
         showNotification(`تم تصدير ${rows.length} منتج كملف CSV`, 'success');
     };
 
-    const fmt = (n: number) => n.toLocaleString('ar-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' دج';
+    const f = useFormatters();
+    const fmt = (n: number) => f.money(n, { decimalPlaces: 2, hideTrailingZeros: false });
 
     const columns: GridColDef[] = [
         { field: 'name', headerName: 'اسم المنتج', flex: 1, minWidth: 200 },
@@ -554,17 +557,17 @@ export default function Inventory() {
         { field: 'min_qty', headerName: 'الحد الأدنى', width: 110 },
         {
             field: 'purchase_price', headerName: 'سعر الشراء', width: 130,
-            valueFormatter: (value) => `${(value as number)?.toFixed(2) || '0.00'} دج`
+            valueFormatter: (value) => fmt((value as number) || 0),
         },
         {
             field: 'sale_price', headerName: 'سعر البيع', width: 130,
-            valueFormatter: (value) => `${(value as number)?.toFixed(2) || '0.00'} دج`
+            valueFormatter: (value) => fmt((value as number) || 0),
         },
         {
             field: 'inventory_value', headerName: 'قيمة المخزون', width: 140,
             sortable: true,
             valueGetter: (_value, row) => (row.stock_qty ?? 0) * (row.purchase_price ?? 0),
-            valueFormatter: (value) => `${(value as number)?.toFixed(2) || '0.00'} دج`,
+            valueFormatter: (value) => fmt((value as number) || 0),
         },
         {
             field: 'status', headerName: 'الحالة', width: 110,

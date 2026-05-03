@@ -38,6 +38,7 @@ import { customerService, type Customer } from '../services/customerService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { useFormatters } from '../utils/format';
 
 export default function SalesList() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -62,20 +63,19 @@ export default function SalesList() {
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
     const theme = useTheme();
+    const fmt = useFormatters();
 
     const handlePrintInvoice = (sale: Sale) => {
         const statusLabel = sale.status === 'completed' ? 'مكتملة' : sale.status === 'draft' ? 'مسودة' : 'ملغية';
         const payLabel = sale.payment_method === 'cash' ? 'نقداً' : 'بطاقة';
-        const dateStr = (() => {
-            try { return new Date(sale.created_at).toLocaleString('ar-DZ'); } catch { return sale.created_at; }
-        })();
+        const dateStr = fmt.date(sale.created_at, { withTime: true });
 
         const itemsHtml = sale.items.map(item => `
             <tr>
                 <td>${item.product?.name || 'منتج #' + item.product_id}</td>
                 <td class="center">${item.qty}</td>
-                <td class="num">${(item.unit_price ?? 0).toFixed(2)} دج</td>
-                <td class="num">${(item.line_total ?? (item.unit_price * item.qty)).toFixed(2)} دج</td>
+                <td class="num">${fmt.money(item.unit_price ?? 0)}</td>
+                <td class="num">${fmt.money(item.line_total ?? (item.unit_price * item.qty))}</td>
             </tr>`).join('');
 
         const html = `<!DOCTYPE html>
@@ -151,7 +151,7 @@ export default function SalesList() {
 
   <div class="total-box">
     <span class="total-label">الإجمالي النهائي</span>
-    <span class="total-val">${(sale.total ?? 0).toFixed(2)} دج</span>
+    <span class="total-val">${fmt.money(sale.total ?? 0)}</span>
   </div>
 
   <div class="footer">شكراً لتعاملكم معنا — برنامج حانوتي</div>
@@ -376,7 +376,7 @@ export default function SalesList() {
             field: 'total',
             headerName: 'الإجمالي',
             width: 130,
-            valueFormatter: (value) => `${(value as number)?.toFixed(2) || '0.00'} دج`
+            valueFormatter: (value) => fmt.money((value as number) || 0),
         },
         {
             field: 'actions',
@@ -489,13 +489,13 @@ export default function SalesList() {
                                         <MoneyIcon sx={{ fontSize: 28, color: 'primary.main' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" color="primary.main" gutterBottom>
-                                        {kpis.total_sales.toFixed(2)}
+                                        {fmt.amount(kpis.total_sales)}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                                         إجمالي المبيعات
                                     </Typography>
                                     <Typography variant="caption" sx={{ color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <TrendingUpIcon sx={{ fontSize: 14 }} /> دج
+                                        <TrendingUpIcon sx={{ fontSize: 14 }} /> {fmt.settings.currencySymbol}
                                     </Typography>
                                 </Box>
                             </Paper>
@@ -593,7 +593,7 @@ export default function SalesList() {
                                         <TrendingUpIcon sx={{ fontSize: 26, color: '#FFAB00' }} />
                                     </Box>
                                     <Typography variant="h4" fontWeight="bold" sx={{ color: '#FFAB00' }} gutterBottom>
-                                        {kpis.avg_order_value.toFixed(2)}
+                                        {fmt.amount(kpis.avg_order_value)}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                                         متوسط قيمة الطلب
@@ -861,7 +861,7 @@ export default function SalesList() {
                     </Typography>
                     {saleToDelete && (
                         <Typography variant="body2" color="text.secondary">
-                            الفاتورة رقم <strong>{saleToDelete.invoice_no}</strong> بقيمة <strong>{saleToDelete.total?.toFixed(2)} دج</strong>
+                            الفاتورة رقم <strong>{saleToDelete.invoice_no}</strong> بقيمة <strong>{fmt.money(saleToDelete.total ?? 0)}</strong>
                         </Typography>
                     )}
                     <Typography
@@ -903,7 +903,7 @@ export default function SalesList() {
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     {assignSale && (
                         <Typography variant="body2" color="text.secondary">
-                            دين الفاتورة: <strong>{(assignSale.due_amount || 0).toFixed(2)} دج</strong>
+                            دين الفاتورة: <strong>{fmt.money(assignSale.due_amount || 0)}</strong>
                         </Typography>
                     )}
                     <Autocomplete<Customer, false, false, false>
@@ -924,6 +924,7 @@ export default function SalesList() {
    Invoice Details Component
 ════════════════════════════════════════ */
 function InvoiceDetails({ sale }: { sale: Sale }) {
+    const fmt = useFormatters();
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
 
@@ -1044,12 +1045,12 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
                             </Box>
                             <Box sx={cellSx('end')}>
                                 <Typography variant="body2" color="text.secondary">
-                                    {item.unit_price?.toFixed(2)} دج
+                                    {fmt.money(item.unit_price ?? 0)}
                                 </Typography>
                             </Box>
                             <Box sx={cellSx('end')}>
                                 <Typography variant="body2" fontWeight={700} color="primary.main">
-                                    {(item.line_total ?? item.unit_price * item.qty)?.toFixed(2)} دج
+                                    {fmt.money(item.line_total ?? item.unit_price * item.qty)}
                                 </Typography>
                             </Box>
                         </Box>
@@ -1068,7 +1069,7 @@ function InvoiceDetails({ sale }: { sale: Sale }) {
             }}>
                 <Typography variant="subtitle2" fontWeight={800}>الإجمالي النهائي</Typography>
                 <Typography variant="subtitle1" fontWeight={900} color="primary.main">
-                    {sale.total?.toFixed(2)} دج
+                    {fmt.money(sale.total ?? 0)}
                 </Typography>
             </Box>
 

@@ -10,6 +10,7 @@ import GlobalCustomShortcuts from '../Shortcuts/GlobalCustomShortcuts';
 import ShortcutsManagerDialog from '../Shortcuts/ShortcutsManagerDialog';
 import useOnboarding from '../../hooks/useOnboarding';
 import api from '../../services/api';
+import { useAppTheme } from '../../contexts/ThemeContext';
 
 interface MainLayoutProps {
     children: ReactNode;
@@ -18,9 +19,12 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children, isDarkMode, onThemeToggle }: MainLayoutProps) {
+    const { sidebarCollapsedDefault } = useAppTheme();
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
-        return localStorage.getItem('sidebar_collapsed') === 'true';
+        const stored = localStorage.getItem('sidebar_collapsed');
+        if (stored === 'true' || stored === 'false') return stored === 'true';
+        return sidebarCollapsedDefault;
     });
     const [forcePasswordChange, setForcePasswordChange] = useState(false);
     const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);

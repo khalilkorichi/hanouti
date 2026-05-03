@@ -67,6 +67,35 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* ── Bold-numbers: tabular figures everywhere + bolder numeric grid cells ── */
+.app-bold-numbers .MuiTypography-root,
+.app-bold-numbers .MuiTableCell-root,
+.app-bold-numbers .MuiDataGrid-cell,
+.app-bold-numbers input,
+.app-bold-numbers .num-value {
+  font-variant-numeric: tabular-nums;
+}
+/* MUI DataGrid right-aligns numeric columns automatically (headerAlign='right'
+   or type='number'); those are the cells we want emphasised. */
+.app-bold-numbers .MuiDataGrid-cell--textRight,
+.app-bold-numbers .MuiDataGrid-cell[data-field="total"],
+.app-bold-numbers .MuiDataGrid-cell[data-field="purchase_price"],
+.app-bold-numbers .MuiDataGrid-cell[data-field="sale_price"],
+.app-bold-numbers .MuiDataGrid-cell[data-field="inventory_value"],
+.app-bold-numbers .MuiDataGrid-cell[data-field="stock_qty"],
+.app-bold-numbers .MuiDataGrid-cell[data-field="qty"],
+.app-bold-numbers .num-value {
+  font-weight: 700;
+}
+
+/* ── High-contrast tweaks (palette already adjusted in ThemeContext) ── */
+.app-high-contrast .MuiPaper-root {
+  border-color: currentColor;
+}
+.app-high-contrast .MuiDivider-root {
+  opacity: 1;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

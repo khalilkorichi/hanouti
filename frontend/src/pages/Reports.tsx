@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { reportsService } from '../services/reportsService';
 import { PageHeader } from '../components/Common';
+import { useFormatters } from '../utils/format';
 
 const PERIODS = [
     { value: 'today',   label: 'اليوم' },
@@ -29,8 +30,14 @@ const PERIODS = [
 const CAT_COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#8B5CF6', '#F43F5E', '#3B82F6', '#84CC16'];
 const STOCK_COLORS = { ok: '#10B981', low: '#F59E0B', out: '#EF4444' };
 
-const fmtMoney = (v: number) => `${(v ?? 0).toLocaleString('ar-DZ', { maximumFractionDigits: 0 })} دج`;
-const fmtNum = (v: number) => (v ?? 0).toLocaleString('ar-DZ', { maximumFractionDigits: 0 });
+// Reports money formatter — integer display by convention. Uses live appearance settings.
+function useReportFormatters() {
+    const f = useFormatters();
+    return {
+        fmtMoney: (v: number) => f.money(v ?? 0, { decimalPlaces: 0, hideTrailingZeros: true }),
+        fmtNum:   (v: number) => f.number(v ?? 0, { decimalPlaces: 0, hideTrailingZeros: true, thousandSeparator: f.settings.thousandSeparator }),
+    };
+}
 
 /* ─── KPI Card with growth indicator ─── */
 interface KPICardProps {
@@ -148,6 +155,7 @@ export default function Reports() {
     const [period, setPeriod] = useState('last_30');
     const theme = useTheme();
     const tooltipStyle = useChartTooltip();
+    const { fmtMoney, fmtNum } = useReportFormatters();
 
     const kpisQ      = useQuery({ queryKey: ['reports-kpis', period],     queryFn: () => reportsService.getKPIs(period) });
     const salesQ     = useQuery({ queryKey: ['reports-sales', period],    queryFn: () => reportsService.getSalesOverTime(period) });

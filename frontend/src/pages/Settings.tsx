@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import {
     Typography, Box, TextField, Switch, Stack, Avatar,
     useTheme, alpha, Tooltip, Paper, IconButton,
+    Slider, Select, MenuItem, FormControl, InputLabel,
+    Divider,
 } from '@mui/material';
 import {
     Security as SecurityIcon,
@@ -25,6 +27,16 @@ import {
     Animation as AnimationIcon,
     SystemUpdateAlt as UpdatesIcon,
     HistoryRounded as HistoryIcon,
+    Numbers as NumbersIcon,
+    FormatBold as BoldIcon,
+    NotificationsActive as ToastIcon,
+    DateRange as DateIcon,
+    Contrast as ContrastIcon,
+    Image as ImageIcon,
+    Home as HomeIcon,
+    ViewSidebar as SidebarIcon,
+    RestartAlt as ResetIcon,
+    Tune as TuneIcon,
 } from '@mui/icons-material';
 import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
@@ -34,7 +46,7 @@ import RestoreBackupDialog from '../components/Settings/RestoreBackupDialog';
 import RestorePointsCard from '../components/Settings/RestorePointsCard';
 import ActivityLogCard from '../components/Settings/ActivityLogCard';
 import { backupService } from '../services/backupService';
-import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
+import { useAppTheme, COLOR_PRESETS, FONT_FAMILIES } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
 /* ── Section type ── */
@@ -64,6 +76,21 @@ export default function Settings() {
     const {
         mode, toggleMode, primaryColor, setPrimaryColor, fontSize, setFontSize,
         radius, setRadius, density, setDensity, animSpeed, setAnimSpeed,
+        hideTrailingZeros, setHideTrailingZeros,
+        decimalPlaces, setDecimalPlaces,
+        thousandSeparator, setThousandSeparator,
+        currencySymbol, setCurrencySymbol,
+        currencyPosition, setCurrencyPosition,
+        fontScale, setFontScale,
+        fontFamily, setFontFamily,
+        boldNumbers, setBoldNumbers,
+        defaultPage, setDefaultPage,
+        sidebarCollapsedDefault, setSidebarCollapsedDefault,
+        showProductImages, setShowProductImages,
+        toastPosition, setToastPosition,
+        dateFormat, setDateFormat,
+        highContrast, setHighContrast,
+        resetAppearance,
     } = useAppTheme();
     const { showNotification } = useNotification();
 
@@ -444,6 +471,215 @@ export default function Settings() {
                                 })}
                             </Box>
                         </SettingsCard>
+
+                        {/* ── Number / money display ── */}
+                        <SettingsCard title="عرض الأرقام والعملة" icon={<NumbersIcon />}>
+                            <Stack spacing={2}>
+                                <SwitchRow
+                                    label="إخفاء الأصفار غير اللازمة"
+                                    desc="مثال: 100.00 → 100"
+                                    checked={hideTrailingZeros}
+                                    onChange={setHideTrailingZeros}
+                                />
+                                <SwitchRow
+                                    label="فاصل الآلاف"
+                                    desc="مثال: 12,345"
+                                    checked={thousandSeparator}
+                                    onChange={setThousandSeparator}
+                                />
+                                <Divider />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 1.5 }}>
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel>عدد الخانات العشرية</InputLabel>
+                                        <Select
+                                            value={decimalPlaces}
+                                            label="عدد الخانات العشرية"
+                                            onChange={(e) => setDecimalPlaces(Number(e.target.value) as 0 | 2 | 3)}
+                                        >
+                                            <MenuItem value={0}>0</MenuItem>
+                                            <MenuItem value={2}>2</MenuItem>
+                                            <MenuItem value={3}>3</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <TextField
+                                        size="small"
+                                        label="رمز العملة"
+                                        value={currencySymbol}
+                                        onChange={(e) => setCurrencySymbol(e.target.value.slice(0, 8))}
+                                        inputProps={{ maxLength: 8, style: { textAlign: 'center' } }}
+                                    />
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel>موضع العملة</InputLabel>
+                                        <Select
+                                            value={currencyPosition}
+                                            label="موضع العملة"
+                                            onChange={(e) => setCurrencyPosition(e.target.value as 'before' | 'after')}
+                                        >
+                                            <MenuItem value="after">بعد المبلغ ({`100 ${currencySymbol}`})</MenuItem>
+                                            <MenuItem value="before">قبل المبلغ ({`${currencySymbol} 100`})</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                                <Box sx={{
+                                    p: 1.5, borderRadius: 2, textAlign: 'center',
+                                    bgcolor: alpha(theme.palette.primary.main, 0.06),
+                                    border: `1px dashed ${alpha(theme.palette.primary.main, 0.4)}`,
+                                }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">معاينة</Typography>
+                                    <Typography variant="h6" fontWeight={700} color="primary.main">
+                                        {previewMoney(12345.6, { hideTrailingZeros, decimalPlaces, thousandSeparator, currencySymbol, currencyPosition })}
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </SettingsCard>
+
+                        {/* ── Font scale & family ── */}
+                        <SettingsCard title="حجم وعائلة الخط" icon={<FontIcon />}>
+                            <Stack spacing={2.5}>
+                                <Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>مقياس الخط</Typography>
+                                        <Typography variant="caption" color="primary.main" fontWeight={700}>
+                                            {Math.round(fontScale * 100)}%
+                                        </Typography>
+                                    </Box>
+                                    <Slider
+                                        value={fontScale}
+                                        min={0.8} max={1.3} step={0.05}
+                                        onChange={(_, v) => setFontScale(v as number)}
+                                        marks={[
+                                            { value: 0.8, label: '80%' },
+                                            { value: 1, label: '100%' },
+                                            { value: 1.3, label: '130%' },
+                                        ]}
+                                    />
+                                </Box>
+                                <FormControl size="small" fullWidth>
+                                    <InputLabel>عائلة الخط</InputLabel>
+                                    <Select
+                                        value={fontFamily}
+                                        label="عائلة الخط"
+                                        onChange={(e) => setFontFamily(e.target.value as keyof typeof FONT_FAMILIES)}
+                                    >
+                                        {Object.keys(FONT_FAMILIES).map(name => (
+                                            <MenuItem key={name} value={name}
+                                                sx={{ fontFamily: FONT_FAMILIES[name as keyof typeof FONT_FAMILIES] }}>
+                                                {name} — مرحبا بكم في حانوتي
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <SwitchRow
+                                    label="أرقام عريضة"
+                                    desc="جعل الأرقام أبرز وأسهل قراءة في الجداول"
+                                    checked={boldNumbers}
+                                    onChange={setBoldNumbers}
+                                    icon={<BoldIcon fontSize="small" />}
+                                />
+                            </Stack>
+                        </SettingsCard>
+
+                        {/* ── General preferences ── */}
+                        <SettingsCard title="تفضيلات عامة" icon={<TuneIcon />}>
+                            <Stack spacing={2}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel>الصفحة الافتراضية</InputLabel>
+                                        <Select
+                                            value={defaultPage}
+                                            label="الصفحة الافتراضية"
+                                            onChange={(e) => setDefaultPage(e.target.value as typeof defaultPage)}
+                                            startAdornment={<HomeIcon sx={{ fontSize: 18, ml: 1, color: 'text.secondary' }} />}
+                                        >
+                                            <MenuItem value="/">لوحة التحكم</MenuItem>
+                                            <MenuItem value="/sales">المبيعات</MenuItem>
+                                            <MenuItem value="/products">المنتجات</MenuItem>
+                                            <MenuItem value="/inventory">المخزون</MenuItem>
+                                            <MenuItem value="/categories">الفئات</MenuItem>
+                                            <MenuItem value="/sales-list">سجل المبيعات</MenuItem>
+                                            <MenuItem value="/reports">التقارير</MenuItem>
+                                            <MenuItem value="/customers">العملاء</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel>تنسيق التاريخ</InputLabel>
+                                        <Select
+                                            value={dateFormat}
+                                            label="تنسيق التاريخ"
+                                            onChange={(e) => setDateFormat(e.target.value as typeof dateFormat)}
+                                            startAdornment={<DateIcon sx={{ fontSize: 18, ml: 1, color: 'text.secondary' }} />}
+                                        >
+                                            <MenuItem value="dd/MM/yyyy">31/12/2025</MenuItem>
+                                            <MenuItem value="yyyy-MM-dd">2025-12-31</MenuItem>
+                                            <MenuItem value="dd MMM yyyy">31 ديسمبر 2025</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel>موضع التنبيهات</InputLabel>
+                                        <Select
+                                            value={toastPosition}
+                                            label="موضع التنبيهات"
+                                            onChange={(e) => setToastPosition(e.target.value as typeof toastPosition)}
+                                            startAdornment={<ToastIcon sx={{ fontSize: 18, ml: 1, color: 'text.secondary' }} />}
+                                        >
+                                            <MenuItem value="top-right">أعلى يمين</MenuItem>
+                                            <MenuItem value="top-left">أعلى يسار</MenuItem>
+                                            <MenuItem value="top-center">أعلى وسط</MenuItem>
+                                            <MenuItem value="bottom-right">أسفل يمين</MenuItem>
+                                            <MenuItem value="bottom-left">أسفل يسار</MenuItem>
+                                            <MenuItem value="bottom-center">أسفل وسط</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                                <Divider />
+                                <SwitchRow
+                                    label="طيّ الشريط الجانبي افتراضيًا"
+                                    desc="بدء التطبيق مع شريط جانبي مطويّ"
+                                    checked={sidebarCollapsedDefault}
+                                    onChange={(v) => {
+                                        setSidebarCollapsedDefault(v);
+                                        try { localStorage.removeItem('sidebar_collapsed'); } catch { /* ignore */ }
+                                    }}
+                                    icon={<SidebarIcon fontSize="small" />}
+                                />
+                                <SwitchRow
+                                    label="إظهار صور المنتجات"
+                                    desc="عرض الصور المصغّرة في الجداول والقوائم"
+                                    checked={showProductImages}
+                                    onChange={setShowProductImages}
+                                    icon={<ImageIcon fontSize="small" />}
+                                />
+                                <SwitchRow
+                                    label="تباين عالي"
+                                    desc="ألوان أكثر وضوحًا للقراءة في الإضاءة الساطعة"
+                                    checked={highContrast}
+                                    onChange={setHighContrast}
+                                    icon={<ContrastIcon fontSize="small" />}
+                                />
+                            </Stack>
+                        </SettingsCard>
+
+                        {/* ── Reset ── */}
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+                            <CustomButton
+                                variant="outlined"
+                                startIcon={<ResetIcon />}
+                                onClick={() => {
+                                    resetAppearance();
+                                    showNotification('تم استعادة إعدادات المظهر الافتراضية', 'success');
+                                }}
+                                sx={{
+                                    borderColor: alpha(theme.palette.error.main, 0.5),
+                                    color: theme.palette.error.main,
+                                    '&:hover': {
+                                        borderColor: theme.palette.error.main,
+                                        bgcolor: alpha(theme.palette.error.main, 0.06),
+                                    },
+                                }}
+                            >
+                                استعادة الإعدادات الافتراضية
+                            </CustomButton>
+                        </Box>
                     </Stack>
                 )}
 
@@ -639,6 +875,51 @@ export default function Settings() {
             />
         </Box>
     );
+}
+
+/* ── Reusable switch row ── */
+function SwitchRow({
+    label, desc, checked, onChange, icon,
+}: {
+    label: string; desc?: string; checked: boolean;
+    onChange: (v: boolean) => void; icon?: React.ReactNode;
+}) {
+    const theme = useTheme();
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                {icon && (
+                    <Box sx={{ p: 0.75, borderRadius: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.08), color: 'primary.main', display: 'flex' }}>
+                        {icon}
+                    </Box>
+                )}
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" fontWeight={600} noWrap>{label}</Typography>
+                    {desc && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{desc}</Typography>}
+                </Box>
+            </Box>
+            <Switch checked={checked} onChange={(_, v) => onChange(v)} color="primary" />
+        </Box>
+    );
+}
+
+/* ── Tiny formatter shared with the live preview in the appearance card ── */
+function previewMoney(n: number, opts: {
+    hideTrailingZeros: boolean; decimalPlaces: 0 | 2 | 3;
+    thousandSeparator: boolean; currencySymbol: string;
+    currencyPosition: 'before' | 'after';
+}): string {
+    let body = n.toFixed(opts.decimalPlaces);
+    if (opts.hideTrailingZeros && body.includes('.')) {
+        body = body.replace(/\.?0+$/, '');
+    }
+    if (opts.thousandSeparator) {
+        const [int, frac] = body.split('.');
+        body = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (frac ? `.${frac}` : '');
+    }
+    return opts.currencyPosition === 'before'
+        ? `${opts.currencySymbol} ${body}`
+        : `${body} ${opts.currencySymbol}`;
 }
 
 /* ── Reusable card wrapper ── */

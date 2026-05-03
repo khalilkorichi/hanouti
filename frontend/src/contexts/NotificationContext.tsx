@@ -10,6 +10,7 @@ import {
     InfoOutlined as InfoIcon,
     Close as CloseIcon,
 } from '@mui/icons-material';
+import { useAppTheme, type ToastPosition } from './ThemeContext';
 
 /* ════════════════════════════════════════
    Types
@@ -166,16 +167,28 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 /* ════════════════════════════════════════
    Toast stack
 ════════════════════════════════════════ */
+const POSITION_STYLES: Record<ToastPosition, Record<string, number | string>> = {
+    'top-right':     { top: 16, right: 16 },
+    'top-left':      { top: 16, left: 16 },
+    'top-center':    { top: 16, left: '50%', transform: 'translateX(-50%)' },
+    'bottom-right':  { bottom: 16, right: 16 },
+    'bottom-left':   { bottom: 16, left: 16 },
+    'bottom-center': { bottom: 16, left: '50%', transform: 'translateX(-50%)' },
+};
+
 function NotificationStack({ toasts, onDismiss }: { toasts: Notification[]; onDismiss: (id: string) => void }) {
+    const { toastPosition } = useAppTheme();
     if (toasts.length === 0) return null;
+    const isBottom = toastPosition.startsWith('bottom');
     return (
         <Box
             dir="ltr"
             aria-live="polite"
             sx={{
-                position: 'fixed', top: 16, right: 16, zIndex: 9999,
-                display: 'flex', flexDirection: 'column', gap: 1.25,
+                position: 'fixed', zIndex: 9999,
+                display: 'flex', flexDirection: isBottom ? 'column-reverse' : 'column', gap: 1.25,
                 width: 360, maxWidth: 'calc(100vw - 32px)', pointerEvents: 'none',
+                ...POSITION_STYLES[toastPosition],
             }}
         >
             {toasts.map(t => <NotifCard key={t.id} notif={t} onDismiss={onDismiss} />)}
