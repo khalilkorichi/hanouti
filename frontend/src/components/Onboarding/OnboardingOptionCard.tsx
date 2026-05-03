@@ -41,10 +41,19 @@ export default function OnboardingOptionCard({
                         : alpha(theme.palette.divider, 0.6)
                 }`,
                 background: selected
-                    ? alpha(theme.palette.primary.main, isLight ? 0.08 : 0.18)
+                    ? isLight
+                        ? alpha(theme.palette.primary.main, 0.10)
+                        : alpha(theme.palette.primary.main, 0.22)
                     : isLight
                       ? '#FFFFFF'
-                      : alpha(theme.palette.background.paper, 0.6),
+                      : '#1E293B',
+                boxShadow: isLight
+                    ? selected
+                        ? `0 8px 24px ${alpha(theme.palette.primary.main, 0.22)}`
+                        : '0 2px 6px rgba(15, 23, 42, 0.06)'
+                    : selected
+                        ? `0 8px 24px ${alpha(theme.palette.primary.main, 0.35)}`
+                        : '0 2px 6px rgba(0, 0, 0, 0.25)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -54,13 +63,12 @@ export default function OnboardingOptionCard({
                 transition:
                     'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s, background 0.18s, box-shadow 0.18s',
                 transform: selected ? 'translateY(-2px) scale(1.02)' : 'none',
-                boxShadow: selected
-                    ? `0 8px 24px ${alpha(theme.palette.primary.main, 0.25)}`
-                    : 'none',
                 '&:hover': {
                     borderColor: theme.palette.primary.main,
                     transform: 'translateY(-2px)',
-                    boxShadow: `0 6px 18px ${alpha(theme.palette.primary.main, 0.18)}`,
+                    boxShadow: isLight
+                        ? `0 6px 18px ${alpha(theme.palette.primary.main, 0.22)}`
+                        : `0 6px 18px ${alpha(theme.palette.primary.main, 0.4)}`,
                 },
                 '&:focus-visible': {
                     outline: `3px solid ${alpha(theme.palette.primary.main, 0.4)}`,

@@ -137,8 +137,16 @@ export default function OnboardingWizard({ open, onComplete }: OnboardingWizardP
                 paper: {
                     sx: {
                         background: isLight
-                            ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.04)} 0%, ${alpha(theme.palette.secondary.main, 0.04)} 100%)`
-                            : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${alpha(theme.palette.background.default, 1)} 100%)`,
+                            ? '#F8FAFC'
+                            : '#0F172A',
+                        backgroundImage: isLight
+                            ? `radial-gradient(circle at 15% 0%, ${alpha(theme.palette.primary.main, 0.12)} 0%, transparent 45%),
+                               radial-gradient(circle at 85% 100%, ${alpha(theme.palette.secondary.main, 0.10)} 0%, transparent 45%),
+                               linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%)`
+                            : `radial-gradient(circle at 15% 0%, ${alpha(theme.palette.primary.main, 0.22)} 0%, transparent 50%),
+                               radial-gradient(circle at 85% 100%, ${alpha(theme.palette.secondary.main, 0.18)} 0%, transparent 50%),
+                               linear-gradient(180deg, #0F172A 0%, #1E293B 100%)`,
+                        backgroundAttachment: 'fixed',
                     },
                 },
             }}
@@ -211,9 +219,11 @@ export default function OnboardingWizard({ open, onComplete }: OnboardingWizardP
                         flexShrink: 0,
                         px: { xs: 2, sm: 4 },
                         py: 2.5,
-                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-                        background: isLight ? alpha('#FFFFFF', 0.7) : alpha(theme.palette.background.paper, 0.6),
-                        backdropFilter: 'blur(10px)',
+                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
+                        background: isLight ? '#FFFFFF' : '#1E293B',
+                        boxShadow: isLight
+                            ? '0 -4px 16px rgba(15, 23, 42, 0.06)'
+                            : '0 -4px 16px rgba(0, 0, 0, 0.35)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
