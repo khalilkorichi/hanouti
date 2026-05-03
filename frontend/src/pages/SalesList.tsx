@@ -28,10 +28,13 @@ import {
     DeleteForeverOutlined as HardDeleteIcon,
     ReceiptLongOutlined as SalesListIcon,
     WarningAmberOutlined as WarningIcon,
+    PersonAddAlt1 as AssignCustomerIcon,
 } from '@mui/icons-material';
+import { Autocomplete } from '@mui/material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
 import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
 import { salesService, type Sale } from '../services/salesService';
+import { customerService, type Customer } from '../services/customerService';
 import { useNotification } from '../contexts/NotificationContext';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -50,6 +53,8 @@ export default function SalesList() {
     const [cancelReason, setCancelReason] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+    const [assignSale, setAssignSale] = useState<Sale | null>(null);
+    const [assignCustomer, setAssignCustomer] = useState<Customer | null>(null);
     const apiRef = useGridApiRef();
     const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
     const [gridKey, setGridKey] = useState(0);
@@ -214,6 +219,29 @@ export default function SalesList() {
         }
     });
 
+    const assignCustomerMutation = useMutation({
+        mutationFn: (vars: { saleId: number; customerId: number }) =>
+            salesService.assignCustomer(vars.saleId, vars.customerId),
+        onSuccess: () => {
+            showNotification('تم تعيين العميل للفاتورة', 'success');
+            setAssignSale(null);
+            setAssignCustomer(null);
+            queryClient.invalidateQueries({ queryKey: ['sales-list'] });
+            queryClient.invalidateQueries({ queryKey: ['anonymous-debts'] });
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+        },
+        onError: (e: { response?: { data?: { detail?: string } } }) => {
+            showNotification(e.response?.data?.detail || 'فشل تعيين العميل', 'error');
+        },
+    });
+
+    // Lazy-load customers only when the assign dialog is open
+    const { data: assignableCustomers = [] } = useQuery({
+        queryKey: ['customers', 'all-for-assign'],
+        queryFn: () => customerService.list({}),
+        enabled: assignSale !== null,
+    });
+
     const handleViewDetails = (sale: Sale) => {
         setSelectedSale(sale);
         setShowDetailsModal(true);
@@ -353,7 +381,7 @@ export default function SalesList() {
         {
             field: 'actions',
             headerName: 'الإجراءات',
-            width: 170,
+            width: 210,
             sortable: false,
             renderCell: (params) => (
                 <Stack direction="row" spacing={0.5} alignItems="center" height="100%">
@@ -373,6 +401,18 @@ export default function SalesList() {
                     >
                         <PrintIcon sx={{ fontSize: 17 }} />
                     </CustomIconButton>
+                    {params.row.status === 'completed'
+                        && !params.row.customer_id
+                        && (params.row.due_amount || 0) > 0 && (
+                        <CustomIconButton
+                            variant="success"
+                            size="small"
+                            tooltip="تعيين عميل (دين مجهول)"
+                            onClick={() => { setAssignSale(params.row); setAssignCustomer(null); }}
+                        >
+                            <AssignCustomerIcon sx={{ fontSize: 17 }} />
+                        </CustomIconButton>
+                    )}
                     {params.row.status !== 'cancelled' && (
                         <CustomIconButton
                             variant="warning"
@@ -833,6 +873,48 @@ export default function SalesList() {
                         هذا الإجراء لا يمكن التراجع عنه
                     </Typography>
                 </Box>
+            </UnifiedModal>
+
+            {/* ── Assign Customer to Anonymous-Debt Sale ── */}
+            <UnifiedModal
+                open={assignSale !== null}
+                onClose={() => { setAssignSale(null); setAssignCustomer(null); }}
+                title={`تعيين عميل — ${assignSale?.invoice_no || ''}`}
+                maxWidth="xs"
+                actions={
+                    <>
+                        <CustomButton variant="outlined" onClick={() => { setAssignSale(null); setAssignCustomer(null); }}>
+                            إلغاء
+                        </CustomButton>
+                        <CustomButton
+                            variant="contained"
+                            disabled={!assignCustomer}
+                            loading={assignCustomerMutation.isPending}
+                            startIcon={<AssignCustomerIcon />}
+                            onClick={() => assignSale && assignCustomer && assignCustomerMutation.mutate({
+                                saleId: assignSale.id, customerId: assignCustomer.id,
+                            })}
+                        >
+                            تأكيد
+                        </CustomButton>
+                    </>
+                }
+            >
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    {assignSale && (
+                        <Typography variant="body2" color="text.secondary">
+                            دين الفاتورة: <strong>{(assignSale.due_amount || 0).toFixed(2)} دج</strong>
+                        </Typography>
+                    )}
+                    <Autocomplete<Customer, false, false, false>
+                        options={assignableCustomers}
+                        value={assignCustomer}
+                        onChange={(_, v) => setAssignCustomer(v)}
+                        getOptionLabel={(o) => o.name + (o.phone ? ` — ${o.phone}` : '')}
+                        isOptionEqualToValue={(a, b) => a.id === b.id}
+                        renderInput={(params) => <TextField {...params} label="العميل *" autoFocus />}
+                    />
+                </Stack>
             </UnifiedModal>
         </Box>
     );

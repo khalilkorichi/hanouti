@@ -665,6 +665,18 @@ def record_customer_payment(db: Session, customer_id: int, payload: schemas.Cust
     if payload.amount <= 0:
         raise ValueError("يجب أن يكون المبلغ أكبر من صفر")
 
+    # Cap the payment at the customer's total outstanding debt across all
+    # completed sales — we don't currently model store credit, so accepting
+    # an over-payment would leave un-allocated money in the ledger.
+    total_due = db.query(func.coalesce(func.sum(models.Sale.due_amount), 0.0)).filter(
+        models.Sale.customer_id == customer_id,
+        models.Sale.status == "completed",
+    ).scalar() or 0.0
+    if float(payload.amount) > float(total_due) + 1e-6:
+        raise ValueError(
+            f"المبلغ يتجاوز الدين المستحق ({float(total_due):.2f} دج)."
+        )
+
     payment = models.CustomerPayment(
         customer_id=customer_id,
         amount=payload.amount,

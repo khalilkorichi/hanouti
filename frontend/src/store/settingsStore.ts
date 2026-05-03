@@ -2,6 +2,21 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { StoreProfile } from '../services/storeProfileService';
 
+/**
+ * Map onboarding feature keys → sidebar paths that should remain visible
+ * when that feature is selected. Items not covered here are always shown
+ * (Dashboard, Settings).
+ */
+const FEATURE_TO_PATHS: Record<string, string[]> = {
+    pos: ['/sales', '/sales-list'],
+    inventory: ['/products', '/inventory'],
+    categories: ['/categories'],
+    reports: ['/reports'],
+    debts: ['/customers'],
+};
+
+const ALWAYS_VISIBLE = new Set(['/', '/settings']);
+
 interface SettingsState {
     storeName: string;
     businessType: string | null;
@@ -16,7 +31,7 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             storeName: 'حانوتي',
             businessType: null,
             staffCount: null,
@@ -25,24 +40,47 @@ export const useSettingsStore = create<SettingsState>()(
 
             applyStoreProfile: (profile) => {
                 const features = profile.features_needed || [];
-                // We keep `featuresNeeded` for analytics/onboarding context, but we
-                // intentionally do NOT hide sidebar items based on it anymore — all
-                // built pages should remain accessible regardless of onboarding picks.
+
+                let visible: string[] | null = null;
+                if (features.length > 0) {
+                    const allowed = new Set<string>(ALWAYS_VISIBLE);
+                    for (const f of features) {
+                        const paths = FEATURE_TO_PATHS[f];
+                        if (paths) paths.forEach((p) => allowed.add(p));
+                    }
+                    visible = Array.from(allowed);
+                }
+
                 set({
                     storeName: profile.store_name || 'حانوتي',
                     businessType: profile.business_type,
                     staffCount: profile.staff_count,
                     featuresNeeded: features,
-                    visibleSidebarPaths: null,
+                    visibleSidebarPaths: visible,
                 });
             },
 
             setStoreName: (name) => set({ storeName: name || 'حانوتي' }),
 
-            // All pages are always visible. The onboarding choice no longer hides
-            // sidebar entries — users requested that no pages disappear.
-            isPathVisible: () => true,
+            isPathVisible: (path) => {
+                const visible = get().visibleSidebarPaths;
+                if (!visible) return true;
+                return visible.includes(path);
+            },
         }),
-        { name: 'hanouti-settings' },
+        {
+            name: 'hanouti-settings',
+            // Migrate persisted state where the user never selected the new
+            // `debts` feature: ensure /customers is visible by default so the
+            // debt management surfaces are reachable on existing installs.
+            migrate: (persisted: unknown) => {
+                const s = (persisted ?? {}) as Partial<SettingsState>;
+                if (s.visibleSidebarPaths && !s.visibleSidebarPaths.includes('/customers')) {
+                    s.visibleSidebarPaths = [...s.visibleSidebarPaths, '/customers'];
+                }
+                return s as SettingsState;
+            },
+            version: 2,
+        },
     ),
 );
