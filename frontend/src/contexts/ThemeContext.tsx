@@ -254,6 +254,108 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                         root: { borderRadius: Math.max(r - 4, 4), transition },
                     },
                 },
+                /* ── Switch احترافيّ بنفس روح زرّ الأيقونة ── */
+                MuiSwitch: {
+                    defaultProps: { disableRipple: false },
+                    styleOverrides: {
+                        root: {
+                            width: 50,
+                            height: 28,
+                            padding: 0,
+                            overflow: 'visible',
+                        },
+                        switchBase: {
+                            padding: 3,
+                            transition: 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+                            '&.Mui-checked': {
+                                transform: 'translateX(22px)',
+                                color: '#FFFFFF',
+                                '& + .MuiSwitch-track': {
+                                    opacity: 1,
+                                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}E6 100%)`,
+                                    boxShadow: `0 0 0 1px ${primaryColor}55, 0 4px 14px ${primaryColor}66`,
+                                },
+                                '& .MuiSwitch-thumb': {
+                                    boxShadow: `0 2px 6px ${primaryColor}80, 0 0 0 1px ${primaryColor}33 inset`,
+                                },
+                            },
+                            '&.Mui-disabled': {
+                                '& + .MuiSwitch-track': { opacity: isLight ? 0.4 : 0.3 },
+                                '& .MuiSwitch-thumb': { opacity: 0.7 },
+                            },
+                            '&:hover': {
+                                backgroundColor: 'transparent',
+                                '& .MuiSwitch-thumb': {
+                                    transform: 'scale(1.08)',
+                                },
+                            },
+                        },
+                        thumb: {
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            background: isLight
+                                ? 'linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%)'
+                                : 'linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 100%)',
+                            boxShadow: isLight
+                                ? '0 2px 6px rgba(15,23,42,0.18), 0 0 0 1px rgba(15,23,42,0.06) inset'
+                                : '0 2px 6px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset',
+                            transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
+                        },
+                        track: {
+                            borderRadius: 14,
+                            opacity: 1,
+                            backgroundColor: isLight ? '#CBD5E1' : '#334155',
+                            transition: 'background 0.32s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.32s ease, opacity 0.25s ease',
+                            boxShadow: isLight
+                                ? 'inset 0 1px 2px rgba(15,23,42,0.08)'
+                                : 'inset 0 1px 2px rgba(0,0,0,0.4)',
+                        },
+                    },
+                },
+                /* ── Radio أنيق متناسق مع الثيم ── */
+                MuiRadio: {
+                    styleOverrides: {
+                        root: {
+                            padding: 8,
+                            color: isLight ? '#94A3B8' : '#64748B',
+                            transition: 'color 0.2s ease, background-color 0.2s ease, transform 0.2s ease',
+                            '&:hover': {
+                                backgroundColor: `${primaryColor}14`,
+                                color: primaryColor,
+                            },
+                            '&.Mui-checked': {
+                                color: primaryColor,
+                                '& .MuiSvgIcon-root:last-of-type': {
+                                    filter: `drop-shadow(0 0 4px ${primaryColor}80)`,
+                                },
+                            },
+                            '&:active': { transform: 'scale(0.92)' },
+                        },
+                    },
+                },
+                /* ── Checkbox متناسق ── */
+                MuiCheckbox: {
+                    styleOverrides: {
+                        root: {
+                            padding: 8,
+                            color: isLight ? '#94A3B8' : '#64748B',
+                            borderRadius: Math.max(r - 4, 4),
+                            transition: 'color 0.2s ease, background-color 0.2s ease, transform 0.2s ease',
+                            '&:hover': {
+                                backgroundColor: `${primaryColor}14`,
+                                color: primaryColor,
+                            },
+                            '&.Mui-checked': {
+                                color: primaryColor,
+                                '& .MuiSvgIcon-root': {
+                                    filter: `drop-shadow(0 0 4px ${primaryColor}66)`,
+                                },
+                            },
+                            '&:active': { transform: 'scale(0.92)' },
+                        },
+                    },
+                },
                 MuiDialog: {
                     styleOverrides: {
                         paper: { borderRadius: r + 4 },
