@@ -1,5 +1,8 @@
 const FRACTIONAL_UNITS = new Set([
-    'kg', 'g', 'l', 'ml',
+    'kg', 'kgs', 'kilo', 'kilos', 'kilogram', 'kilograms',
+    'g', 'gr', 'gram', 'grams',
+    'l', 'lt', 'ltr', 'liter', 'liters', 'litre', 'litres',
+    'ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres',
     'كغ', 'كلغ', 'كيلو', 'كيلوغرام',
     'غ', 'غرام', 'جرام',
     'ل', 'لتر',
@@ -35,14 +38,11 @@ export function formatQty(qty: number, unit?: string | null): string {
 }
 
 const UNIT_LABEL: Record<string, string> = {
-    kg: 'كغ',
-    g: 'غ',
-    l: 'ل',
-    ml: 'مل',
-    pcs: 'وحدة',
-    pc: 'وحدة',
-    piece: 'وحدة',
-    unit: 'وحدة',
+    kg: 'كغ', kgs: 'كغ', kilo: 'كغ', kilos: 'كغ', kilogram: 'كغ', kilograms: 'كغ',
+    g: 'غ', gr: 'غ', gram: 'غ', grams: 'غ',
+    l: 'ل', lt: 'ل', ltr: 'ل', liter: 'ل', liters: 'ل', litre: 'ل', litres: 'ل',
+    ml: 'مل', milliliter: 'مل', milliliters: 'مل', millilitre: 'مل', millilitres: 'مل',
+    pcs: 'وحدة', pc: 'وحدة', piece: 'وحدة', pieces: 'وحدة', unit: 'وحدة', units: 'وحدة',
 };
 
 export function unitLabel(unit?: string | null): string {
