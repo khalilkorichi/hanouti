@@ -17,6 +17,7 @@ import {
     RocketLaunch as InstallIcon,
     NewReleases as NewIcon,
     InfoOutlined as InfoIcon,
+    WarningAmberOutlined as WarningIcon,
     Difference as DiffIcon,
     AddCircleOutline as AddIcon,
     RemoveCircleOutline as RemoveIcon,
@@ -1311,8 +1312,13 @@ export default function UpdaterPanel() {
                                     : 'لم يُطبَّق أيّ تحديث سريع — تعمل بالنسخة التي ركّبها المثبّت.'}
                             </Typography>
                             {channel.mode === 'baseline' && channel.configuredPath && channel.configuredExists === false && (
-                                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
-                                    ⚠ يوجد ملفّ قناة لكنّه يشير لمسار غير صالح — تمّ التراجع تلقائيّاً للنسخة الأصليّة.
+                                <Typography
+                                    variant="caption"
+                                    color="warning.main"
+                                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}
+                                >
+                                    <WarningIcon sx={{ fontSize: 14 }} />
+                                    يوجد ملفّ قناة لكنّه يشير لمسار غير صالح — تمّ التراجع تلقائيّاً للنسخة الأصليّة.
                                 </Typography>
                             )}
                         </Box>

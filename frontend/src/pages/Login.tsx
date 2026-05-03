@@ -20,6 +20,7 @@ import {
     LoginRounded as LoginIcon,
     VisibilityOutlined,
     VisibilityOffOutlined,
+    LightbulbOutlined as HintIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
 import axios from 'axios';
@@ -250,8 +251,14 @@ export default function Login() {
                             textAlign: 'center',
                         }}
                     >
-                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                            💡 كلمة المرور الافتراضية:{' '}
+                        <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            fontWeight={500}
+                            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                        >
+                            <HintIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                            كلمة المرور الافتراضية:{' '}
                             <Box component="span" fontWeight={800} color="primary.main">
                                 1234
                             </Box>

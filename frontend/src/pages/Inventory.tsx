@@ -266,10 +266,14 @@ function ZakatDialog({ open, onClose, inventoryValue }: { open: boolean; onClose
                                 }}
                             />
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
-                                <Typography variant="caption" color="text.disabled">
+                                <Typography
+                                    variant="caption"
+                                    color="text.disabled"
+                                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                                >
                                     {calc.hawlComplete
-                                        ? '✅ اكتمل الحول'
-                                        : `⏳ متبقٍّ ${calc.daysLeft} يوم`}
+                                        ? <><CheckCircleIcon sx={{ fontSize: 14 }} /> اكتمل الحول</>
+                                        : <><PendingIcon sx={{ fontSize: 14 }} /> متبقٍّ {calc.daysLeft} يوم</>}
                                 </Typography>
                                 <Typography variant="caption" color="text.disabled">
                                     تاريخ الاستحقاق: {calc.dueDate}
@@ -662,9 +666,24 @@ export default function Inventory() {
                         size="small" sx={{ minWidth: 160 }}
                     >
                         <MenuItem value="">الكل</MenuItem>
-                        <MenuItem value="ok">✅ كافي</MenuItem>
-                        <MenuItem value="low">⚠️ منخفض</MenuItem>
-                        <MenuItem value="out">❌ نفد</MenuItem>
+                        <MenuItem value="ok">
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                                <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                                <span>كافي</span>
+                            </Stack>
+                        </MenuItem>
+                        <MenuItem value="low">
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                                <LowIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                                <span>منخفض</span>
+                            </Stack>
+                        </MenuItem>
+                        <MenuItem value="out">
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                                <OutIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                                <span>نفد</span>
+                            </Stack>
+                        </MenuItem>
                     </TextField>
                 </Stack>
             </Paper>

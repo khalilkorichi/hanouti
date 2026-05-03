@@ -13,6 +13,7 @@ import {
     DoneAll as DoneAllIcon,
     DeleteOutline as ClearIcon,
     NotificationsOff as EmptyBellIcon,
+    CheckRounded as AllReadIcon,
 } from '@mui/icons-material';
 import { useLocation } from 'react-router-dom';
 import { DRAWER_WIDTH, DRAWER_COLLAPSED_WIDTH } from './Sidebar';
@@ -240,8 +241,13 @@ export default function Header({
                         <>
                             <Divider />
                             <Box sx={{ p: 1.5, textAlign: 'center' }}>
-                                <Typography variant="caption" color="text.disabled">
-                                    جميع الإشعارات مقروءة ✓
+                                <Typography
+                                    variant="caption"
+                                    color="text.disabled"
+                                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                                >
+                                    <AllReadIcon sx={{ fontSize: 14 }} />
+                                    جميع الإشعارات مقروءة
                                 </Typography>
                             </Box>
                         </>

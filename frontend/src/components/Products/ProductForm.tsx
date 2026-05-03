@@ -266,7 +266,8 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                             </Box>
                             {createCategoryMutation.isSuccess && (
                                 <Chip
-                                    label="✓ تم إنشاء الفئة وتحديدها"
+                                    icon={<ConfirmIcon sx={{ fontSize: 14 }} />}
+                                    label="تم إنشاء الفئة وتحديدها"
                                     color="success"
                                     size="small"
                                     sx={{ mt: 1, fontWeight: 700 }}

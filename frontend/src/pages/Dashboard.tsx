@@ -37,6 +37,7 @@ import {
     Delete as DeleteIcon,
     ShoppingCartCheckout as CheckoutIcon,
     Refresh as RefreshIcon,
+    CheckCircleOutline as InventoryHealthyIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
 import { productService, type Product } from '../services/productService';
@@ -298,7 +299,6 @@ export default function Dashboard() {
         <Box>
             <PageHeader
                 title="مرحباً بك في حانوتي"
-                titleEmoji="👋"
                 subtitle="هذا ملخص أداء متجرك اليوم"
                 icon={<StorefrontIcon />}
                 actions={
@@ -803,7 +803,8 @@ function LowStockDialog({ open, onClose }: { open: boolean; onClose: () => void 
                 <Stack spacing={1}>{[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" height={52} />)}</Stack>
             ) : products?.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography variant="h6" color="success.main" fontWeight={700}>✅ المخزون في حالة جيدة</Typography>
+                    <InventoryHealthyIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                    <Typography variant="h6" color="success.main" fontWeight={700}>المخزون في حالة جيدة</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>جميع المنتجات تجاوزت الحد الأدنى</Typography>
                 </Box>
             ) : (

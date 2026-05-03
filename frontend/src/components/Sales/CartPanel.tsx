@@ -474,7 +474,7 @@ export default function CartPanel() {
             <UnifiedModal
                 open={showSuccessModal}
                 onClose={() => setShowSuccessModal(false)}
-                title="✅ تمت عملية البيع"
+                title="تمت عملية البيع"
                 maxWidth="sm"
                 actions={
                     <>

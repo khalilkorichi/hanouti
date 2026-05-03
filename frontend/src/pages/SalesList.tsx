@@ -27,6 +27,7 @@ import {
     DeleteOutlineOutlined as DeleteIcon,
     DeleteForeverOutlined as HardDeleteIcon,
     ReceiptLongOutlined as SalesListIcon,
+    WarningAmberOutlined as WarningIcon,
 } from '@mui/icons-material';
 import { DataGrid, useGridApiRef, type GridColDef, type GridRowSelectionModel } from '@mui/x-data-grid';
 import { CustomButton, CustomIconButton, UnifiedModal, BulkActionsBar, SearchInput, PageHeader } from '../components/Common';
@@ -823,8 +824,13 @@ export default function SalesList() {
                             الفاتورة رقم <strong>{saleToDelete.invoice_no}</strong> بقيمة <strong>{saleToDelete.total?.toFixed(2)} دج</strong>
                         </Typography>
                     )}
-                    <Typography variant="caption" color="error.main" display="block" sx={{ mt: 1.5, fontWeight: 600 }}>
-                        ⚠️ هذا الإجراء لا يمكن التراجع عنه
+                    <Typography
+                        variant="caption"
+                        color="error.main"
+                        sx={{ mt: 1.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}
+                    >
+                        <WarningIcon sx={{ fontSize: 16 }} />
+                        هذا الإجراء لا يمكن التراجع عنه
                     </Typography>
                 </Box>
             </UnifiedModal>
