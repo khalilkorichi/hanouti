@@ -171,7 +171,26 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                             boxShadow: 'none',
                             '&:hover': { boxShadow: 'none' },
                         },
-                        contained: { '&:hover': { boxShadow: `0 4px 12px ${primaryColor}44` } },
+                        contained: {
+                            '&:hover': { boxShadow: `0 4px 12px ${primaryColor}44` },
+                            // حالة التعطيل — لمسة بنفسجيّة خافتة بدلاً من الرمادي
+                            '&.Mui-disabled': {
+                                backgroundColor: `${primaryColor}${isLight ? '2E' : '47'}`,
+                                color: `${primaryColor}${isLight ? '8C' : 'BF'}`,
+                                boxShadow: 'none',
+                            },
+                        },
+                        outlined: {
+                            '&.Mui-disabled': {
+                                borderColor: `${primaryColor}40`,
+                                color: `${primaryColor}73`,
+                            },
+                        },
+                        text: {
+                            '&.Mui-disabled': {
+                                color: `${primaryColor}66`,
+                            },
+                        },
                     },
                 },
                 MuiPaper: {
