@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Product } from '../services/productService';
+import { qtyMin, roundQty } from '../utils/units';
 
 export interface CartItem extends Product {
     qty: number;
@@ -89,8 +90,11 @@ export const useCartStore = create<CartState>()(
                 const item = state.items.find(i => i.id === productId);
                 if (!item) return { success: false, message: 'المنتج غير موجود' };
 
-                const minQty = item.unit === 'kg' ? 0.001 : 1;
-                const validatedQty = Math.max(minQty, Math.min(qty, item.stock_qty));
+                const min = qtyMin(item.unit);
+                const validatedQty = roundQty(
+                    Math.max(min, Math.min(qty, item.stock_qty)),
+                    item.unit,
+                );
 
                 if (qty > item.stock_qty) {
                     set({

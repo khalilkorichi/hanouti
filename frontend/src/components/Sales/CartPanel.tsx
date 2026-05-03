@@ -16,6 +16,7 @@ import {
     UnfoldMore as ExpandIcon,
 } from '@mui/icons-material';
 import { useCartStore } from '../../store/cartStore';
+import { qtyStep, qtyMin, formatQty, unitLabel, isFractionalUnit, roundQty } from '../../utils/units';
 import { useDroppable } from '@dnd-kit/core';
 import { CustomButton, UnifiedModal } from '../Common';
 import { forwardRef, useImperativeHandle, useState, useRef, useMemo } from 'react';
@@ -33,6 +34,114 @@ interface EditProductForm {
     sale_price: number;
     purchase_price: number;
     stock_qty: number;
+}
+
+interface CartQtyControlProps {
+    item: { id: number; qty: number; unit: string; stock_qty: number };
+    onChange: (qty: number) => void;
+}
+
+function CartQtyControl({ item, onChange }: CartQtyControlProps) {
+    const theme = useTheme();
+    const fractional = isFractionalUnit(item.unit);
+    const step = qtyStep(item.unit);
+    const min = qtyMin(item.unit);
+    const [draft, setDraft] = useState<string>(formatQty(item.qty, item.unit));
+    const [editing, setEditing] = useState(false);
+
+    // Sync external qty changes back into the input when not editing.
+    if (!editing && draft !== formatQty(item.qty, item.unit)) {
+        setDraft(formatQty(item.qty, item.unit));
+    }
+
+    const commit = (raw: string) => {
+        const v = parseFloat(raw.replace(',', '.'));
+        if (!Number.isFinite(v) || v <= 0) {
+            setDraft(formatQty(item.qty, item.unit));
+            return;
+        }
+        const clamped = Math.max(min, Math.min(v, item.stock_qty));
+        const rounded = roundQty(clamped, item.unit);
+        onChange(rounded);
+        setDraft(formatQty(rounded, item.unit));
+    };
+
+    const adjust = (delta: number) => {
+        const next = roundQty(item.qty + delta, item.unit);
+        onChange(Math.max(min, Math.min(next, item.stock_qty)));
+    };
+
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <IconButton
+                size="small"
+                onClick={() => adjust(-step)}
+                disabled={item.qty <= min}
+                sx={{
+                    width: 28, height: 28,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+                    borderRadius: 1,
+                }}
+            >
+                <RemoveIcon sx={{ fontSize: 15 }} />
+            </IconButton>
+
+            <TextField
+                size="small"
+                type="number"
+                value={draft}
+                onFocus={(e) => { setEditing(true); e.target.select(); }}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={() => { setEditing(false); commit(draft); }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    if (e.key === 'Escape') {
+                        setDraft(formatQty(item.qty, item.unit));
+                        (e.target as HTMLInputElement).blur();
+                    }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                inputProps={{
+                    step,
+                    min,
+                    max: item.stock_qty,
+                    style: { textAlign: 'center', fontSize: '0.85rem', padding: '4px 0', width: fractional ? 56 : 38 },
+                }}
+                InputProps={{
+                    endAdornment: (
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 0.25, mr: 0.25, fontWeight: 600 }}>
+                            {unitLabel(item.unit)}
+                        </Typography>
+                    ),
+                    sx: { fontSize: '0.85rem' },
+                }}
+                sx={{
+                    '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                        height: 30,
+                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                            WebkitAppearance: 'none',
+                            margin: 0,
+                        },
+                        '& input[type=number]': { MozAppearance: 'textfield' },
+                    },
+                }}
+            />
+
+            <IconButton
+                size="small"
+                onClick={() => adjust(step)}
+                disabled={item.qty >= item.stock_qty}
+                sx={{
+                    width: 28, height: 28,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+                    borderRadius: 1,
+                }}
+            >
+                <AddIcon sx={{ fontSize: 15 }} />
+            </IconButton>
+        </Box>
+    );
 }
 
 export interface CartPanelHandle {
@@ -355,7 +464,7 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                             {item.name}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {item.sale_price} دج / وحدة
+                                            {item.sale_price} دج / {unitLabel(item.unit)}
                                         </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
@@ -392,34 +501,10 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
 
                                 {/* Row 2: Qty controls + price editable + subtotal */}
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleUpdateQty(item.id, item.qty - 1)}
-                                            disabled={item.qty <= 1}
-                                            sx={{
-                                                width: 26, height: 26,
-                                                border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                                                borderRadius: 1
-                                            }}
-                                        >
-                                            <RemoveIcon sx={{ fontSize: 14 }} />
-                                        </IconButton>
-                                        <Typography fontWeight={700} sx={{ minWidth: 28, textAlign: 'center', fontSize: '0.9rem' }}>
-                                            {item.qty}
-                                        </Typography>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleUpdateQty(item.id, item.qty + 1)}
-                                            sx={{
-                                                width: 26, height: 26,
-                                                border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                                                borderRadius: 1
-                                            }}
-                                        >
-                                            <AddIcon sx={{ fontSize: 14 }} />
-                                        </IconButton>
-                                    </Box>
+                                    <CartQtyControl
+                                        item={item}
+                                        onChange={(q) => handleUpdateQty(item.id, q)}
+                                    />
 
                                     {/* Editable price */}
                                     <TextField
@@ -445,9 +530,9 @@ const CartPanel = forwardRef<CartPanelHandle, CartPanelProps>((_props, ref) => {
                                         variant="body2"
                                         fontWeight={700}
                                         color="primary.main"
-                                        sx={{ minWidth: 60, textAlign: 'start', fontSize: '0.9rem' }}
+                                        sx={{ minWidth: 64, textAlign: 'start', fontSize: '0.9rem' }}
                                     >
-                                        {(item.sale_price * item.qty).toFixed(0)} دج
+                                        {(item.sale_price * item.qty).toFixed(isFractionalUnit(item.unit) ? 2 : 0)} دج
                                     </Typography>
                                 </Box>
                             </Box>

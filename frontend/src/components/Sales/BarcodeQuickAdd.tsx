@@ -10,6 +10,7 @@ import { productService } from '../../services/productService';
 import { useCartStore } from '../../store/cartStore';
 import { useNotification } from '../../contexts/NotificationContext';
 import { parseWeightEan } from '../../utils/barcode';
+import { isFractionalUnit } from '../../utils/units';
 import { consumeBarcodeFocusFlag } from '../GlobalBarcodeShortcut';
 
 export interface BarcodeQuickAddHandle {
@@ -68,7 +69,7 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
                     const found = await productService.getByBarcode(cand);
                     if (found) { product = found; break; }
                 }
-                if (product && product.unit === 'kg') {
+                if (product && isFractionalUnit(product.unit)) {
                     const kg = Math.round((weight.grams / 1000) * 1000) / 1000;
                     const r = addWeighedItem(product, kg);
                     if (!r.success) {
