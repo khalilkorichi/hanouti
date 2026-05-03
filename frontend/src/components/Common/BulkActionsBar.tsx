@@ -48,13 +48,10 @@ export default function BulkActionsBar({
                 mb: 2,
                 p: 1.5,
                 borderRadius: 2.5,
-                border: `1.5px solid ${alpha(
-                    active ? theme.palette.primary.main : theme.palette.divider,
-                    active ? 0.35 : 0.4
-                )}`,
+                border: `1px solid ${alpha(theme.palette.primary.main, active ? 0.35 : 0.18)}`,
                 background: active
                     ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.secondary.main, 0.03)})`
-                    : 'transparent',
+                    : alpha(theme.palette.primary.main, 0.03),
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
