@@ -9,7 +9,7 @@ import {
 import { productService } from '../../services/productService';
 import { useCartStore } from '../../store/cartStore';
 import { useNotification } from '../../contexts/NotificationContext';
-import { parseWeightEan, gramsToQty } from '../../utils/barcode';
+import { parseWeightEan } from '../../utils/barcode';
 import { consumeBarcodeFocusFlag } from '../GlobalBarcodeShortcut';
 
 export interface BarcodeQuickAddHandle {
@@ -39,6 +39,7 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
     const [value, setValue] = useState('');
     const [busy, setBusy] = useState(false);
     const addItem = useCartStore(s => s.addItem);
+    const addWeighedItem = useCartStore(s => s.addWeighedItem);
     const updateQty = useCartStore(s => s.updateQty);
     const cartItems = useCartStore(s => s.items);
     const { showNotification } = useNotification();
@@ -69,59 +70,63 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
         return { qty: 1, code: trimmed };
     };
 
-    /**
-     * Look up a product by full code, with weight-EAN fallback.
-     * Returns the product + the quantity to add (grams converted to kg for
-     * weighed items, or 1 for everything else).
-     */
-    const resolveProduct = async (code: string, baseQty: number) => {
-        let product = await productService.getByBarcode(code);
-        if (product) return { product, qty: baseQty };
-
-        const weight = parseWeightEan(code);
-        if (weight) {
-            // The shelf-edge sticker code is `2 + 6 product digits` — try
-            // looking that up directly. Stores typically register the lookup
-            // code as the product's barcode field.
-            product = await productService.getByBarcode(weight.lookupCode);
-            if (product) {
-                return { product, qty: gramsToQty(weight.grams, product) };
-            }
-        }
-        return { product: null, qty: baseQty };
-    };
-
     const submit = async () => {
         if (busy) return;
         const { qty, code } = parseInput(value);
         if (!code) return;
         setBusy(true);
         try {
-            const { product, qty: resolvedQty } = await resolveProduct(code, qty);
+            // 1) Direct full-code lookup
+            let product = await productService.getByBarcode(code);
+
+            // 2) Weight-EAN fallback: extract the 6-digit code + grams and try
+            // both the bare and `2…` prefixed forms. If we resolve to a kg
+            // product, add the fractional kg quantity directly — DO NOT go
+            // through addItem (qty=1) + updateQty since addItem would reject
+            // weighed products with stock < 1 kg.
+            const weight = !product ? parseWeightEan(code) : null;
+            if (weight) {
+                for (const cand of weight.lookupCandidates) {
+                    const found = await productService.getByBarcode(cand);
+                    if (found) { product = found; break; }
+                }
+                if (product && product.unit === 'kg') {
+                    const kg = Math.round((weight.grams / 1000) * 1000) / 1000;
+                    const r = addWeighedItem(product, kg);
+                    if (!r.success) {
+                        showNotification(r.message || 'تعذّر إضافة المنتج', 'warning');
+                        return;
+                    }
+                    showNotification(`تم إضافة ${kg} كغ × "${product.name}"`, 'success');
+                    setValue('');
+                    return;
+                }
+            }
+
             if (!product) {
                 showNotification(`لا يوجد منتج بالباركود: ${code}`, 'warning');
                 return;
             }
-            // Add once first to ensure the item exists in the cart
+
+            // 3) Standard discrete add (with optional N* multiplier)
             const first = addItem(product);
             if (!first.success) {
                 showNotification(first.message || 'تعذّر إضافة المنتج', 'warning');
                 return;
             }
-            if (resolvedQty !== 1) {
-                // Find the freshly-added item to determine the target qty.
+            if (qty > 1) {
                 const existing = useCartStore.getState().items.find(i => i.id === product.id);
                 const currentQty = existing?.qty ?? 1;
                 // -1 because addItem already incremented by 1 above.
-                const targetQty = currentQty + (resolvedQty - 1);
+                const targetQty = currentQty + (qty - 1);
                 const r = updateQty(product.id, targetQty);
                 if (!r.success && r.message) {
                     showNotification(r.message, 'warning');
                 }
             }
             showNotification(
-                resolvedQty !== 1
-                    ? `تم إضافة ${resolvedQty} × "${product.name}"`
+                qty > 1
+                    ? `تم إضافة ${qty} × "${product.name}"`
                     : `تم إضافة "${product.name}"`,
                 'success',
             );
@@ -170,7 +175,7 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
                         }
                     }
                 }}
-                placeholder="امسح أو أدخل الباركود (3*123456 أو باركود وزن EAN) — F2/F3"
+                placeholder="امسح أو أدخل الباركود (3*123456 أو باركود وزن EAN) — F2"
                 disabled={busy}
                 InputProps={{
                     startAdornment: (

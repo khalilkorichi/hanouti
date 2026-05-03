@@ -52,6 +52,16 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     const { showNotification } = useNotification();
 
     const handleGenerateBarcode = async () => {
+        // Only fill empty fields automatically — never silently overwrite a
+        // value the user already typed or scanned. If they really want to
+        // replace it, they confirm via the prompt below.
+        const current = (getValues('barcode') || '').trim();
+        if (current) {
+            const ok = window.confirm(
+                `الحقل يحتوي على باركود (${current}). هل تريد استبداله بباركود جديد مولّد؟`
+            );
+            if (!ok) return;
+        }
         setGeneratingBarcode(true);
         try {
             const code = await generateUniqueEan13(async (candidate) => {
@@ -83,7 +93,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         }
     });
 
-    const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
+    const { control, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm<ProductFormData>({
         resolver: zodResolver(productSchema),
         defaultValues: {
             name: '',

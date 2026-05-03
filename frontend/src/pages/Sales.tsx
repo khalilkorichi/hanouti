@@ -84,8 +84,8 @@ export default function Sales() {
 
     const shortcuts = useMemo<Shortcut[]>(() => [
         { key: 'F1', label: 'مساعدة', handler: () => setShowHelp(true), allowInInputs: true },
-        { key: 'F2', label: 'بحث', handler: () => explorerRef.current?.focusSearch(), allowInInputs: true },
-        { key: 'F3', label: 'باركود', handler: () => barcodeRef.current?.focus(), allowInInputs: true },
+        { key: 'F2', label: 'باركود', handler: () => barcodeRef.current?.focus(), allowInInputs: true },
+        { key: 'F3', label: 'بحث', handler: () => explorerRef.current?.focusSearch(), allowInInputs: true },
         { key: 'F4', label: 'خصم', handler: () => cartRef.current?.focusDiscount(), allowInInputs: true },
         { key: 'F8', label: 'تبديل دفع', handler: () => cartRef.current?.togglePayment(), allowInInputs: true },
         { key: 'F9', label: 'إتمام البيع', handler: () => cartRef.current?.triggerCheckout(), allowInInputs: true },

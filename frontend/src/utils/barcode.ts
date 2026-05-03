@@ -79,8 +79,12 @@ export function pickBarcodeFormat(value: string): 'EAN13' | 'CODE128' {
 /* ── Weight-embedded EAN ────────────────────────────────────────────────── */
 
 export interface WeightEan {
-    /** The 7-digit lookup code (prefix `2X` + 5 product digits) used to find the product. */
-    lookupCode: string;
+    /** Candidate lookup codes the caller should try in order against the products
+     *  table. Different stores register the embedded code in different forms,
+     *  so we try the bare 6-digit code first, then the `2{6}` prefixed form. */
+    lookupCandidates: string[];
+    /** The bare 6-digit product code embedded by the scale. */
+    productCode: string;
     /** Embedded grams — used directly as cart quantity for `unit === 'kg'`. */
     grams: number;
 }
@@ -92,19 +96,19 @@ export interface WeightEan {
  *
  * Returns `null` when the input isn't a valid weight EAN. The check digit is
  * verified against the standard EAN-13 algorithm; flag prefix `2` is required.
- *
- * The product lookup code is the 7-character `2{6 digits}` head, which is what
- * scales typically print on the shelf-edge sticker.
  */
 export function parseWeightEan(code: string): WeightEan | null {
     if (!isValidEan13(code)) return null;
     if (code[0] !== '2') return null;
-    const productDigits = code.slice(1, 7);
+    const productCode = code.slice(1, 7);
     const gramsStr = code.slice(7, 12);
     const grams = parseInt(gramsStr, 10);
     if (!Number.isFinite(grams) || grams <= 0) return null;
     return {
-        lookupCode: '2' + productDigits,
+        productCode,
+        // Try the bare 6-digit code first (the most common shelf-edge format
+        // in MENA stores), then the prefixed form.
+        lookupCandidates: [productCode, '2' + productCode],
         grams,
     };
 }

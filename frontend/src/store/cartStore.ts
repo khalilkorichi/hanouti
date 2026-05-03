@@ -9,6 +9,8 @@ export interface CartItem extends Product {
 interface CartState {
     items: CartItem[];
     addItem: (product: Product) => { success: boolean; message?: string };
+    /** Add or accumulate a weighed product by raw kg (used by weight-EAN scans). */
+    addWeighedItem: (product: Product, qtyKg: number) => { success: boolean; message?: string };
     removeItem: (productId: number) => void;
     updateQty: (productId: number, qty: number) => { success: boolean; message?: string };
     updateItemPrice: (productId: number, price: number) => void;
@@ -57,6 +59,25 @@ export const useCartStore = create<CartState>()(
                     return { success: false, message: 'المنتج غير متوفر في المخزون' };
                 }
                 set({ items: [...state.items, { ...product, qty: 1 }] });
+                return { success: true };
+            },
+
+            addWeighedItem: (product, qtyKg) => {
+                const state = get();
+                const existing = state.items.find(i => i.id === product.id);
+                const targetQty = Math.round(((existing?.qty ?? 0) + qtyKg) * 1000) / 1000;
+                if (targetQty > product.stock_qty) {
+                    return { success: false, message: `الكمية المطلوبة أكبر من المخزون (${product.stock_qty} ${product.unit})` };
+                }
+                if (existing) {
+                    set({
+                        items: state.items.map(i =>
+                            i.id === product.id ? { ...i, qty: targetQty } : i
+                        )
+                    });
+                } else {
+                    set({ items: [...state.items, { ...product, qty: targetQty }] });
+                }
                 return { success: true };
             },
 

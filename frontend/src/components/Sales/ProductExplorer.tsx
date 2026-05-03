@@ -165,7 +165,7 @@ const ProductExplorer = forwardRef<ProductExplorerHandle, ProductExplorerProps>(
                 <SearchInput
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    placeholder="بحث عن منتج للإضافة للسلة... (F2)"
+                    placeholder="بحث عن منتج للإضافة للسلة... (F3)"
                     isLoading={isLoading}
                     sx={{ mb: 2 }}
                     inputRef={searchInputRef}
