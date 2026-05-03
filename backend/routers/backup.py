@@ -38,8 +38,10 @@ router = APIRouter(prefix="/backup", tags=["backup"])
 SCHEMA_VERSION = "1.1"
 AUTO_BACKUP_KEEP = 7
 AUTO_BACKUP_PREFIX = "hanouti_auto_"
+# Filename format kept minute-readable but with seconds suffix so multiple
+# triggers in the same minute (e.g. login + manual snapshot) don't collide.
 AUTO_BACKUP_FILENAME_RE = re.compile(
-    r"^hanouti_auto_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(?:_[a-zA-Z0-9\-]+)?\.json$"
+    r"^hanouti_auto_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(?:-\d{2})?(?:_[a-zA-Z0-9\-]+)?\.json$"
 )
 
 REQUIRED_TABLES = (
@@ -468,7 +470,7 @@ def write_auto_backup(
         db.close()
 
     backup_dir = _resolve_backup_dir()
-    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     suffix = f"_{tag}" if tag else ""
     filename = f"{AUTO_BACKUP_PREFIX}{stamp}{suffix}.json"
     path = backup_dir / filename
@@ -587,7 +589,7 @@ def list_auto_backups():
             continue
         # Extract tag from filename (anything after the timestamp segment)
         m = re.match(
-            r"^hanouti_auto_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})(?:_([a-zA-Z0-9\-]+))?\.json$",
+            r"^hanouti_auto_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}(?:-\d{2})?)(?:_([a-zA-Z0-9\-]+))?\.json$",
             p.name,
         )
         date_str = None
