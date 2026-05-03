@@ -1,0 +1,51 @@
+#22 - توسيع إعدادات المظهر والتخصيص
+What & Why
+يريد المستخدم تحكّماً أعمق في مظهر البرنامج وطريقة عرض المعلومات. نضيف خيارات جديدة في تبويب «المظهر» داخل الإعدادات تشمل التحكم في عرض الأرقام (إخفاء الأصفار العشرية)، توسيع التحكم بحجم الخط مع إضافة نوع الخط، ومجموعة خيارات تخصيص إضافية تجعل البرنامج يتكيّف مع تفضيلات كل مستخدم.
+
+Done looks like
+في صفحة «الإعدادات → المظهر» تظهر أقسام جديدة منظَّمة داخل بطاقات بالستايل الحالي.
+عرض الأرقام / المبالغ:
+مفتاح «إخفاء الأصفار العشرية» (افتراضياً مُفعَّل) — عند تفعيله يُعرض 1500.00 دج كـ 1500 دج، و1500.50 دج يبقى كما هو، و1500.20 دج يصبح 1500.2 دج.
+خيار عدد الخانات العشرية القصوى (0 / 2 / 3) لكميات الكيلو والأسعار.
+مفتاح فاصل الآلاف (تشغيل/إيقاف) لعرض 1,500 أو 1500.
+موضع رمز العملة (يمين/يسار) ونص رمز العملة قابل للتعديل (افتراضياً «دج»).
+الخطوط:
+تحويل حجم الخط من 3 خيارات ثابتة إلى شريط تمرير (نسبة من 80% إلى 130%) مع معاينة مباشرة.
+قائمة لاختيار نوع الخط بين خطوط عربية شائعة (Cairo, Tajawal, Almarai, Noto Kufi Arabic, Noto Naskh Arabic, IBM Plex Sans Arabic) مع تحميلها من Google Fonts.
+مفتاح «خط عريض للأرقام» لتمييز المبالغ في الجداول والفواتير.
+خيارات تخصيص إضافية:
+الصفحة الافتراضية عند فتح البرنامج (نقطة البيع / لوحة التحكم / المخزون…).
+وضع الشريط الجانبي افتراضياً (مفتوح/مطوي).
+إظهار/إخفاء صور المنتجات في شاشة البيع.
+موضع إشعارات Toast (أعلى-يمين / أعلى-يسار / أسفل-يمين / أسفل-يسار / أسفل-وسط).
+تنسيق التاريخ (dd/MM/yyyy, yyyy-MM-dd, dd MMM yyyy).
+وضع التباين العالي (High Contrast) لتحسين القراءة.
+مفتاح «إعادة تعيين كل إعدادات المظهر للوضع الافتراضي».
+جميع الإعدادات تُحفظ في localStorage وتُطبَّق فوراً دون الحاجة لإعادة تحميل الصفحة.
+تنسيق المبالغ في كل أنحاء البرنامج (نقطة البيع، السلة، الفاتورة، قائمة المبيعات، المخزون، التقارير، النسخ الاحتياطية، صفحة المنتجات) يحترم الإعدادات الجديدة عبر دالة موحَّدة formatMoney().
+Out of scope
+تغيير منطق التسعير أو الحسابات نفسها (نُعدّل العرض فقط).
+إضافة لغات أو ترجمات جديدة.
+خيارات مظهر للطابعة الحرارية (تتم في مهمة منفصلة #21).
+مزامنة الإعدادات مع الخادم أو بين الأجهزة (تبقى محلية).
+Steps
+توسيع ThemeContext بإضافة الحقول الجديدة (hideTrailingZeros, decimalPlaces, thousandSeparator, currencySymbol, currencyPosition, fontScale كرقم بدل enum، fontFamily، boldNumbers، defaultPage، sidebarCollapsed، showProductImages، toastPosition، dateFormat، highContrast) مع قراءتها/كتابتها في localStorage ودوال setters لكل منها، وتحديث الـ MUI theme لاستخدام fontFamily و fontSize المختار وتطبيق وضع التباين العالي على البالتة.
+
+إنشاء مكتبة تنسيق موحَّدة (مثلاً frontend/src/utils/format.ts) تُصدّر formatMoney(value) و formatNumber(value) و formatDate(value) تقرأ الإعدادات من ThemeContext (عبر هوك useFormatters())، ثم استبدال جميع استخدامات .toFixed(2) و toLocaleString للمبالغ في الملفات ذات الصلة لاستخدام الدالة الجديدة.
+
+إعادة بناء قسم «المظهر» في صفحة الإعدادات بإضافة بطاقات منفصلة لكل مجموعة (الألوان والوضع، الخطوط، عرض الأرقام، الخيارات العامة) مع عناصر التحكم المناسبة (Slider, Select, Switch, RadioGroup) وزر «إعادة التعيين».
+
+تحميل خطوط Google ديناميكياً عند تغيير fontFamily (حقن <link> في <head> أو استخدام @import شرطي) وضمان أن تطبيق الخط يحدث فوراً.
+
+تطبيق defaultPage و sidebarCollapsed و toastPosition في نقاط البداية المناسبة (الراوتر/الـ Layout/مزود الـ Snackbar)، و showProductImages في شاشة نقطة البيع.
+
+Relevant files
+frontend/src/contexts/ThemeContext.tsx
+frontend/src/pages/Settings.tsx:214-260
+frontend/src/pages/SalesList.tsx
+frontend/src/components/Sales/CartPanel.tsx
+frontend/src/components/Sales/Receipt.tsx
+frontend/src/pages/Inventory.tsx
+frontend/src/pages/Products.tsx
+frontend/src/pages/Reports.tsx
+frontend/src/components/Settings/AutoBackupsCard.tsx
