@@ -198,6 +198,7 @@ class Customer(CustomerBase):
     total_due: float = 0.0
     total_purchases: float = 0.0
     sales_count: int = 0
+    last_sale_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -209,12 +210,23 @@ class CustomerPaymentBase(BaseModel):
     notes: Optional[str] = None
 
 class CustomerPaymentCreate(CustomerPaymentBase):
-    pass
+    sale_id: Optional[int] = None  # apply to a specific invoice; None = FIFO
+    payment_date: Optional[datetime] = None
+
+class PaymentAllocation(BaseModel):
+    sale_id: int
+    invoice_no: Optional[str] = None
+    amount: float
+
+    class Config:
+        from_attributes = True
 
 class CustomerPayment(CustomerPaymentBase):
     id: int
     customer_id: int
+    payment_date: Optional[datetime] = None
     created_at: datetime
+    allocations: List[PaymentAllocation] = []
 
     class Config:
         from_attributes = True
@@ -222,6 +234,9 @@ class CustomerPayment(CustomerPaymentBase):
 class CustomersDebtSummary(BaseModel):
     total_debt: float
     customers_with_debt: int
+
+class AssignCustomerRequest(BaseModel):
+    customer_id: int
 
 # ============ Sales Actions ============
 class SaleCancelRequest(BaseModel):

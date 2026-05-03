@@ -91,6 +91,14 @@ export const salesService = {
     },
     delete: async (id: number) => {
         await api.delete(`/sales/${id}`);
-    }
+    },
+    listAnonymousDebts: async () => {
+        const response = await api.get<Sale[]>('/sales/anonymous-debts');
+        return response.data;
+    },
+    assignCustomer: async (saleId: number, customerId: number) => {
+        const response = await api.post<Sale>(`/sales/${saleId}/assign-customer`, { customer_id: customerId });
+        return response.data;
+    },
 };
 

@@ -82,13 +82,34 @@ class CustomerPayment(Base):
     amount = Column(Float, nullable=False, default=0.0)
     method = Column(String, default="cash")
     notes = Column(String, nullable=True)
+    payment_date = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     customer = relationship("Customer", back_populates="payments")
+    allocations = relationship(
+        "CustomerPaymentAllocation",
+        back_populates="payment",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_cust_pay_customer_created", "customer_id", "created_at"),
     )
+
+
+class CustomerPaymentAllocation(Base):
+    """Links a payment to the specific sale invoice it paid down — provides
+    an auditable per-invoice ledger of how each payment was distributed."""
+    __tablename__ = "customer_payment_allocations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey("customer_payments.id", ondelete="CASCADE"), nullable=False, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    amount = Column(Float, nullable=False, default=0.0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    payment = relationship("CustomerPayment", back_populates="allocations")
+    sale = relationship("Sale")
 
 
 class Sale(Base):

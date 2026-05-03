@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     Box, Typography, Card, CardContent, Stack, alpha, useTheme, Chip, IconButton,
-    Tooltip, Avatar, Divider, TextField, MenuItem, Drawer, Tabs, Tab,
+    Tooltip, Avatar, Divider, TextField, MenuItem, Drawer, Tabs, Tab, Autocomplete,
+    Alert, AlertTitle,
 } from '@mui/material';
 import {
     People as PeopleIcon,
@@ -16,10 +18,13 @@ import {
     CreditScoreRounded as DebtIcon,
     ReceiptLong as ReceiptIcon,
     Close as CloseIcon,
+    PersonAddAlt1 as AssignIcon,
+    HelpOutline as AnonIcon,
+    EventRounded as DateIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customerService, type Customer, type CustomerPayment } from '../services/customerService';
-import type { Sale } from '../services/salesService';
+import { salesService, type Sale } from '../services/salesService';
 import {
     PageHeader, CustomButton, UnifiedModal, SearchInput, CustomCard,
 } from '../components/Common';
@@ -42,17 +47,27 @@ export default function Customers() {
     const theme = useTheme();
     const { showNotification } = useNotification();
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [search, setSearch] = useState('');
-    const [onlyDebt, setOnlyDebt] = useState(false);
+    const [onlyDebt, setOnlyDebt] = useState(searchParams.get('filter') === 'debt');
     const [editing, setEditing] = useState<Customer | null>(null);
     const [creating, setCreating] = useState(false);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
     const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
     const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null);
     const [payDialog, setPayDialog] = useState<Customer | null>(null);
+    const [assignSale, setAssignSale] = useState<Sale | null>(null);
 
     const debouncedSearch = useDebounce(search, 300);
+
+    // Keep ?filter=debt in sync with the toggle so it can be deep-linked.
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams);
+        if (onlyDebt) params.set('filter', 'debt'); else params.delete('filter');
+        setSearchParams(params, { replace: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onlyDebt]);
 
     const { data: customers = [], isLoading } = useQuery({
         queryKey: ['customers', debouncedSearch, onlyDebt],
@@ -89,7 +104,7 @@ export default function Customers() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: (vars: { id: number; payload: Partial<FormState> }) =>
+        mutationFn: (vars: { id: number; payload: { name: string; phone: string | null; notes: string | null } }) =>
             customerService.update(vars.id, vars.payload),
         onSuccess: () => {
             showNotification('تم تحديث العميل', 'success');
@@ -150,6 +165,9 @@ export default function Customers() {
                     </CustomButton>
                 }
             />
+
+            {/* Anonymous debts banner (sales with debt and no customer) */}
+            <AnonymousDebtsPanel onAssign={(s) => setAssignSale(s)} />
 
             {/* KPI Strip */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
@@ -315,7 +333,135 @@ export default function Customers() {
                     queryClient.invalidateQueries({ queryKey: ['customer-payments'] });
                 }}
             />
+
+            {/* Assign customer to anonymous debt sale */}
+            <AssignCustomerDialog
+                sale={assignSale}
+                customers={customers}
+                onClose={() => setAssignSale(null)}
+                onSuccess={() => {
+                    invalidate();
+                    queryClient.invalidateQueries({ queryKey: ['anonymous-debts'] });
+                }}
+            />
         </Box>
+    );
+}
+
+function AnonymousDebtsPanel({ onAssign }: { onAssign: (s: Sale) => void }) {
+    const { data: anon = [] } = useQuery({
+        queryKey: ['anonymous-debts'],
+        queryFn: salesService.listAnonymousDebts,
+    });
+    if (anon.length === 0) return null;
+    const total = anon.reduce((s, x) => s + (x.due_amount || 0), 0);
+    return (
+        <Alert
+            severity="warning"
+            icon={<AnonIcon />}
+            sx={{ mb: 2, borderRadius: 2, '& .MuiAlert-message': { width: '100%' } }}
+        >
+            <AlertTitle sx={{ fontWeight: 800 }}>
+                ديون مجهولة الهوية ({anon.length}) — إجمالي {fmt(total)}
+            </AlertTitle>
+            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+                فواتير مؤجلة لم يُسجَّل عليها عميل. عيِّن لها عميلاً لتظهر ضمن سجله.
+            </Typography>
+            <Stack spacing={0.75} sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                {anon.map(s => (
+                    <Stack
+                        key={s.id}
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                        sx={{ p: 1, bgcolor: 'background.paper', borderRadius: 1.5 }}
+                    >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" fontWeight={700} noWrap>
+                                {s.invoice_no}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {new Date(s.created_at).toLocaleDateString('ar-DZ')} · دين {fmt(s.due_amount)}
+                            </Typography>
+                        </Box>
+                        <CustomButton
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AssignIcon />}
+                            onClick={() => onAssign(s)}
+                        >
+                            تعيين عميل
+                        </CustomButton>
+                    </Stack>
+                ))}
+            </Stack>
+        </Alert>
+    );
+}
+
+function AssignCustomerDialog({
+    sale, customers, onClose, onSuccess,
+}: {
+    sale: Sale | null;
+    customers: Customer[];
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const { showNotification } = useNotification();
+    const [selected, setSelected] = useState<Customer | null>(null);
+
+    useEffect(() => { if (sale) setSelected(null); }, [sale]);
+
+    const mutation = useMutation({
+        mutationFn: (vars: { saleId: number; customerId: number }) =>
+            salesService.assignCustomer(vars.saleId, vars.customerId),
+        onSuccess: () => {
+            showNotification('تم تعيين العميل للفاتورة', 'success');
+            onSuccess();
+            onClose();
+        },
+        onError: (e: { response?: { data?: { detail?: string } } }) => {
+            showNotification(e.response?.data?.detail || 'فشل التعيين', 'error');
+        },
+    });
+
+    return (
+        <UnifiedModal
+            open={sale !== null}
+            onClose={onClose}
+            title={`تعيين عميل — ${sale?.invoice_no || ''}`}
+            maxWidth="xs"
+            actions={
+                <>
+                    <CustomButton
+                        variant="contained"
+                        disabled={!selected}
+                        loading={mutation.isPending}
+                        onClick={() => sale && selected && mutation.mutate({ saleId: sale.id, customerId: selected.id })}
+                    >
+                        تأكيد
+                    </CustomButton>
+                    <CustomButton color="inherit" onClick={onClose}>إلغاء</CustomButton>
+                </>
+            }
+        >
+            <Stack spacing={2} sx={{ mt: 1 }}>
+                {sale && (
+                    <Typography variant="body2" color="text.secondary">
+                        دين الفاتورة: <strong>{fmt(sale.due_amount)}</strong>
+                    </Typography>
+                )}
+                <Autocomplete<Customer, false, false, false>
+                    options={customers}
+                    value={selected}
+                    onChange={(_, v) => setSelected(v)}
+                    getOptionLabel={(o) => o.name + (o.phone ? ` — ${o.phone}` : '')}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    renderInput={(params) => <TextField {...params} label="العميل *" autoFocus />}
+                />
+            </Stack>
+        </UnifiedModal>
     );
 }
 
@@ -405,6 +551,14 @@ function CustomerRow({
                     <Typography variant="caption" color="text.secondary">
                         {customer.sales_count} فاتورة
                     </Typography>
+                    {customer.last_sale_date && (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                            <DateIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">
+                                آخر فاتورة: {new Date(customer.last_sale_date).toLocaleDateString('ar-DZ')}
+                            </Typography>
+                        </Stack>
+                    )}
                 </Stack>
             </Box>
             <Stack alignItems="flex-end" spacing={0.25} sx={{ minWidth: 120 }}>
@@ -637,16 +791,38 @@ function RecordPaymentDialog({
     const [amount, setAmount] = useState('');
     const [method, setMethod] = useState('cash');
     const [notes, setNotes] = useState('');
+    const [saleId, setSaleId] = useState<string>(''); // '' = FIFO across all
+    const [paymentDate, setPaymentDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
     const open = customer !== null;
     const due = customer?.total_due || 0;
 
+    // Reset form whenever the dialog opens for a different customer
+    useEffect(() => {
+        if (customer) {
+            setAmount(''); setMethod('cash'); setNotes(''); setSaleId('');
+            setPaymentDate(new Date().toISOString().slice(0, 10));
+        }
+    }, [customer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Fetch unpaid sales so the user can target a specific invoice if desired
+    const { data: customerSales = [] } = useQuery({
+        queryKey: ['customer-sales', customer?.id],
+        queryFn: () => customer ? customerService.sales(customer.id) : Promise.resolve([] as Sale[]),
+        enabled: open,
+    });
+    const unpaidSales = customerSales.filter(s => (s.due_amount || 0) > 0 && s.status === 'completed');
+
     const mutation = useMutation({
-        mutationFn: (vars: { id: number; payload: { amount: number; method: string; notes?: string | null } }) =>
-            customerService.recordPayment(vars.id, vars.payload),
+        mutationFn: (vars: {
+            id: number;
+            payload: {
+                amount: number; method: string; notes?: string | null;
+                sale_id?: number | null; payment_date?: string | null;
+            };
+        }) => customerService.recordPayment(vars.id, vars.payload),
         onSuccess: () => {
             showNotification('تم تسجيل الدفعة بنجاح', 'success');
-            setAmount(''); setMethod('cash'); setNotes('');
             onSuccess();
             onClose();
         },
@@ -662,7 +838,16 @@ function RecordPaymentDialog({
             return;
         }
         if (!customer) return;
-        mutation.mutate({ id: customer.id, payload: { amount: amt, method, notes: notes.trim() || null } });
+        mutation.mutate({
+            id: customer.id,
+            payload: {
+                amount: amt,
+                method,
+                notes: notes.trim() || null,
+                sale_id: saleId ? Number(saleId) : null,
+                payment_date: paymentDate ? new Date(paymentDate).toISOString() : null,
+            },
+        });
     };
 
     return (
@@ -716,6 +901,31 @@ function RecordPaymentDialog({
                         دفع كامل الدين ({fmt(due)})
                     </CustomButton>
                 )}
+                {unpaidSales.length > 0 && (
+                    <TextField
+                        label="تطبيق على فاتورة محددة (اختياري)"
+                        select
+                        value={saleId}
+                        onChange={e => setSaleId(e.target.value)}
+                        fullWidth
+                        helperText="اتركه فارغاً للتوزيع التلقائي على الفواتير الأقدم أولاً"
+                    >
+                        <MenuItem value="">— توزيع تلقائي (الأقدم أولاً) —</MenuItem>
+                        {unpaidSales.map(s => (
+                            <MenuItem key={s.id} value={String(s.id)}>
+                                {s.invoice_no} — دين {fmt(s.due_amount)} — {new Date(s.created_at).toLocaleDateString('ar-DZ')}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                )}
+                <TextField
+                    label="تاريخ الدفع"
+                    type="date"
+                    value={paymentDate}
+                    onChange={e => setPaymentDate(e.target.value)}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                />
                 <TextField
                     label="طريقة الدفع"
                     select

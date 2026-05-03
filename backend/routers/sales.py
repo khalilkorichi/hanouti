@@ -38,6 +38,26 @@ def cancel_sale(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/anonymous-debts", response_model=List[schemas.Sale])
+def list_anonymous_debts(db: Session = Depends(database.get_db)):
+    """List sales with outstanding debt and no attached customer."""
+    return crud.list_anonymous_debt_sales(db)
+
+
+@router.post("/{sale_id}/assign-customer", response_model=schemas.Sale)
+def assign_customer(
+    sale_id: int,
+    payload: schemas.AssignCustomerRequest,
+    db: Session = Depends(database.get_db),
+):
+    """Attach an existing customer to a sale (typically used to convert
+    anonymous debts into a named customer's debt)."""
+    try:
+        return crud.assign_customer_to_sale(db, sale_id=sale_id, customer_id=payload.customer_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/", response_model=List[schemas.Sale])
 def get_sales(
     skip: int = 0,

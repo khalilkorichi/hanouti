@@ -59,6 +59,7 @@ def factory_reset(
 
     try:
         # Delete in FK-safe order
+        db.query(models.CustomerPaymentAllocation).delete(synchronize_session=False)
         db.query(models.SaleItem).delete(synchronize_session=False)
         db.query(models.Sale).delete(synchronize_session=False)
         db.query(models.CustomerPayment).delete(synchronize_session=False)

@@ -11,6 +11,7 @@ export interface Customer {
     total_due: number;
     total_purchases: number;
     sales_count: number;
+    last_sale_date: string | null;
 }
 
 export interface CustomerCreate {
@@ -19,7 +20,13 @@ export interface CustomerCreate {
     notes?: string | null;
 }
 
-export interface CustomerUpdate extends Partial<CustomerCreate> {}
+export type CustomerUpdate = Partial<CustomerCreate>;
+
+export interface PaymentAllocation {
+    sale_id: number;
+    invoice_no: string | null;
+    amount: number;
+}
 
 export interface CustomerPayment {
     id: number;
@@ -27,13 +34,17 @@ export interface CustomerPayment {
     amount: number;
     method: string;
     notes: string | null;
+    payment_date: string | null;
     created_at: string;
+    allocations: PaymentAllocation[];
 }
 
 export interface CustomerPaymentCreate {
     amount: number;
     method?: string;
     notes?: string | null;
+    sale_id?: number | null;
+    payment_date?: string | null;
 }
 
 export interface CustomersDebtSummary {

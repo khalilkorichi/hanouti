@@ -78,19 +78,22 @@ interface MiniCartItem {
 }
 
 function StatCard({
-    title, value, subtitle, icon, color, loading = false, badge,
+    title, value, subtitle, icon, color, loading = false, badge, onClick,
 }: {
     title: string; value: string; subtitle: string;
     icon: React.ReactNode; color: string; loading?: boolean; badge?: string;
+    onClick?: () => void;
 }) {
     const theme = useTheme();
     const isLight = theme.palette.mode === 'light';
 
     return (
         <Card
+            onClick={onClick}
             sx={{
                 border: `1px solid ${alpha(color, 0.15)}`,
                 borderRadius: 3,
+                cursor: onClick ? 'pointer' : 'default',
                 transition: 'all 0.25s ease',
                 '&:hover': {
                     transform: 'translateY(-2px)',
@@ -277,8 +280,9 @@ export default function Dashboard() {
         ...(debtsEnabled ? [{
             title: 'إجمالي الديون',
             value: debtSummary ? `${debtSummary.total_debt.toLocaleString('ar-DZ')} دج` : '—',
-            subtitle: debtSummary ? `${debtSummary.customers_with_debt} عميل مدين` : 'لا توجد ديون',
+            subtitle: debtSummary ? `${debtSummary.customers_with_debt} عميل مدين — انقر للعرض` : 'لا توجد ديون',
             icon: <DebtIcon />, color: '#EC4899', badge: 'الديون',
+            onClick: () => navigate('/customers?filter=debt'),
         }] : []),
     ];
 

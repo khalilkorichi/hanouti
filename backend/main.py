@@ -22,10 +22,21 @@ def _run_lightweight_migrations():
                 conn.execute(_sql_text(
                     "CREATE INDEX IF NOT EXISTS ix_sales_customer_id ON sales(customer_id)"
                 ))
+                conn.execute(_sql_text(
+                    "ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS payment_date TIMESTAMPTZ DEFAULT NOW()"
+                ))
+                # Allocations table is created by metadata.create_all on startup,
+                # but ensure index exists for fast lookups by sale_id.
+                conn.execute(_sql_text(
+                    "CREATE INDEX IF NOT EXISTS ix_cust_pay_alloc_sale ON customer_payment_allocations(sale_id)"
+                ))
             elif dialect == "sqlite":
                 cols = [r[1] for r in conn.execute(_sql_text("PRAGMA table_info(sales)")).fetchall()]
                 if "customer_id" not in cols:
                     conn.execute(_sql_text("ALTER TABLE sales ADD COLUMN customer_id INTEGER"))
+                pcols = [r[1] for r in conn.execute(_sql_text("PRAGMA table_info(customer_payments)")).fetchall()]
+                if pcols and "payment_date" not in pcols:
+                    conn.execute(_sql_text("ALTER TABLE customer_payments ADD COLUMN payment_date DATETIME"))
     except Exception as e:  # pragma: no cover — best-effort
         print(f"[migrations] warning: {e}")
 
