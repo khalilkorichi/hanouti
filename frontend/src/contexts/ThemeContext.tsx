@@ -254,13 +254,13 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                         root: { borderRadius: Math.max(r - 4, 4), transition },
                     },
                 },
-                /* ── Switch احترافيّ — تموضع دقيق وكرة متمركزة تماماً ── */
+                /* ── Switch بأسلوب iOS احترافيّ — كرة كبيرة متمركزة وانتقال ناعم ── */
                 MuiSwitch: {
                     defaultProps: { disableRipple: true },
                     styleOverrides: {
                         root: {
-                            width: 52,
-                            height: 28,
+                            width: 51,
+                            height: 31,
                             padding: 0,
                             overflow: 'visible',
                             display: 'inline-flex',
@@ -268,48 +268,49 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                             verticalAlign: 'middle',
                         },
                         switchBase: {
-                            padding: 0,
-                            margin: 2,
+                            padding: 2,
                             top: 0,
                             left: 0,
                             color: '#FFFFFF',
-                            transitionDuration: '320ms',
-                            transitionTimingFunction: 'cubic-bezier(0.16, 1.05, 0.3, 1)',
+                            transitionDuration: '300ms',
+                            transitionTimingFunction: 'cubic-bezier(0.34, 1.2, 0.64, 1)',
                             '&.Mui-checked': {
-                                transform: 'translateX(24px)',
+                                transform: 'translateX(20px)',
                                 color: '#FFFFFF',
                                 '& + .MuiSwitch-track': {
                                     opacity: 1,
                                     backgroundColor: primaryColor,
-                                    backgroundImage: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}D9 100%)`,
-                                    boxShadow: `0 0 0 4px ${primaryColor}1F, 0 4px 14px ${primaryColor}55, inset 0 1px 0 ${isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.18)'}`,
+                                    backgroundImage: `linear-gradient(180deg, ${primaryColor} 0%, ${primaryColor}E0 100%)`,
+                                    boxShadow: `0 2px 10px ${primaryColor}55, inset 0 1px 0 ${isLight ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.16)'}, inset 0 -1px 0 rgba(0,0,0,0.08)`,
                                 },
                                 '& .MuiSwitch-thumb': {
-                                    boxShadow: `0 3px 8px ${primaryColor}80, 0 1px 2px rgba(0,0,0,0.2), 0 0 0 0.5px ${primaryColor}40`,
+                                    boxShadow: '0 3px 8px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.14), 0 0 0 0.5px rgba(0,0,0,0.04)',
                                 },
                             },
                             '&.Mui-disabled': {
                                 '& + .MuiSwitch-track': { opacity: isLight ? 0.5 : 0.35 },
                                 '& .MuiSwitch-thumb': { opacity: 0.7, boxShadow: 'none' },
                             },
-                            '&:hover': {
-                                backgroundColor: 'transparent',
-                                '& .MuiSwitch-thumb': { transform: 'scale(1.06)' },
+                            '&:hover': { backgroundColor: 'transparent' },
+                            '&:hover:not(.Mui-checked) .MuiSwitch-thumb': {
+                                boxShadow: isLight
+                                    ? '0 3px 8px rgba(15,23,42,0.22), 0 1px 2px rgba(15,23,42,0.14), 0 0 0 0.5px rgba(15,23,42,0.06)'
+                                    : '0 3px 10px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.45)',
                             },
-                            '&:active .MuiSwitch-thumb': { transform: 'scale(0.94)' },
+                            '&:active .MuiSwitch-thumb': { width: 30 },
                         },
                         thumb: {
-                            width: 24,
-                            height: 24,
+                            width: 27,
+                            height: 27,
                             borderRadius: '50%',
                             boxSizing: 'border-box',
                             background: isLight
-                                ? 'radial-gradient(circle at 30% 30%, #FFFFFF 0%, #F1F5F9 100%)'
-                                : 'radial-gradient(circle at 30% 30%, #FFFFFF 0%, #E2E8F0 100%)',
+                                ? 'radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F8FAFC 65%, #E2E8F0 100%)'
+                                : 'radial-gradient(circle at 32% 28%, #FFFFFF 0%, #F1F5F9 70%, #CBD5E1 100%)',
                             boxShadow: isLight
-                                ? '0 2px 6px rgba(15,23,42,0.22), 0 1px 2px rgba(15,23,42,0.12), 0 0 0 0.5px rgba(15,23,42,0.06)'
-                                : '0 2px 8px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(0,0,0,0.2)',
-                            transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, background 0.22s ease',
+                                ? '0 2px 6px rgba(15,23,42,0.20), 0 1px 2px rgba(15,23,42,0.10), 0 0 0 0.5px rgba(15,23,42,0.05)'
+                                : '0 2px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(0,0,0,0.18)',
+                            transition: 'width 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease, background 0.22s ease',
                         },
                         track: {
                             width: '100%',
@@ -317,14 +318,14 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                             borderRadius: 999,
                             opacity: 1,
                             boxSizing: 'border-box',
-                            backgroundColor: isLight ? '#E2E8F0' : '#1F2A3D',
+                            backgroundColor: isLight ? '#E2E8F0' : '#293548',
                             backgroundImage: isLight
-                                ? 'linear-gradient(180deg, #E2E8F0 0%, #EEF2F7 100%)'
-                                : 'linear-gradient(180deg, #1A2334 0%, #243044 100%)',
+                                ? 'linear-gradient(180deg, #DDE3EC 0%, #EAEFF6 100%)'
+                                : 'linear-gradient(180deg, #1F2A3D 0%, #2C394F 100%)',
                             boxShadow: isLight
-                                ? 'inset 0 1px 2px rgba(15,23,42,0.10), inset 0 0 0 1px rgba(255,255,255,0.45)'
-                                : 'inset 0 1px 3px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.04)',
-                            transition: 'background 0.32s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.32s ease, opacity 0.22s ease',
+                                ? 'inset 0 1px 2px rgba(15,23,42,0.10), inset 0 0 0 1px rgba(15,23,42,0.04)'
+                                : 'inset 0 1px 3px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04)',
+                            transition: 'background 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, opacity 0.22s ease',
                         },
                     },
                 },
