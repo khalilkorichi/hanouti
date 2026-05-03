@@ -27,6 +27,7 @@ import {
 import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
 import UpdaterPanel from '../components/Settings/UpdaterPanel';
+import FactoryResetCard from '../components/Settings/FactoryResetCard';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -467,6 +468,8 @@ export default function Settings() {
                                 </Box>
                             </SettingsCard>
                         </Box>
+
+                        <FactoryResetCard />
                     </Stack>
                 )}
 

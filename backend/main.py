@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import models, database, crud, schemas
-from routers import auth, products, categories, sales, inventory, reports, backup, store_profile
+from routers import auth, products, categories, sales, inventory, reports, backup, store_profile, admin
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -42,6 +42,7 @@ app.include_router(inventory.router)
 app.include_router(reports.router)
 app.include_router(backup.router)
 app.include_router(store_profile.router)
+app.include_router(admin.router)
 
 
 @app.get("/")
