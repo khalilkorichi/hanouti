@@ -255,25 +255,14 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                     },
                 },
                 /* ──────────────────────────────────────────────
-                   Switch — تصميم نظيف يعتمد على سلوك MUI القياسيّ
-                   (stylis-plugin-rtl يقلب الاتّجاه تلقائيّاً)
+                   Switch — ألوان وأحجام فقط، ترك MUI يحسب الإزاحة
+                   (stylis-plugin-rtl يعكس الاتجاه تلقائياً للعربية)
                 ────────────────────────────────────────────── */
                 MuiSwitch: {
                     defaultProps: { disableRipple: true },
                     styleOverrides: {
-                        root: {
-                            width: 46,
-                            height: 26,
-                            padding: 0,
-                            overflow: 'visible',
-                            display: 'inline-flex',
-                            verticalAlign: 'middle',
-                        },
                         switchBase: {
-                            padding: 3,
-                            transitionDuration: '300ms',
                             '&.Mui-checked': {
-                                transform: 'translateX(20px)',
                                 color: '#FFFFFF',
                                 '& + .MuiSwitch-track': {
                                     opacity: 1,
@@ -281,6 +270,9 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                                     backgroundImage: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}E6 100%)`,
                                     border: `1px solid ${primaryColor}`,
                                     boxShadow: `0 2px 8px ${primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                                },
+                                '& .MuiSwitch-thumb': {
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15)',
                                 },
                             },
                             '&.Mui-disabled': {
@@ -290,10 +282,6 @@ export const AppThemeProvider = ({ children }: { children: ReactNode }) => {
                             '&:hover': { backgroundColor: 'transparent' },
                         },
                         thumb: {
-                            boxSizing: 'border-box',
-                            width: 20,
-                            height: 20,
-                            borderRadius: '50%',
                             backgroundColor: '#FFFFFF',
                             boxShadow: '0 2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.12)',
                         },
