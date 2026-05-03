@@ -106,11 +106,25 @@ const CustomButton = forwardRef<HTMLButtonElement, CustomButtonProps>(
                         opacity: 0
                     },
 
-                    // حالة التعطيل
-                    '&.Mui-disabled': {
-                        backgroundColor: alpha(theme.palette.action.disabledBackground, 0.5),
-                        color: theme.palette.action.disabled
-                    },
+                    // حالة التعطيل — لمسة بنفسجية خافتة بدلاً من الرمادي
+                    ...(variant === 'contained' && {
+                        '&.Mui-disabled': {
+                            backgroundColor: alpha(theme.palette.primary.main, theme.palette.mode === 'light' ? 0.18 : 0.28),
+                            color: alpha(theme.palette.primary.main, theme.palette.mode === 'light' ? 0.55 : 0.75),
+                            boxShadow: 'none',
+                        },
+                    }),
+                    ...(variant === 'outlined' && {
+                        '&.Mui-disabled': {
+                            borderColor: alpha(theme.palette.primary.main, 0.25),
+                            color: alpha(theme.palette.primary.main, 0.45),
+                        },
+                    }),
+                    ...(variant === 'text' && {
+                        '&.Mui-disabled': {
+                            color: alpha(theme.palette.primary.main, 0.4),
+                        },
+                    }),
 
                     ...sx
                 }}
