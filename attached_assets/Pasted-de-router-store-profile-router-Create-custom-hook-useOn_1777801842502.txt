@@ -1,0 +1,57 @@
+de_router(store_profile.router).
+
+Create custom hook useOnboarding.ts — Create frontend/src/hooks/useOnboarding.ts that checks on app load whether onboarding_completed is false via GET /store-profile, and exports state: showOnboarding, completeOnboarding.
+
+Create OnboardingWizard.tsx component — Create frontend/src/components/Onboarding/OnboardingWizard.tsx as a large modal containing:
+
+Welcome screen (step 0)
+
+4 question steps (steps 1–4)
+
+Completion screen (step 5)
+
+Internal state for answers, progress bar, and step animations.
+
+Create OnboardingStep.tsx component — Create frontend/src/components/Onboarding/OnboardingStep.tsx as a generic reusable component that accepts: question text, options array (icon + label + value), selection type (single/multiple), onChange callback.
+
+Create OnboardingOptionCard.tsx component — Create frontend/src/components/Onboarding/OnboardingOptionCard.tsx as a visual selection card with icon and label. Border color and background change on selection, with smooth animation.
+
+Create questions data file onboardingQuestions.ts — Create frontend/src/data/onboardingQuestions.ts containing the full questions and options array (Arabic text + MUI Icon + value).
+
+Implement step transition animation — In OnboardingWizard.tsx, use MUI Slide or Fade with correct RTL direction (slides from right on advance, from left on back).
+
+Modify MainLayout.tsx — Call useOnboarding and conditionally include <OnboardingWizard /> when showOnboarding === true, rendered above all other content (high z-index).
+
+Apply store profile settings to the system — In frontend/src/store/settingsStore.ts (or appropriate Zustand store), add an action that receives StoreProfile data and sets: store name in Header, visible/hidden Sidebar items based on features_needed.
+
+Build completion animation — On the final step screen, use a lightweight confetti effect from canvas-confetti library (CDN) or a simple CSS animation, combined with a check-mark animation that completes.
+
+Write manual test checklist — Update PROGRESS.md with the feature description and a manual test checklist.
+
+Relevant Files
+text
+backend/
+├── models.py                                          (modify — add StoreProfile model)
+├── database.py                                        (modify — add migration)
+├── main.py                                            (modify — register new router)
+├── schemas/
+│   └── store_profile.py                               (new)
+└── routers/
+    └── store_profile.py                               (new)
+
+frontend/src/
+├── hooks/
+│   └── useOnboarding.ts                               (new)
+├── components/
+│   └── Onboarding/
+│       ├── OnboardingWizard.tsx                       (new)
+│       ├── OnboardingStep.tsx                         (new)
+│       └── OnboardingOptionCard.tsx                   (new)
+├── data/
+│   └── onboardingQuestions.ts                         (new)
+├── store/
+│   └── settingsStore.ts                               (modify — receive profile data)
+└── layouts/
+    └── MainLayout.tsx                                  (modify — add OnboardingWizard)
+
+PROGRESS.md                                            (modify — document the feature)
