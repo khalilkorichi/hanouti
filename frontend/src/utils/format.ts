@@ -37,8 +37,6 @@ export interface NumberFormatOptions {
     thousandSeparator?: boolean;
 }
 
-const LOCALE = 'ar-DZ';
-
 /**
  * Format a numeric amount using the supplied options (no currency).
  *
