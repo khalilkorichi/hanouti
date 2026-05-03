@@ -211,7 +211,7 @@ export const BarcodeQuickAdd = forwardRef<BarcodeQuickAddHandle, Props>(({ onSho
                 >
                     <UsbIcon fontSize="small" />
                     <Typography variant="caption" fontWeight={600}>
-                        وصّل ماسح USB — F2 لتركيز الحقل من أي شاشة
+                        وصّل ماسح USB ووجّهه نحو هذا الحقل · F2 من أي شاشة
                     </Typography>
                 </Box>
             )}
