@@ -26,11 +26,13 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import text as _sql_text
 
 from database import get_db, SessionLocal, engine
 import models
+from services import activity_service
 
 
 router = APIRouter(prefix="/backup", tags=["backup"])
@@ -97,8 +99,18 @@ def _checksum(data_block: Dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _build_snapshot(db: Session, tag: Optional[str] = None) -> Dict[str, Any]:
-    """Materialise the full DB snapshot as a JSON-serialisable dict."""
+def _build_snapshot(
+    db: Session,
+    tag: Optional[str] = None,
+    name: Optional[str] = None,
+    note: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Materialise the full DB snapshot as a JSON-serialisable dict.
+
+    ``name`` and ``note`` are optional, user-supplied labels for manual
+    restore points. They are stored in ``meta`` *outside* the ``data`` block
+    so they don't affect the integrity checksum (which still covers data only).
+    """
     data = {
         "categories": [_serialize(r) for r in db.query(models.Category).all()],
         "products": [_serialize(r) for r in db.query(models.Product).all()],
@@ -120,6 +132,10 @@ def _build_snapshot(db: Session, tag: Optional[str] = None) -> Dict[str, Any]:
     }
     if tag:
         meta["tag"] = tag
+    if name:
+        meta["name"] = str(name)[:120]
+    if note:
+        meta["note"] = str(note)[:500]
     return {"meta": meta, "data": data}
 
 
@@ -444,6 +460,8 @@ _LAST_WRITE_BY_TAG: Dict[str, float] = {}
 def write_auto_backup(
     tag: Optional[str] = None,
     min_interval_seconds: Optional[int] = None,
+    name: Optional[str] = None,
+    note: Optional[str] = None,
 ) -> Optional[Path]:
     """Write a fresh auto-backup file and prune to AUTO_BACKUP_KEEP files.
 
@@ -461,7 +479,7 @@ def write_auto_backup(
             return None
     db = SessionLocal()
     try:
-        snapshot = _build_snapshot(db, tag=tag)
+        snapshot = _build_snapshot(db, tag=tag, name=name, note=note)
     except Exception as e:  # pragma: no cover
         print(f"[auto-backup] snapshot build failed: {e}")
         db.close()
@@ -555,6 +573,13 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
     # Pre-restore safety snapshot
     write_auto_backup(tag="pre-restore")
     counts = _restore_snapshot(db, snapshot)
+    activity_service.log(
+        None,
+        action="backup.imported",
+        summary="تمت استعادة نسخة احتياطية من ملف",
+        severity=activity_service.SEVERITY_CRITICAL,
+        meta={"counts": counts, "source": "upload"},
+    )
     return {
         "success": True,
         "message": "تمت استعادة النسخة الاحتياطية بنجاح.",
@@ -570,6 +595,20 @@ def _read_auto_counts(path: Path) -> Optional[Dict[str, int]]:
         return _summarize(snap)
     except Exception:
         return None
+
+
+def _read_auto_meta(path: Path) -> Dict[str, Any]:
+    """Best-effort: read just the meta block (name/note/tag) of a snapshot."""
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            snap = json.load(f)
+        m = snap.get("meta") or {}
+        return {
+            "name": m.get("name"),
+            "note": m.get("note"),
+        }
+    except Exception:
+        return {"name": None, "note": None}
 
 
 @router.get("/auto-list")
@@ -597,12 +636,15 @@ def list_auto_backups():
         if m:
             date_str = f"{m.group(1)} {m.group(2).replace('-', ':')}"
             tag = m.group(3)
+        meta_extra = _read_auto_meta(p)
         items.append({
             "filename": p.name,
             "size": stat.st_size,
             "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
             "date": date_str,
             "tag": tag,
+            "name": meta_extra.get("name"),
+            "note": meta_extra.get("note"),
             "counts": _read_auto_counts(p),
         })
     return {"items": items, "kept": AUTO_BACKUP_KEEP, "directory": str(backup_dir)}
@@ -646,6 +688,13 @@ def restore_auto_backup(filename: str, db: Session = Depends(get_db)):
     snapshot = _validate_snapshot(snapshot)
     write_auto_backup(tag="pre-restore")
     counts = _restore_snapshot(db, snapshot)
+    activity_service.log(
+        None,
+        action="backup.restored",
+        summary=f"تمت الاستعادة من نقطة: {filename}",
+        severity=activity_service.SEVERITY_CRITICAL,
+        meta={"counts": counts, "filename": filename},
+    )
     return {
         "success": True,
         "message": "تمت استعادة النسخة الاحتياطية بنجاح.",
@@ -653,10 +702,48 @@ def restore_auto_backup(filename: str, db: Session = Depends(get_db)):
     }
 
 
+class ManualSnapshotRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=120)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
 @router.post("/auto-snapshot")
 def trigger_auto_snapshot():
-    """Manual trigger — also exposed so the frontend can take an immediate snapshot."""
+    """Legacy nameless manual trigger — kept for backward compatibility."""
     path = write_auto_backup(tag="manual")
     if path is None:
         raise HTTPException(status_code=500, detail="تعذّر إنشاء نسخة احتياطية.")
+    activity_service.log(
+        None,
+        action="backup.manual_snapshot",
+        summary="تم إنشاء نقطة استعادة يدوية",
+        severity=activity_service.SEVERITY_SUCCESS,
+        meta={"filename": path.name},
+    )
     return JSONResponse({"success": True, "filename": path.name})
+
+
+@router.post("/manual-snapshot")
+def create_named_snapshot(payload: ManualSnapshotRequest):
+    """Create a named/annotated manual restore point."""
+    name = (payload.name or "").strip() or None
+    note = (payload.note or "").strip() or None
+    path = write_auto_backup(tag="manual", name=name, note=note)
+    if path is None:
+        raise HTTPException(status_code=500, detail="تعذّر إنشاء نقطة الاستعادة.")
+    summary = "تم إنشاء نقطة استعادة"
+    if name:
+        summary = f"تم إنشاء نقطة استعادة: «{name}»"
+    activity_service.log(
+        None,
+        action="backup.manual_snapshot",
+        summary=summary,
+        severity=activity_service.SEVERITY_SUCCESS,
+        meta={"filename": path.name, "name": name, "note": note},
+    )
+    return JSONResponse({
+        "success": True,
+        "filename": path.name,
+        "name": name,
+        "note": note,
+    })

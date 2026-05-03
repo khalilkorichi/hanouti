@@ -6,6 +6,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 import crud, schemas, database
+from services import activity_service
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -45,7 +46,20 @@ def bulk_action_categories(
         raise HTTPException(status_code=400, detail="إجراء غير صالح")
     if not payload.ids:
         raise HTTPException(status_code=400, detail="يجب تحديد فئة واحدة على الأقل")
-    return crud.bulk_action_categories(db, payload.ids, payload.action)
+    result = crud.bulk_action_categories(db, payload.ids, payload.action)
+    sev = (
+        activity_service.SEVERITY_WARNING
+        if payload.action == "delete"
+        else activity_service.SEVERITY_INFO
+    )
+    activity_service.log(
+        None,
+        action=f"category.bulk_{payload.action}",
+        summary=f"إجراء جماعي على الفئات ({payload.action}): {len(payload.ids)}",
+        severity=sev,
+        meta={"ids": payload.ids, "action": payload.action},
+    )
+    return result
 
 @router.get("/{category_id}", response_model=schemas.Category)
 def get_category(category_id: int, db: Session = Depends(database.get_db)):
@@ -59,7 +73,17 @@ def get_category(category_id: int, db: Session = Depends(database.get_db)):
 def create_category(category: schemas.CategoryCreate, db: Session = Depends(database.get_db)):
     """Create a new category"""
     try:
-        return crud.create_category(db=db, category=category)
+        new_cat = crud.create_category(db=db, category=category)
+        activity_service.log(
+            None,
+            action="category.created",
+            summary=f"إضافة فئة: {new_cat.name}",
+            entity_type="category",
+            entity_id=new_cat.id,
+            severity=activity_service.SEVERITY_SUCCESS,
+            meta={"name": new_cat.name},
+        )
+        return new_cat
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -76,15 +100,32 @@ def update_category(
         raise HTTPException(status_code=400, detail=str(e))
     if not updated_category:
         raise HTTPException(status_code=404, detail="الفئة غير موجودة")
+    activity_service.log(
+        None,
+        action="category.updated",
+        summary=f"تعديل فئة: {updated_category.name}",
+        entity_type="category",
+        entity_id=updated_category.id,
+        severity=activity_service.SEVERITY_INFO,
+    )
     return updated_category
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: int, db: Session = Depends(database.get_db)):
     """Delete a category (rejects if linked to products)."""
+    existing = crud.get_category(db, category_id=category_id)
     success, error = crud.delete_category(db, category_id=category_id)
     if not success:
         # 404 only if not found, 400 if blocked by linked products
         if error == "الفئة غير موجودة":
             raise HTTPException(status_code=404, detail=error)
         raise HTTPException(status_code=400, detail=error or "تعذّر حذف الفئة")
+    activity_service.log(
+        None,
+        action="category.deleted",
+        summary=f"حذف فئة: {existing.name if existing else category_id}",
+        entity_type="category",
+        entity_id=category_id,
+        severity=activity_service.SEVERITY_WARNING,
+    )
     return None

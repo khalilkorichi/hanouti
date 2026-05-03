@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Index, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -172,6 +172,45 @@ class StoreProfile(Base):
     onboarding_completed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+class ActivityLog(Base):
+    """Append-only audit trail of every meaningful change in the system.
+
+    Each row captures a single business event: who did what, on which entity,
+    with a human-readable Arabic summary plus optional structured ``meta``
+    payload for future-proofing (richer details, before/after snapshots, etc.).
+    Designed for fast tailing — primary access pattern is "give me the most
+    recent N rows", so we keep one composite index on (created_at desc).
+    """
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    actor = Column(String, nullable=False, default="system")
+    action = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=True, index=True)
+    entity_id = Column(Integer, nullable=True)
+    summary = Column(String, nullable=False, default="")
+    severity = Column(String, nullable=False, default="info")  # info, success, warning, critical
+    meta_json = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_activity_created_desc", "created_at"),
+        Index("ix_activity_action_created", "action", "created_at"),
+    )
+
+
+class AppSetting(Base):
+    """Generic key/value configuration store for runtime-tunable settings
+    (e.g. auto-backup interval). Scoped to small JSON-encodable values; not
+    a replacement for dedicated config tables when a feature warrants one.
+    """
+    __tablename__ = "app_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(Text, nullable=False, default="")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class StockMovement(Base):

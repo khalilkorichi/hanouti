@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import crud, schemas, database
+from services import activity_service
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -27,7 +28,17 @@ def debt_summary(db: Session = Depends(database.get_db)):
 @router.post("/", response_model=schemas.Customer, status_code=status.HTTP_201_CREATED)
 def create_customer(payload: schemas.CustomerCreate, db: Session = Depends(database.get_db)):
     try:
-        return crud.create_customer(db, payload)
+        c = crud.create_customer(db, payload)
+        activity_service.log(
+            None,
+            action="customer.created",
+            summary=f"إضافة عميل: {c.name}",
+            entity_type="customer",
+            entity_id=c.id,
+            severity=activity_service.SEVERITY_SUCCESS,
+            meta={"name": c.name, "phone": c.phone},
+        )
+        return c
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -48,14 +59,31 @@ def update_customer(customer_id: int, payload: schemas.CustomerUpdate, db: Sessi
         raise HTTPException(status_code=400, detail=str(e))
     if not c:
         raise HTTPException(status_code=404, detail="العميل غير موجود")
+    activity_service.log(
+        None,
+        action="customer.updated",
+        summary=f"تعديل عميل: {c.name}",
+        entity_type="customer",
+        entity_id=c.id,
+        severity=activity_service.SEVERITY_INFO,
+    )
     return c
 
 
 @router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_customer(customer_id: int, db: Session = Depends(database.get_db)):
+    existing = crud.get_customer(db, customer_id)
     ok = crud.delete_customer(db, customer_id)
     if not ok:
         raise HTTPException(status_code=404, detail="العميل غير موجود")
+    activity_service.log(
+        None,
+        action="customer.deleted",
+        summary=f"حذف عميل: {existing.name if existing else customer_id}",
+        entity_type="customer",
+        entity_id=customer_id,
+        severity=activity_service.SEVERITY_WARNING,
+    )
     return None
 
 
@@ -80,6 +108,16 @@ def create_payment(
     db: Session = Depends(database.get_db),
 ):
     try:
-        return crud.record_customer_payment(db, customer_id, payload)
+        p = crud.record_customer_payment(db, customer_id, payload)
+        activity_service.log(
+            None,
+            action="customer.payment_recorded",
+            summary=f"دفعة عميل #{customer_id}: {p.amount:.2f}",
+            entity_type="customer",
+            entity_id=customer_id,
+            severity=activity_service.SEVERITY_SUCCESS,
+            meta={"amount": p.amount, "method": p.method, "payment_id": p.id},
+        )
+        return p
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

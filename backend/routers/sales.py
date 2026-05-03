@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import crud, schemas, database
+from services import activity_service
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -14,7 +15,8 @@ router = APIRouter(prefix="/sales", tags=["sales"])
 def create_sale(sale: schemas.SaleCreate, db: Session = Depends(database.get_db)):
     """Create a new sale (draft)"""
     try:
-        return crud.create_sale(db=db, sale=sale)
+        result = crud.create_sale(db=db, sale=sale)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -22,7 +24,23 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(database.get_db)
 def complete_sale(sale_id: int, db: Session = Depends(database.get_db)):
     """Complete a sale (deduct stock)"""
     try:
-        return crud.complete_sale(db=db, sale_id=sale_id)
+        result = crud.complete_sale(db=db, sale_id=sale_id)
+        activity_service.log(
+            None,
+            action="sale.completed",
+            summary=f"إتمام بيع: فاتورة {result.invoice_no} — الإجمالي {result.total:.2f}",
+            entity_type="sale",
+            entity_id=result.id,
+            severity=activity_service.SEVERITY_SUCCESS,
+            meta={
+                "invoice_no": result.invoice_no,
+                "total": result.total,
+                "paid": result.paid_amount,
+                "due": result.due_amount,
+                "payment_method": result.payment_method,
+            },
+        )
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -34,7 +52,17 @@ def cancel_sale(
 ):
     """Cancel a sale and reverse stock movements"""
     try:
-        return crud.cancel_sale(db=db, sale_id=sale_id, reason=reason.reason)
+        result = crud.cancel_sale(db=db, sale_id=sale_id, reason=reason.reason)
+        activity_service.log(
+            None,
+            action="sale.cancelled",
+            summary=f"إلغاء فاتورة #{sale_id}",
+            entity_type="sale",
+            entity_id=sale_id,
+            severity=activity_service.SEVERITY_WARNING,
+            meta={"reason": reason.reason},
+        )
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -53,7 +81,17 @@ def assign_customer(
     """Attach an existing customer to a sale (typically used to convert
     anonymous debts into a named customer's debt)."""
     try:
-        return crud.assign_customer_to_sale(db, sale_id=sale_id, customer_id=payload.customer_id)
+        result = crud.assign_customer_to_sale(db, sale_id=sale_id, customer_id=payload.customer_id)
+        activity_service.log(
+            None,
+            action="sale.customer_assigned",
+            summary=f"ربط فاتورة #{sale_id} بعميل #{payload.customer_id}",
+            entity_type="sale",
+            entity_id=sale_id,
+            severity=activity_service.SEVERITY_INFO,
+            meta={"customer_id": payload.customer_id},
+        )
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -93,9 +131,19 @@ def get_sales_kpis(
 @router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_sale(sale_id: int, db: Session = Depends(database.get_db)):
     """Permanently delete a sale and all its items"""
+    existing = crud.get_sale(db, sale_id=sale_id)
     success = crud.delete_sale(db, sale_id=sale_id)
     if not success:
         raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    activity_service.log(
+        None,
+        action="sale.deleted",
+        summary=f"حذف فاتورة #{sale_id}" + (f" ({existing.invoice_no})" if existing else ""),
+        entity_type="sale",
+        entity_id=sale_id,
+        severity=activity_service.SEVERITY_WARNING,
+        meta={"invoice_no": existing.invoice_no if existing else None},
+    )
     return None
 
 @router.get("/{sale_id}", response_model=schemas.Sale)

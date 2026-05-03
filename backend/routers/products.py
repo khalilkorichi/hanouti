@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import crud, schemas, database
+from services import activity_service
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -62,6 +63,19 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(databas
     """Create a new product"""
     try:
         new_product = crud.create_product(db=db, product=product)
+        activity_service.log(
+            None,
+            action="product.created",
+            summary=f"إضافة منتج: {new_product.name}",
+            entity_type="product",
+            entity_id=new_product.id,
+            severity=activity_service.SEVERITY_SUCCESS,
+            meta={
+                "name": new_product.name,
+                "sale_price": new_product.sale_price,
+                "stock_qty": new_product.stock_qty,
+            },
+        )
         return new_product
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -77,6 +91,17 @@ def update_product(
         updated_product = crud.update_product(db, product_id=product_id, product=product)
         if not updated_product:
             raise HTTPException(status_code=404, detail="Product not found")
+        # Only include fields the user actually set, to keep the meta payload lean.
+        changed = product.model_dump(exclude_unset=True) if hasattr(product, "model_dump") else {}
+        activity_service.log(
+            None,
+            action="product.updated",
+            summary=f"تعديل منتج: {updated_product.name}",
+            entity_type="product",
+            entity_id=updated_product.id,
+            severity=activity_service.SEVERITY_INFO,
+            meta={"changed_fields": list(changed.keys())},
+        )
         return updated_product
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -85,9 +110,20 @@ def update_product(
 def delete_product(product_id: int, db: Session = Depends(database.get_db)):
     """Delete a product"""
     try:
+        existing = crud.get_product(db, product_id=product_id)
         success = crud.delete_product(db, product_id=product_id)
         if not success:
             raise HTTPException(status_code=404, detail="المنتج غير موجود")
+        if existing is not None:
+            activity_service.log(
+                None,
+                action="product.deleted",
+                summary=f"حذف منتج: {existing.name}",
+                entity_type="product",
+                entity_id=product_id,
+                severity=activity_service.SEVERITY_WARNING,
+                meta={"name": existing.name},
+            )
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -100,4 +136,11 @@ def delete_product(product_id: int, db: Session = Depends(database.get_db)):
 def create_products_bulk(products: List[schemas.ProductCreate], db: Session = Depends(database.get_db)):
     """Create multiple products at once (Import)"""
     result = crud.create_products_bulk(db=db, products=products)
+    activity_service.log(
+        None,
+        action="product.bulk_imported",
+        summary=f"استيراد جماعي للمنتجات: {len(products)} عنصر",
+        severity=activity_service.SEVERITY_INFO,
+        meta={"requested": len(products), "result": result if isinstance(result, dict) else None},
+    )
     return result

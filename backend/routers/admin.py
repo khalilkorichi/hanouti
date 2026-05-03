@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 import models, database
 from routers.backup import write_auto_backup
+from services import activity_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -124,6 +125,13 @@ def factory_reset(
             status_code=500,
             detail=f"فشل إعادة تعيين قاعدة البيانات: {e}",
         )
+
+    activity_service.log(
+        None,
+        action="system.factory_reset",
+        summary="تم إعادة ضبط البرنامج إلى الإعدادات الافتراضية",
+        severity=activity_service.SEVERITY_CRITICAL,
+    )
 
     return {
         "success": True,

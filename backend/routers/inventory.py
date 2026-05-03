@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import crud, schemas, database
+from services import activity_service
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -36,13 +37,39 @@ def adjust_stock(
 ):
     """Adjust product stock quantity"""
     try:
-        return crud.adjust_product_stock(
+        before = crud.get_product(db, product_id=product_id)
+        before_qty = before.stock_qty if before else None
+        result = crud.adjust_product_stock(
             db=db,
             product_id=product_id,
             new_qty=adjustment.new_qty,
             reason=adjustment.reason,
             notes=adjustment.notes
         )
+        delta = (
+            adjustment.new_qty - before_qty
+            if before_qty is not None
+            else None
+        )
+        activity_service.log(
+            None,
+            action="inventory.adjusted",
+            summary=(
+                f"تعديل مخزون: {result.name} "
+                f"({before_qty if before_qty is not None else '?'} → {adjustment.new_qty})"
+            ),
+            entity_type="product",
+            entity_id=product_id,
+            severity=activity_service.SEVERITY_INFO,
+            meta={
+                "before": before_qty,
+                "after": adjustment.new_qty,
+                "delta": delta,
+                "reason": adjustment.reason,
+                "notes": adjustment.notes,
+            },
+        )
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

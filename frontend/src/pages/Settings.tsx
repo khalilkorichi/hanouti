@@ -23,19 +23,21 @@ import {
     ViewCompact as DensityIcon,
     Animation as AnimationIcon,
     SystemUpdateAlt as UpdatesIcon,
+    HistoryRounded as HistoryIcon,
 } from '@mui/icons-material';
 import { CustomButton, PageHeader } from '../components/Common';
 import ChangePasswordDialog from '../components/Auth/ChangePasswordDialog';
 import UpdaterPanel from '../components/Settings/UpdaterPanel';
 import FactoryResetCard from '../components/Settings/FactoryResetCard';
 import RestoreBackupDialog from '../components/Settings/RestoreBackupDialog';
-import AutoBackupsCard from '../components/Settings/AutoBackupsCard';
+import RestorePointsCard from '../components/Settings/RestorePointsCard';
+import ActivityLogCard from '../components/Settings/ActivityLogCard';
 import { backupService } from '../services/backupService';
 import { useAppTheme, COLOR_PRESETS } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
 /* ── Section type ── */
-type SectionKey = 'profile' | 'appearance' | 'data' | 'updates' | 'security' | 'about';
+type SectionKey = 'profile' | 'appearance' | 'data' | 'activity' | 'updates' | 'security' | 'about';
 
 interface NavItem {
     key: SectionKey;
@@ -48,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
     { key: 'profile', label: 'الملف الشخصي', icon: <PersonIcon />, color: '#4F46E5' },
     { key: 'appearance', label: 'المظهر', icon: <PaletteIcon />, color: '#8B5CF6' },
     { key: 'data', label: 'البيانات', icon: <StorageIcon />, color: '#10B981' },
+    { key: 'activity', label: 'سجل النشاطات', icon: <HistoryIcon />, color: '#0F766E' },
     { key: 'updates', label: 'التحديثات', icon: <UpdatesIcon />, color: '#0EA5E9' },
     { key: 'security', label: 'الأمان', icon: <SecurityIcon />, color: '#EF4444' },
     { key: 'about', label: 'حول البرنامج', icon: <InfoIcon />, color: '#F59E0B' },
@@ -166,6 +169,7 @@ export default function Settings() {
                         activeSection === 'profile' ? 'إدارة بياناتك الشخصية' :
                         activeSection === 'appearance' ? 'تخصيص مظهر التطبيق' :
                         activeSection === 'data' ? 'نسخ احتياطي واستعادة البيانات' :
+                        activeSection === 'activity' ? 'سجل التغييرات ونقاط الاستعادة المجدولة' :
                         activeSection === 'updates' ? 'تحديث البرنامج تلقائياً من GitHub' :
                         activeSection === 'security' ? 'حماية حسابك' :
                         'معلومات عن حانوتي'
@@ -491,9 +495,16 @@ export default function Settings() {
                             </SettingsCard>
                         </Box>
 
-                        <AutoBackupsCard />
+                        <RestorePointsCard />
 
                         <FactoryResetCard />
+                    </Stack>
+                )}
+
+                {/* ── Activity log ── */}
+                {activeSection === 'activity' && (
+                    <Stack spacing={2.5}>
+                        <ActivityLogCard />
                     </Stack>
                 )}
 

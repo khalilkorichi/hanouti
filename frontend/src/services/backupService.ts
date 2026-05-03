@@ -25,7 +25,14 @@ export interface AutoBackupItem {
     modified: string;
     date: string | null;
     tag: string | null;
+    name: string | null;
+    note: string | null;
     counts: BackupCounts | null;
+}
+
+export interface AutoBackupSchedule {
+    interval_minutes: number;
+    enabled: boolean;
 }
 
 export interface AutoBackupListResponse {
@@ -79,8 +86,28 @@ export const backupService = {
         return `${api.defaults.baseURL ?? ''}/backup/auto-download/${encodeURIComponent(filename)}`;
     },
 
-    async takeManualSnapshot(): Promise<{ success: boolean; filename: string }> {
+    async takeManualSnapshot(
+        opts?: { name?: string; note?: string },
+    ): Promise<{ success: boolean; filename: string; name?: string | null; note?: string | null }> {
+        const hasMeta = !!(opts && (opts.name || opts.note));
+        if (hasMeta) {
+            const res = await api.post('/backup/manual-snapshot', {
+                name: opts?.name ?? null,
+                note: opts?.note ?? null,
+            });
+            return res.data;
+        }
         const res = await api.post('/backup/auto-snapshot');
+        return res.data;
+    },
+
+    async getSchedule(): Promise<AutoBackupSchedule> {
+        const res = await api.get<AutoBackupSchedule>('/settings/auto-backup');
+        return res.data;
+    },
+
+    async setSchedule(schedule: AutoBackupSchedule): Promise<AutoBackupSchedule> {
+        const res = await api.put<AutoBackupSchedule>('/settings/auto-backup', schedule);
         return res.data;
     },
 };
